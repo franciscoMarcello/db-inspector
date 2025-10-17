@@ -1,0 +1,14 @@
+.title {
+  font-weight: 500;
+  font-size: 18px;
+}
+
+.spacer {
+  flex: 1 1 auto;
+}
+
+button.active {
+  background-color: #1976d2 !important; /* Azul Material */
+  color: white !important;
+  border-radius: 4px;
+}

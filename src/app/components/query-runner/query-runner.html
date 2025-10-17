@@ -1,0 +1,47 @@
+<h3>Executar SQL</h3>
+
+<!-- Editor Monaco -->
+<ngx-monaco-editor
+  [(ngModel)]="query"
+  [options]="editorOptions"
+  (onInit)="onEditorInit($event)"
+  [ngModelOptions]="{standalone: true}">
+</ngx-monaco-editor>
+
+<div class="toolbar">
+  <div class="btns">
+    <button mat-raised-button color="primary" (click)="run()">Executar (Ctrl+Enter)</button>
+    <button mat-stroked-button (click)="copyResultsForExcel()" [disabled]="!rows?.length" [class.pulse]="copied">
+      {{ copied ? 'Copiado!' : 'Copiar p/ Excel' }}
+    </button>
+    <button mat-stroked-button (click)="saveQueryAsSql()">Salvar .sql</button>
+  </div>
+
+  <span class="meta">
+    {{ rowCount }} linhas • {{ elapsedMs }} ms
+    • {{ lastRunAt ? (lastRunAt | date:'dd/MM/yyyy HH:mm:ss') : '—' }}
+  </span>
+</div>
+
+<mat-progress-bar *ngIf="loading" mode="indeterminate"></mat-progress-bar>
+
+<div *ngIf="error" class="error">{{ error }}</div>
+
+<mat-card class="result-card" *ngIf="!loading">
+  <div *ngIf="rowCount === 0; else hasData" class="muted">Sem resultados.</div>
+
+  <ng-template #hasData>
+    <div class="table-wrap">
+      <table mat-table [dataSource]="rows" class="mat-elevation-z1 result-table">
+
+        <ng-container *ngFor="let col of displayedColumns" [matColumnDef]="col">
+          <th mat-header-cell *matHeaderCellDef>{{ col }}</th>
+          <td mat-cell *matCellDef="let row">{{ row[col] }}</td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+      </table>
+    </div>
+  </ng-template>
+</mat-card>

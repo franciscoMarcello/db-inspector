@@ -1,0 +1,36 @@
+<div class="split">
+  <aside class="panel">
+    <h4 class="panel-title">Tabelas de {{ schema }}</h4>
+
+    <div class="search-container">
+      <input
+        type="text"
+        placeholder="Buscar tabela..."
+        [(ngModel)]="searchTerm"
+        class="search-box"
+      />
+    </div>
+
+    <div class="scroll-y">
+      <ul class="table-list" *ngIf="filteredTables.length; else empty">
+        <li
+          *ngFor="let t of filteredTables"
+          (click)="selectTable(t)"
+          [class.selected]="t === selectedTable">
+          {{ t }}
+        </li>
+      </ul>
+      <ng-template #empty>
+        <small class="muted">Nenhuma tabela encontrada.</small>
+      </ng-template>
+    </div>
+  </aside>
+
+  <section class="content">
+    <app-table-details
+      *ngIf="selectedTable"
+      [schema]="schema"
+      [table]="selectedTable">
+    </app-table-details>
+  </section>
+</div>

@@ -1,0 +1,24 @@
+.schema-container {
+  margin-bottom: 16px; /* 👈 só separa os schemas do restante */
+}
+
+.schema-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+button.selected {
+  background-color: #1565c0 !important;
+  color: white !important;
+}
+app-table-list {
+  display: block;
+  margin-top: 16px; /* espaço entre os schemas e a lista/detalhes */
+}
+
+/* opcional: também dá um respiro nos botões */
+.schema-buttons {
+  margin-bottom: 12px;
+}

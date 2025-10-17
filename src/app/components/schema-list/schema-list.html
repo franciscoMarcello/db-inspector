@@ -1,0 +1,18 @@
+<div class="schema-container">
+  <h3>Esquemas disponíveis</h3>
+
+  <div class="schema-buttons">
+    <button
+      *ngFor="let s of schemas"
+      mat-stroked-button
+      color="{{ s === selectedSchema ? 'primary' : '' }}"
+      (click)="selectSchema(s)">
+      {{ s }}
+    </button>
+  </div>
+
+  <app-table-list
+    *ngIf="selectedSchema"
+    [schema]="selectedSchema">
+  </app-table-list>
+</div>
