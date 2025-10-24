@@ -6,5 +6,5 @@ export const routes: Routes = [
   { path: '', redirectTo: 'schemas', pathMatch: 'full' },
   { path: 'schemas', component: SchemaListComponent },
   { path: 'query', component: QueryRunnerComponent },
-  { path: '**', redirectTo: 'schemas' }
+  { path: '**', redirectTo: 'schemas' },
 ];

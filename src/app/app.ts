@@ -1,27 +1,46 @@
-import { Component } from '@angular/core';
+import { Component, ViewChild, AfterViewInit, inject, computed, signal } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatButtonModule } from '@angular/material/button';
+import { ModalComponent } from './components/modal/modal.component';
+import { EnvStorageService, EnvConfig } from './services/env-storage.service';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, MatToolbarModule, MatButtonModule],
-  template: `
-    <mat-toolbar color="primary">
-      <span>DB Inspector UI</span>
-      <span class="spacer"></span>
-      <a mat-button routerLink="/schemas" routerLinkActive="active">Esquemas</a>
-      <a mat-button routerLink="/query" routerLinkActive="active">Executar SQL</a>
-    </mat-toolbar>
-
-    <router-outlet></router-outlet>
-  `,
-  styles: [`
-    .spacer { flex: 1 1 auto; }
-    a.active { background: rgba(255,255,255,.16); }
-    :host { display: block; }
-  `]
+  imports: [
+    MatToolbarModule,
+    MatButtonModule,
+    RouterOutlet,
+    RouterLink,
+    RouterLinkActive,
+    ModalComponent,
+  ],
+  styles: [
+    `
+      .spacer {
+        flex: 1 1 auto;
+      }
+    `,
+  ],
+  templateUrl: './app.html',
 })
-export class App {}
+export class App implements AfterViewInit {
+  @ViewChild('envModal') envModal!: ModalComponent;
+  private storage = inject(EnvStorageService);
+
+  activeName = signal(this.storage.getActive()?.name ?? '');
+
+  ngAfterViewInit(): void {
+    if (!this.storage.getActive()) {
+      // força o usuário a criar/ativar pelo menos um
+      queueMicrotask(() => this.envModal.open());
+    }
+  }
+  openEnv() {
+    this.envModal.open();
+  }
+  onSaved(cfg: EnvConfig) {
+    this.activeName.set(cfg.name); // ou o que você quiser atualizar
+  }
+}

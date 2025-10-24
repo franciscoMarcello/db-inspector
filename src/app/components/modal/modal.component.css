@@ -1,0 +1,158 @@
+/* -------- Dialog & layout -------- */
+.modal {
+  border: none;
+  padding: 0;
+  width: 620px;
+  max-width: 92vw;
+}
+.modal::backdrop {
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.wrap {
+  padding: 16px 20px;
+  display: grid;
+  gap: 14px;
+}
+
+.list {
+  display: grid;
+  gap: 10px;
+}
+.row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
+}
+.meta .name {
+  font-weight: 700;
+}
+.meta .url {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
+  font-size: 12px;
+  color: #6b7280;
+  word-break: break-all;
+}
+.badge {
+  margin-left: 6px;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #e0f2ff;
+  color: #035388;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* -------- Form -------- */
+.form {
+  display: grid;
+  gap: 12px;
+}
+.field {
+  display: grid;
+  gap: 6px;
+}
+.field > input {
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+}
+.field > input:focus {
+  outline: none;
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.15);
+}
+.field > small {
+  color: #d33;
+}
+
+.form-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  align-items: center;
+}
+.hint {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+button {
+  font: inherit;
+  border: 0;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+}
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  padding: 0 0.7rem;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  font-weight: 700;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  white-space: nowrap;
+  user-select: none;
+}
+.btn--sm {
+  height: 32px;
+  padding: 0 0.7rem;
+}
+.btn__icon {
+  width: 16px;
+  height: 16px;
+  margin-right: 0.4rem;
+  fill: currentColor;
+  flex: 0 0 16px;
+}
+
+.btn--primary {
+  background: #0f172a;
+  color: #fff;
+  border-color: #0f172a;
+}
+.btn--primary:hover {
+  background: #111827;
+  border-color: #111827;
+}
+.btn--outline-primary {
+  background: transparent;
+  color: #0f172a;
+  border-color: #0f172a;
+}
+.btn--outline-primary:hover {
+  background: rgba(15, 23, 42, 0.06);
+}
+.btn--danger {
+  background: #dc3545;
+  color: #fff;
+  border-color: #dc3545;
+}
+.btn--danger:hover {
+  background: #b02a37;
+  border-color: #b02a37;
+}
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

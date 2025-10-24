@@ -1,9 +1,17 @@
 <mat-toolbar color="primary">
   <span class="title">DB Inspector UI</span>
   <span class="spacer"></span>
+
   <button mat-button routerLink="/schemas" routerLinkActive="active">Esquemas</button>
   <button mat-button routerLink="/query" routerLinkActive="active">Executar SQL</button>
+
+  <span class="spacer"></span>
+  <button mat-button (click)="openEnv()">Ambientes</button>
+  <span *ngIf="activeName" style="margin-left: 8px; font-size: 12px; opacity: 0.85"
+    >Ativo: {{ activeName }}</span
+  >
 </mat-toolbar>
 
 <router-outlet></router-outlet>
 
+<app-modal #envModal (saved)="onSaved($event)"></app-modal>
