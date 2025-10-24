@@ -24,13 +24,16 @@ import { EnvStorageService, EnvConfig } from './services/env-storage.service';
     `,
   ],
   templateUrl: './app.html',
+  styleUrls: ['./app.css'],
 })
 export class App implements AfterViewInit {
   @ViewChild('envModal') envModal!: ModalComponent;
   private storage = inject(EnvStorageService);
 
   activeName = signal(this.storage.getActive()?.name ?? '');
-
+  get activeNameValue() {
+    return this.activeName();
+  }
   ngAfterViewInit(): void {
     if (!this.storage.getActive()) {
       // força o usuário a criar/ativar pelo menos um
