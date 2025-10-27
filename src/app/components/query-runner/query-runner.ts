@@ -9,7 +9,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MonacoEditorModule } from 'ngx-monaco-editor-v2';
 import { DbInspectorService } from '../../services/db-inspector.service';
 import { finalize } from 'rxjs/operators';
-
+import { SnippetStorageService, QuerySnippet } from '../../services/snippet-storage.service';
 const STORAGE_KEY = 'dbi.query.state'; // <-- mover para cima do @Component
 
 @Component({
@@ -52,18 +52,23 @@ export class QueryRunnerComponent implements OnDestroy {
 
   copied = false;
 
-  constructor(private api: DbInspectorService, private snackBar: MatSnackBar) {}
-
+  constructor(
+    private api: DbInspectorService,
+    private snackBar: MatSnackBar,
+    private snippetsStore: SnippetStorageService // <--- injeta serviço
+  ) {}
+  snippets: QuerySnippet[] = [];
+  snippetFilter = '';
+  selectedSnippetId: string | null = null;
   private editor!: any;
   private saveTimer: any = null;
-
-  // restaura o último texto salvo (se houver)
+  trackSnippetId = (_: number, s: QuerySnippet) => s.id;
   query = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null')?.query ?? 'SELECT 1 AS ok;';
 
   onEditorInit(editor: any) {
     const monaco = (window as any).monaco;
     this.editor = editor;
-
+    this.refreshSnippets();
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => this.run());
 
     const saved = this.loadState();
@@ -80,13 +85,61 @@ export class QueryRunnerComponent implements OnDestroy {
     });
   }
 
+  private refreshSnippets() {
+    this.snippets = this.snippetsStore.list();
+  }
   ngOnDestroy() {
     this.persistState();
+  }
+  saveCurrentAsSnippet() {
+    const sql = (this.query || '').trim();
+    if (!sql) return this.snack('Nada para salvar.');
+
+    const name = prompt('Nome do snippet:', 'Consulta sem título');
+    if (!name) return;
+
+    this.snippetsStore.upsert({ name: name.trim(), sql });
+    this.refreshSnippets();
+    this.snack('Snippet salvo.');
+  }
+
+  loadSnippet(id: string) {
+    const sn = this.snippetsStore.get(id);
+    if (!sn) return;
+    this.selectedSnippetId = id;
+    this.query = sn.sql;
+    this.editor?.setValue(sn.sql); // atualiza Monaco
+    this.persistState(); // mantém view state/SQL atual
+    this.snack(`Carregado: ${sn.name}`);
+  }
+
+  renameSnippet(id: string) {
+    const sn = this.snippetsStore.get(id);
+    if (!sn) return;
+    const name = prompt('Renomear snippet:', sn.name);
+    if (!name) return;
+    this.snippetsStore.rename(id, name.trim());
+    this.refreshSnippets();
+  }
+
+  deleteSnippet(id: string) {
+    const sn = this.snippetsStore.get(id);
+    if (!sn) return;
+    if (!confirm(`Excluir "${sn.name}"?`)) return;
+    this.snippetsStore.remove(id);
+    if (this.selectedSnippetId === id) this.selectedSnippetId = null;
+    this.refreshSnippets();
   }
 
   private schedulePersist() {
     clearTimeout(this.saveTimer);
     this.saveTimer = setTimeout(() => this.persistState(), 300);
+  }
+  onKeydown(e: KeyboardEvent) {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+      e.preventDefault();
+      this.saveCurrentAsSnippet();
+    }
   }
 
   private persistState() {

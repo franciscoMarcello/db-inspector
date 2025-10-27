@@ -1,4 +1,43 @@
 <h3>Executar SQL</h3>
+<div class="fav-bar">
+  <div class="fav-left">
+    <strong>Favoritos</strong>
+    <input
+      type="text"
+      placeholder="Filtrar..."
+      [(ngModel)]="snippetFilter"
+      [ngModelOptions]="{ standalone: true }"
+    />
+  </div>
+
+  <div class="fav-chips" *ngIf="snippets.length; else noSnips">
+    <button
+      class="chip"
+      *ngFor="let s of snippets; trackBy: trackSnippetId"
+      [hidden]="snippetFilter && !s.name.toLowerCase().includes(snippetFilter.toLowerCase())"
+      (click)="loadSnippet(s.id)"
+      [class.active]="s.id === selectedSnippetId"
+      title="{{ s.name }}"
+    >
+      {{ s.name }}
+    </button>
+
+    <!-- ações à direita -->
+    <div class="fav-actions">
+      <button class="link" (click)="selectedSnippetId && renameSnippet(selectedSnippetId)">
+        renomear
+      </button>
+      <button class="link danger" (click)="selectedSnippetId && deleteSnippet(selectedSnippetId)">
+        excluir
+      </button>
+      <button class="link" (click)="saveCurrentAsSnippet()">salvar (Ctrl+S)</button>
+    </div>
+  </div>
+
+  <ng-template #noSnips>
+    <div class="muted">Sem favoritos. Use “salvar (Ctrl+S)”.</div>
+  </ng-template>
+</div>
 
 <!-- Editor Monaco -->
 <div #editorHost class="editor-resize">
@@ -23,6 +62,7 @@
       {{ copied ? 'Copiado!' : 'Copiar p/ Excel' }}
     </button>
     <button mat-stroked-button (click)="saveQueryAsSql()">Salvar .sql</button>
+    <button mat-stroked-button (click)="saveCurrentAsSnippet()">Salvar favorito (Ctrl+S)</button>
   </div>
 
   <span class="meta">

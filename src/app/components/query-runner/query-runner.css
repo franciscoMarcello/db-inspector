@@ -150,3 +150,69 @@ result-card {
 .editor-resize .overflow-guard {
   height: 100% !important;
 }
+.fav-bar {
+  position: sticky; /* gruda no topo ao rolar */
+  top: 0; /* ajuste se tiver header fixo */
+  z-index: 10;
+  margin: 8px 0 10px;
+  padding: 8px 12px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+.fav-left {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.fav-left input {
+  width: 240px;
+  max-width: 50%;
+  padding: 6px 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+}
+
+/* lista horizontal com rolagem */
+.fav-chips {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+/* “chips” clicáveis */
+.chip {
+  border: 1px solid #e5e7eb;
+  background: #f8fafc;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.chip:hover {
+  background: #eef2ff;
+}
+.chip.active {
+  background: #e0e7ff;
+  border-color: #c7d2fe;
+}
+
+.fav-actions {
+  margin-left: auto;
+  display: inline-flex;
+  gap: 10px;
+}
+.fav-actions .link {
+  border: 0;
+  background: transparent;
+  color: #2563eb;
+  cursor: pointer;
+}
+.fav-actions .danger {
+  color: #dc2626;
+}
