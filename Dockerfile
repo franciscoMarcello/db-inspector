@@ -1,4 +1,4 @@
-FROM node:18 as build
+FROM node:20 as build
 WORKDIR /app
 
 ENV PATH /usr/src/app/node_modules/.bin:$PATH
@@ -11,7 +11,7 @@ COPY . /app
 RUN ng build --configuration production --deploy-url / --base-href /
 
 FROM nginx
-COPY entrypoint-config.sh /docker-entrypoint.d
+COPY entrypoint-config.sh /docker-entrypoint.d/
 RUN chmod +x /docker-entrypoint.d/entrypoint-config.sh
-COPY --from=build /app/dist/ /usr/share/nginx/html
+COPY --from=build /app/dist/db-inspector-ui/browser/ /usr/share/nginx/html/
 COPY nginx-custom.conf /etc/nginx/conf.d/default.conf
