@@ -66,14 +66,23 @@
       <label class="field">
         <span>URL</span>
         <input formControlName="url" placeholder="https://api.exemplo.com" />
-        <small *ngIf="form.controls.url.touched && form.controls.url.invalid"> URL inválida </small>
+        <small *ngIf="form.controls.url.touched && form.controls.url.invalid">URL inválida</small>
       </label>
 
       <label class="field">
         <span>API Key</span>
         <input type="password" formControlName="apiKey" />
-        <small *ngIf="form.controls.apiKey.touched && form.controls.apiKey.invalid">
-          Obrigatório
+        <small *ngIf="form.controls.apiKey.touched && form.controls.apiKey.invalid"
+          >Obrigatório</small
+        >
+      </label>
+
+      <!-- NOVO: Backend (sua API Spring) -->
+      <label class="field">
+        <span>Backend</span>
+        <input formControlName="backend" placeholder="http://localhost:8080/api/db" />
+        <small *ngIf="form.controls.backend.touched && form.controls.backend.invalid">
+          URL do backend inválida (ex.: http://localhost:8080/api/db)
         </small>
       </label>
 

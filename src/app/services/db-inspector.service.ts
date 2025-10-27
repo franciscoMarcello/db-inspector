@@ -1,12 +1,14 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { map, Observable } from 'rxjs';
-
+import { EnvStorageService } from './env-storage.service';
 @Injectable({ providedIn: 'root' })
 export class DbInspectorService {
   private http = inject(HttpClient);
-  // agora aponta para o backend real
-  private base = 'http://localhost:8080/api/db';
+  private env = inject(EnvStorageService);
+  private get base(): string {
+    return this.env.getActive()?.backend || 'http://localhost:8080/api/db';
+  }
 
   getSchemas(): Observable<string[]> {
     return this.http.get<any>(`${this.base}/schemas`).pipe(

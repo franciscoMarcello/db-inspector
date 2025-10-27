@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 
-export type EnvConfig = { id: string; name: string; url: string; apiKey: string };
+export type EnvConfig = { id: string; name: string; url: string; apiKey: string; backend: string };
 type EnvState = { items: EnvConfig[]; activeId: string | null };
 const KEY = 'env_state_v1';
 
@@ -8,7 +8,18 @@ const KEY = 'env_state_v1';
 export class EnvStorageService {
   private read(): EnvState {
     try {
-      return JSON.parse(localStorage.getItem(KEY) || '') as EnvState;
+      const raw = localStorage.getItem(KEY);
+      const s = raw ? (JSON.parse(raw) as EnvState) : { items: [], activeId: null };
+
+      s.items = (s.items ?? []).map((it: any) => ({
+        id: String(it.id ?? crypto.randomUUID()),
+        name: String(it.name ?? ''),
+        url: String(it.url ?? ''),
+        apiKey: String(it.apiKey ?? ''),
+        backend: String(it.backend ?? 'http://localhost:8080/api/db'),
+      }));
+
+      return s;
     } catch {
       return { items: [], activeId: null };
     }
@@ -39,7 +50,7 @@ export class EnvStorageService {
       else s.items.push(cfg as EnvConfig);
     } else {
       const id = crypto.randomUUID();
-      s.items.push({ id, name: cfg.name, url: cfg.url, apiKey: cfg.apiKey });
+      s.items.push({ id, name: cfg.name, url: cfg.url, apiKey: cfg.apiKey, backend: cfg.backend });
       cfg = { ...cfg, id };
     }
     if (!s.activeId && s.items.length) s.activeId = s.items[0].id;

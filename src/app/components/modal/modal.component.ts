@@ -35,10 +35,19 @@ export class ModalComponent {
     name: ['', [Validators.required, Validators.minLength(2)]],
     url: ['', [Validators.required, Validators.pattern(/^https?:\/\/[^\s/$.?#].[^\s]*$/i)]],
     apiKey: ['', [Validators.required]],
+    backend: ['', [Validators.required, Validators.pattern(/^https?:\/\/[^\s]+$/i)]],
   });
 
   open() {
     this.refresh();
+    if (!this.editing) {
+      this.form.setValue({
+        name: '',
+        url: '',
+        apiKey: '',
+        backend: 'http://localhost:8080/api/db',
+      });
+    }
     this.dlg.nativeElement.showModal();
   }
   close() {
@@ -47,11 +56,21 @@ export class ModalComponent {
 
   startAdd() {
     this.editing = null;
-    this.form.reset();
+    this.form.reset({
+      name: '',
+      url: '',
+      apiKey: '',
+      backend: 'http://localhost:8080/api/db',
+    });
   }
   startEdit(item: EnvConfig) {
     this.editing = item;
-    this.form.setValue({ name: item.name, url: item.url, apiKey: item.apiKey });
+    this.form.patchValue({
+      name: item.name ?? '',
+      url: item.url ?? '',
+      apiKey: item.apiKey ?? '',
+      backend: item.backend ?? 'http://localhost:8080/api/db',
+    });
   }
 
   save() {
@@ -59,7 +78,7 @@ export class ModalComponent {
       this.form.markAllAsTouched();
       return;
     }
-    const v = this.form.getRawValue(); // agora v: { name: string; url: string; apiKey: string }
+    const v = this.form.getRawValue(); // { name,url,apiKey,backend }
     const saved = this.storage.upsert({ id: this.editing?.id, ...v });
     this.refresh();
     this.saved.emit(saved);

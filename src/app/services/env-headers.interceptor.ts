@@ -5,7 +5,6 @@ import { EnvStorageService } from './env-storage.service';
 import { throwError } from 'rxjs';
 
 function isDbApi(url: string): boolean {
-  // funciona para /api/db..., http://host:port/api/db..., etc.
   try {
     const u = new URL(url, window.location.origin);
     return u.pathname.startsWith('/api/db');
