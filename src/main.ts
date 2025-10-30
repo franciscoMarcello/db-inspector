@@ -6,6 +6,8 @@ import { envHeadersInterceptor } from './app/services/env-headers.interceptor';
 import { routes } from './app/app.routes';
 import { App } from './app/app';
 import { provideMonacoEditor } from 'ngx-monaco-editor-v2';
+import './polyfills/randomuuid.polyfill';
+
 bootstrapApplication(App, {
   providers: [
     provideRouter(routes),
