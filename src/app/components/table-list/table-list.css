@@ -4,19 +4,20 @@
   margin-top: 16px;
   height: 75vh;
 }
-
 .panel {
   display: flex;
   flex-direction: column;
   width: 260px;
-  background: #fff;
+  background: var(--bg-surface);
   border-radius: 6px;
   padding: 8px;
   box-sizing: border-box;
   overflow: hidden;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-subtle);
   height: 100%;
+  color: var(--text-primary);
 }
+
 .panel-title {
   margin: 0 0 8px 0;
   font-weight: 600;
@@ -31,10 +32,12 @@
 .search-box {
   width: 100%;
   padding: 6px 8px;
-  border: 1px solid #ccc;
+  border: 1px solid var(--border-subtle);
   border-radius: 4px;
   font-size: 13px;
   box-sizing: border-box;
+  background: var(--bg-surface-alt);
+  color: var(--text-primary);
 }
 
 .scroll-y {
@@ -42,6 +45,7 @@
   overflow-y: auto;
 }
 
+/* lista de tabelas */
 .table-list {
   list-style: none;
   margin: 0;
@@ -53,10 +57,11 @@
   border-radius: 4px;
   cursor: pointer;
   margin-bottom: 4px;
-  background: #f8f9fa;
+  background: var(--chip-bg);
+  color: var(--text-primary);
 }
 
 .table-list li.selected {
-  background: #007bff;
-  color: white;
+  background: var(--chip-bg-active);
+  color: #ffffff;
 }

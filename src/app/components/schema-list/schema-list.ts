@@ -10,14 +10,9 @@ const SCHEMA_STATE_KEY = 'dbi.schema.state.v1';
 @Component({
   selector: 'app-schema-list',
   standalone: true,
-  imports: [
-    CommonModule,
-    TableListComponent,
-    MatButtonModule,
-    MatProgressBarModule
-  ],
+  imports: [CommonModule, TableListComponent, MatButtonModule, MatProgressBarModule],
   templateUrl: './schema-list.html',
-  styleUrls: ['./schema-list.css']
+  styleUrls: ['./schema-list.css'],
 })
 export class SchemaListComponent implements OnInit {
   schemas: string[] = [];
@@ -43,10 +38,7 @@ export class SchemaListComponent implements OnInit {
 
   private saveSchemaState() {
     try {
-      localStorage.setItem(
-        SCHEMA_STATE_KEY,
-        JSON.stringify({ schema: this.selectedSchema })
-      );
+      localStorage.setItem(SCHEMA_STATE_KEY, JSON.stringify({ schema: this.selectedSchema }));
     } catch {}
   }
 
@@ -62,7 +54,6 @@ export class SchemaListComponent implements OnInit {
           this.schemas = Object.values(res);
         }
 
-        // restaura schema salvo, se existir e ainda estiver na lista
         const saved = this.loadSchemaState();
         if (saved && this.schemas.includes(saved)) {
           this.selectedSchema = saved;
@@ -75,7 +66,7 @@ export class SchemaListComponent implements OnInit {
       error: (err) => {
         console.error('Erro ao carregar esquemas:', err);
         this.loading = false;
-      }
+      },
     });
   }
 

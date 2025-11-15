@@ -11,7 +11,7 @@ const TABLE_STATE_KEY = 'dbi.table.state.v1';
   standalone: true,
   imports: [CommonModule, FormsModule, TableDetailsComponent],
   templateUrl: './table-list.html',
-  styleUrls: ['./table-list.css']
+  styleUrls: ['./table-list.css'],
 })
 export class TableListComponent implements OnChanges {
   @Input() schema = '';
@@ -31,7 +31,7 @@ export class TableListComponent implements OnChanges {
 
   get filteredTables(): string[] {
     const term = this.searchTerm.toLowerCase();
-    return this.tables.filter(t => t.toLowerCase().includes(term));
+    return this.tables.filter((t) => t.toLowerCase().includes(term));
   }
 
   private loadTableState(): string | null {
@@ -67,7 +67,6 @@ export class TableListComponent implements OnChanges {
           ? raw.map((t: any) => (typeof t === 'string' ? t : t.table_name))
           : [];
 
-        // tenta restaurar tabela salva para esse schema
         const savedTable = this.loadTableState();
         if (savedTable && this.tables.includes(savedTable)) {
           this.selectedTable = savedTable;
@@ -75,14 +74,13 @@ export class TableListComponent implements OnChanges {
           this.selectedTable = this.tables[0] ?? null;
         }
 
-        // garante que o estado fique gravado
         this.saveTableState(this.selectedTable);
         this.loading = false;
       },
       error: (err) => {
         console.error('❌ Erro ao carregar tabelas:', err);
         this.loading = false;
-      }
+      },
     });
   }
 

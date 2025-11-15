@@ -13,7 +13,6 @@ export class DbInspectorService {
   getSchemas(): Observable<string[]> {
     return this.http.get<any>(`${this.base}/schemas`).pipe(
       map((res: any) => {
-        // compatível com os dois formatos: array direto OU objeto { data: [...] }
         const data = Array.isArray(res) ? res : res?.data;
         if (!Array.isArray(data)) return [];
         return data.map((row: any) => row.schema_name);

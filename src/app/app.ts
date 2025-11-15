@@ -1,9 +1,18 @@
-import { Component, ViewChild, AfterViewInit, inject, computed, signal } from '@angular/core';
+import {
+  Component,
+  ViewChild,
+  AfterViewInit,
+  inject,
+  computed,
+  signal,
+  HostBinding,
+} from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatButtonModule } from '@angular/material/button';
 import { ModalComponent } from './components/modal/modal.component';
 import { EnvStorageService, EnvConfig } from './services/env-storage.service';
+import { MatIconModule } from '@angular/material/icon';
 
 @Component({
   selector: 'app-root',
@@ -12,6 +21,7 @@ import { EnvStorageService, EnvConfig } from './services/env-storage.service';
     MatToolbarModule,
     MatButtonModule,
     RouterOutlet,
+    MatIconModule,
     RouterLink,
     RouterLinkActive,
     ModalComponent,
@@ -34,16 +44,29 @@ export class App implements AfterViewInit {
   get activeNameValue() {
     return this.activeName();
   }
+  theme: 'light' | 'dark' = (localStorage.getItem('theme') as 'light' | 'dark') || 'light';
+
+  @HostBinding('class.dark-theme')
+  get isDarkTheme() {
+    return this.theme === 'dark';
+  }
+
+  toggleTheme() {
+    this.theme = this.theme === 'light' ? 'dark' : 'light';
+    localStorage.setItem('theme', this.theme);
+  }
+
   ngAfterViewInit(): void {
     if (!this.storage.getActive()) {
-      // força o usuário a criar/ativar pelo menos um
       queueMicrotask(() => this.envModal.open());
     }
   }
+
   openEnv() {
     this.envModal.open();
   }
+
   onSaved(cfg: EnvConfig) {
-    this.activeName.set(cfg.name); // ou o que você quiser atualizar
+    this.activeName.set(cfg.name);
   }
 }

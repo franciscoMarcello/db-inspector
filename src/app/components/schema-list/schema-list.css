@@ -1,16 +1,16 @@
-.schema-buttons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+.schema-container {
+  margin-top: 8px;
+  color: var(--text-primary);
 }
 
-
-.schema-buttons .schema-active {
-  background: #2563eb;
-  border-color: #2563eb;
-  color: #ffffff;
+.schema-container h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
 }
-
 
 .schema-current {
   margin: 4px 0 10px;
@@ -21,13 +21,43 @@
 }
 
 .schema-current-label {
-  color: #6b7280;
+  color: var(--text-muted);
 }
 
 .schema-current-value {
-  padding: 2px 10px;
+  padding: 2px 12px;
   border-radius: 999px;
-  background: #e0edff;
-  color: #1d4ed8;
+  background: var(--chip-bg-active);
+  border: 1px solid var(--chip-bg-active);
+  color: #ffffff;
   font-weight: 500;
+}
+
+.schema-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.schema-btn {
+  text-transform: none;
+  border-radius: 999px;
+  padding: 4px 14px;
+  background: transparent;
+  border-color: var(--border-subtle);
+  color: var(--text-primary);
+  --mdc-outlined-button-outline-color: var(--border-subtle);
+  --mdc-outlined-button-label-text-color: var(--text-primary);
+}
+
+.schema-btn:not(.schema-active):hover {
+  background: var(--bg-surface-alt);
+}
+
+.schema-btn.schema-active {
+  background: var(--chip-bg-active);
+  border-color: var(--chip-bg-active);
+  color: #ffffff;
+  --mdc-outlined-button-label-text-color: #ffffff;
 }

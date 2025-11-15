@@ -1,22 +1,22 @@
-<h3>Esquemas disponíveis</h3>
+<div class="schema-container">
+  <h3>Esquemas disponíveis</h3>
 
-<div class="schema-current" *ngIf="selectedSchema">
-  <span class="schema-current-label">Schema atual</span>
-  <span class="schema-current-value">{{ selectedSchema }}</span>
+  <div class="schema-current" *ngIf="selectedSchema">
+    <span class="schema-current-label">Schema atual</span>
+    <span class="schema-current-value">{{ selectedSchema }}</span>
+  </div>
+
+  <div class="schema-buttons">
+    <button
+      *ngFor="let s of schemas"
+      mat-stroked-button
+      class="schema-btn"
+      [class.schema-active]="s === selectedSchema"
+      (click)="selectSchema(s)"
+    >
+      {{ s }}
+    </button>
+  </div>
+
+  <app-table-list *ngIf="selectedSchema" [schema]="selectedSchema"></app-table-list>
 </div>
-
-<div class="schema-buttons">
-  <button
-    *ngFor="let s of schemas"
-    mat-stroked-button
-    [color]="s === selectedSchema ? 'primary' : ''"
-    [class.schema-active]="s === selectedSchema"
-    (click)="selectSchema(s)">
-    {{ s }}
-  </button>
-</div>
-
-<app-table-list
-  *ngIf="selectedSchema"
-  [schema]="selectedSchema">
-</app-table-list>

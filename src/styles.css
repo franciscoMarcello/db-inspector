@@ -1,4 +1,128 @@
-/* You can add global styles to this file, and also import other style files */
+:root {
+  --bg-page: #e5e7eb;
+  --bg-surface: #f3f4f6;
+  --bg-surface-alt: #e5e7eb;
+  --border-subtle: #d1d5db;
 
-html, body { height: 100%; }
-body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
+  --text-primary: #0f172a;
+  --text-muted: #6b7280;
+
+  --chip-bg: #e5e7eb;
+  --chip-bg-active: #2563eb;
+
+  --scroll-track: #e5e7eb;
+  --scroll-thumb: #9ca3af;
+}
+
+.dark-theme {
+  --bg-page: #050816;
+  --bg-surface: #0b1120;
+  --bg-surface-alt: #111827;
+
+  --border-subtle: #1f2937;
+
+  --text-primary: #e5e7eb;
+  --text-muted: #9ca3af;
+
+  --chip-bg: #111827;
+  --chip-bg-active: #4c6fff;
+
+  --scroll-track: #020617;
+  --scroll-thumb: #475569;
+}
+
+body {
+  margin: 0;
+  background: var(--bg-page);
+  color: var(--text-primary);
+}
+
+.dark-theme .mat-mdc-toolbar {
+  background: #020617;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.dark-theme .mat-mdc-toolbar .mat-mdc-button-base {
+  color: var(--text-primary);
+}
+
+.dark-theme .mat-mdc-toolbar .mat-mdc-button-base:hover {
+  background: rgba(148, 163, 184, 0.15);
+}
+
+.mat-mdc-table,
+.mdc-data-table__table {
+  background-color: var(--bg-surface) !important;
+  color: var(--text-primary);
+}
+
+.mat-mdc-row,
+.mat-mdc-cell,
+.mdc-data-table__row,
+.mdc-data-table__cell {
+  background-color: var(--bg-surface) !important;
+  border-color: var(--border-subtle) !important;
+  color: var(--text-primary);
+}
+
+.mat-mdc-header-row,
+.mat-mdc-header-cell,
+.mdc-data-table__header-row,
+.mdc-data-table__header-cell {
+  background-color: var(--bg-surface-alt) !important;
+  border-color: var(--border-subtle) !important;
+  color: var(--text-primary);
+}
+
+.mat-mdc-header-cell,
+.mdc-data-table__header-cell {
+  color: var(--text-muted);
+}
+.dark-theme .mat-mdc-row:hover .mat-mdc-cell,
+.dark-theme .mdc-data-table__row:hover .mdc-data-table__cell {
+  background-color: rgba(148, 163, 184, 0.08) !important;
+}
+
+html,
+body {
+  scrollbar-width: thin;
+}
+
+html::-webkit-scrollbar {
+  width: 10px;
+}
+
+html::-webkit-scrollbar-track {
+  background: var(--scroll-track);
+}
+
+html::-webkit-scrollbar-thumb {
+  background: var(--scroll-thumb);
+  border-radius: 999px;
+}
+
+.scroll-y,
+.td-cols-wrapper,
+.relations-scroll {
+  scrollbar-width: thin;
+}
+
+.scroll-y::-webkit-scrollbar,
+.td-cols-wrapper::-webkit-scrollbar,
+.relations-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+
+.scroll-y::-webkit-scrollbar-track,
+.td-cols-wrapper::-webkit-scrollbar-track,
+.relations-scroll::-webkit-scrollbar-track {
+  background: var(--scroll-track);
+}
+
+.scroll-y::-webkit-scrollbar-thumb,
+.td-cols-wrapper::-webkit-scrollbar-thumb,
+.relations-scroll::-webkit-scrollbar-thumb {
+  background: var(--scroll-thumb);
+  border-radius: 999px;
+}

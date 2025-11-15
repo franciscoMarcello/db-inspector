@@ -1,26 +1,18 @@
 <div class="table-details-root">
-  <!-- título -->
   <div class="td-header-row">
     <h3>Detalhes da tabela {{ schema }}.{{ table }}</h3>
   </div>
-
-  <!-- chips: 16 colunas / 1 PK / 1 FK -->
   <div class="td-stats-row">
     <span class="td-chip">{{ colCount }} colunas</span>
     <span class="td-chip">{{ pkCount }} PK</span>
     <span class="td-chip">{{ fkCount }} FK</span>
   </div>
 
-  <!-- estados -->
   <div *ngIf="loading" class="td-loading">Carregando detalhes...</div>
   <div *ngIf="error" class="td-error">{{ error }}</div>
-
-  <!-- conteúdo principal -->
   <ng-container *ngIf="!loading && !error">
-    <!-- TABELA DE COLUNAS (com scroll no wrapper) -->
     <div class="td-cols-wrapper">
       <table mat-table [dataSource]="columns" class="td-cols-table mat-elevation-z1">
-        <!-- Coluna: nome -->
         <ng-container matColumnDef="column_name">
           <th mat-header-cell *matHeaderCellDef>Coluna</th>
           <td mat-cell *matCellDef="let col">
@@ -28,7 +20,6 @@
           </td>
         </ng-container>
 
-        <!-- Coluna: tipo -->
         <ng-container matColumnDef="data_type">
           <th mat-header-cell *matHeaderCellDef>Tipo</th>
           <td mat-cell *matCellDef="let col">
@@ -36,7 +27,6 @@
           </td>
         </ng-container>
 
-        <!-- Coluna: nullable -->
         <ng-container matColumnDef="nullable">
           <th mat-header-cell *matHeaderCellDef>Null</th>
           <td mat-cell *matCellDef="let col" class="td-center">
@@ -49,7 +39,6 @@
           </td>
         </ng-container>
 
-        <!-- Coluna: default -->
         <ng-container matColumnDef="default">
           <th mat-header-cell *matHeaderCellDef>Default</th>
           <td mat-cell *matCellDef="let col">
@@ -57,7 +46,6 @@
           </td>
         </ng-container>
 
-        <!-- Coluna: PK -->
         <ng-container matColumnDef="pk">
           <th mat-header-cell *matHeaderCellDef class="pk-header">PK</th>
           <td mat-cell *matCellDef="let col" class="td-center pk-cell">
@@ -65,8 +53,6 @@
             <span *ngIf="!col.is_pk">—</span>
           </td>
         </ng-container>
-
-        <!-- Coluna: FK -->
         <ng-container matColumnDef="fk">
           <th mat-header-cell *matHeaderCellDef class="fk-header">FK</th>
           <td mat-cell *matCellDef="let col" class="td-center fk-cell">
@@ -82,8 +68,6 @@
             <ng-template #noFk>—</ng-template>
           </td>
         </ng-container>
-
-        <!-- header / linhas -->
         <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
 
         <tr
@@ -96,8 +80,6 @@
         ></tr>
       </table>
     </div>
-
-    <!-- BLOC0 RELAÇÕES (FK) com mat-table também -->
     <div class="relations-block">
       <h4>Relações (FK)</h4>
 
@@ -110,8 +92,6 @@
               {{ r.source_column }}
             </td>
           </ng-container>
-
-          <!-- Tabela destino -->
           <ng-container matColumnDef="target_table">
             <th mat-header-cell *matHeaderCellDef>Tabela destino</th>
             <td mat-cell *matCellDef="let r">
@@ -127,7 +107,6 @@
             </td>
           </ng-container>
 
-          <!-- Ações -->
           <ng-container matColumnDef="actions">
             <th mat-header-cell *matHeaderCellDef></th>
             <td mat-cell *matCellDef="let r" class="rel-action">

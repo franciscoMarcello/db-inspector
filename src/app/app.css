@@ -1,23 +1,73 @@
-/* layout base */
-.spacer {
-  flex: 1 1 auto;
-}
 .page {
-  margin: 10px auto; /* respiro externo */
-  padding: 0 10px; /* respiro interno */
+  padding: 16px;
+  background: var(--bg-page);
+  min-height: calc(100vh - 64px);
 }
 
-/* toolbar */
+.app-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.dark-theme .app-toolbar {
+  background: #020617;
+}
 .title {
-  font-weight: 700;
-  margin-right: 12px;
-}
-.env {
-  opacity: 0.9;
-  font-size: 16px;
+  font-weight: 600;
 }
 
-/* ajuste geral de cards/tabelas (Material) */
-.mat-mdc-card {
-  margin-top: 12px;
+.env {
+  margin-left: 12px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.nav-btn {
+  text-transform: none;
+  border-radius: 999px;
+  padding: 0 14px;
+  margin-left: 4px;
+  color: var(--text-primary);
+  --mdc-text-button-label-text-color: var(--text-primary);
+}
+
+.nav-btn.active {
+  background: var(--chip-bg-active);
+  color: #ffffff;
+  --mdc-text-button-label-text-color: #ffffff;
+}
+
+.nav-btn:not(.active):hover {
+  background: rgba(148, 163, 184, 0.15);
+}
+
+.dark-theme .app-toolbar .nav-btn:not(.active) {
+  color: var(--text-primary);
+}
+
+.dark-theme .app-toolbar .nav-btn:not(.active) .mdc-button__label {
+  color: var(--text-primary);
+}
+
+.theme-toggle {
+  margin-left: 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: transparent;
+}
+
+.theme-toggle mat-icon {
+  color: var(--text-primary);
+  font-size: 20px;
+  height: 20px;
+  width: 20px;
+}
+
+.theme-toggle:hover {
+  background: rgba(148, 163, 184, 0.15);
 }

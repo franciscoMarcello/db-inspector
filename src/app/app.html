@@ -1,18 +1,32 @@
-<mat-toolbar color="primary">
-  <span class="title">DB Inspector UI</span>
-  @if (activeNameValue) {
-  <span class="env">Ambiente: {{ activeNameValue }}</span>
-  }
+<div [class.dark-theme]="theme === 'dark'">
+  <mat-toolbar class="app-toolbar">
+    <span class="title">DB Inspector UI</span>
+    @if (activeNameValue) {
+    <span class="env">Ambiente: {{ activeNameValue }}</span>
+    }
 
-  <span class="spacer"></span>
-  <button mat-button routerLink="/schemas" routerLinkActive="active">Esquemas</button>
-  <button mat-button routerLink="/query" routerLinkActive="active">Executar SQL</button>
-  <button mat-button (click)="openEnv()">Ambientes</button>
-</mat-toolbar>
+    <span class="spacer"></span>
 
-<!-- página com padding e largura máxima -->
-<div class="page">
-  <router-outlet></router-outlet>
+    <button mat-button class="nav-btn" routerLink="/schemas" routerLinkActive="active">
+      Esquemas
+    </button>
+
+    <button mat-button class="nav-btn" routerLink="/query" routerLinkActive="active">
+      Executar SQL
+    </button>
+
+    <button mat-button class="nav-btn" (click)="openEnv()">Ambientes</button>
+
+    <button mat-icon-button class="theme-toggle" (click)="toggleTheme()" aria-label="Alternar tema">
+      <mat-icon>
+        {{ theme === 'dark' ? 'dark_mode' : 'light_mode' }}
+      </mat-icon>
+    </button>
+  </mat-toolbar>
+
+  <div class="page">
+    <router-outlet></router-outlet>
+  </div>
+
+  <app-modal #envModal (saved)="onSaved($event)"></app-modal>
 </div>
-
-<app-modal #envModal (saved)="onSaved($event)"></app-modal>
