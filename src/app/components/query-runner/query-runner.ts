@@ -10,7 +10,7 @@ import { MonacoEditorModule } from 'ngx-monaco-editor-v2';
 import { DbInspectorService } from '../../services/db-inspector.service';
 import { finalize } from 'rxjs/operators';
 import { SnippetStorageService, QuerySnippet } from '../../services/snippet-storage.service';
-const STORAGE_KEY = 'dbi.query.state'; // <-- mover para cima do @Component
+const STORAGE_KEY = 'dbi.query.state';
 
 @Component({
   selector: 'app-query-runner',
@@ -22,15 +22,15 @@ const STORAGE_KEY = 'dbi.query.state'; // <-- mover para cima do @Component
     MatProgressBarModule,
     MatCardModule,
     MatTableModule,
-    MatSnackBarModule, // <-- necessário
+    MatSnackBarModule,
     MonacoEditorModule,
-    DatePipe, // <-- se usar |date no template
+    DatePipe,
   ],
   templateUrl: './query-runner.html',
   styleUrls: ['./query-runner.css'],
 })
 export class QueryRunnerComponent implements OnDestroy {
-  // <-- implements
+
   editorOptions = {
     language: 'sql',
     theme: 'vs-dark',
@@ -55,7 +55,7 @@ export class QueryRunnerComponent implements OnDestroy {
   constructor(
     private api: DbInspectorService,
     private snackBar: MatSnackBar,
-    private snippetsStore: SnippetStorageService // <--- injeta serviço
+    private snippetsStore: SnippetStorageService
   ) {}
   snippets: QuerySnippet[] = [];
   snippetFilter = '';
@@ -92,24 +92,60 @@ export class QueryRunnerComponent implements OnDestroy {
     this.persistState();
   }
   saveCurrentAsSnippet() {
-    const sql = (this.query || '').trim();
-    if (!sql) return this.snack('Nada para salvar.');
-
-    const name = prompt('Nome do snippet:', 'Consulta sem título');
-    if (!name) return;
-
-    this.snippetsStore.upsert({ name: name.trim(), sql });
-    this.refreshSnippets();
-    this.snack('Snippet salvo.');
+  const sql = (this.query || '').trim();
+  if (!sql) {
+    this.snack('Nada para salvar.');
+    return;
   }
 
+  let suggestedName = 'Consulta sem título';
+
+  while (true) {
+    const input = prompt('Nome do snippet:', suggestedName);
+    if (input === null) {
+      return;
+    }
+
+    const name = input.trim();
+    if (!name) {
+      this.snack('Informe um nome.');
+      suggestedName = 'Consulta sem título';
+      continue;
+    }
+
+    suggestedName = name;
+
+    const existing = this.snippets.find(
+      (s) => s.name.trim().toLowerCase() === name.toLowerCase()
+    );
+
+    if (!existing) {
+      this.snippetsStore.upsert({ name, sql });
+      this.refreshSnippets();
+      this.snack('Snippet salvo.');
+      return;
+    }
+
+    const overwrite = confirm(
+      `Já existe um snippet chamado "${name}".\n\n` +
+      'Deseja sobrescrever esse snippet?'
+    );
+
+    if (overwrite) {
+      this.snippetsStore.upsert({ id: existing.id, name, sql });
+      this.refreshSnippets();
+      this.snack('Snippet atualizado.');
+      return;
+    }
+  }
+}
   loadSnippet(id: string) {
     const sn = this.snippetsStore.get(id);
     if (!sn) return;
     this.selectedSnippetId = id;
     this.query = sn.sql;
-    this.editor?.setValue(sn.sql); // atualiza Monaco
-    this.persistState(); // mantém view state/SQL atual
+    this.editor?.setValue(sn.sql);
+    this.persistState(); 
     this.snack(`Carregado: ${sn.name}`);
   }
 
@@ -209,30 +245,63 @@ export class QueryRunnerComponent implements OnDestroy {
       });
   }
 
-  async copyResultsForExcel() {
-    if (!this.rows?.length || !this.displayedColumns?.length) return;
+ async copyResultsForExcel() {
+  if (!this.rows?.length || !this.displayedColumns?.length) return;
 
-    const cols = this.displayedColumns;
-    const esc = (v: any) => (v == null ? '' : String(v).replace(/\t/g, ' ').replace(/\r?\n/g, ' '));
-    const header = cols.join('\t');
-    const lines = this.rows.map((r) => cols.map((c) => esc(r[c])).join('\t'));
-    const tsv = [header, ...lines].join('\n');
+  const cols = this.displayedColumns;
+  const esc = (v: any) =>
+    v == null ? '' : String(v).replace(/\t/g, ' ').replace(/\r?\n/g, ' ');
+  const header = cols.join('\t');
+  const lines = this.rows.map((r) => cols.map((c) => esc(r[c])).join('\t'));
+  const tsv = [header, ...lines].join('\n');
 
-    try {
-      await navigator.clipboard.writeText(tsv);
-      this.copied = true;
-      setTimeout(() => (this.copied = false), 1200);
-      this.snack('Copiado para a área de transferência.');
-    } catch {
-      const blob = new Blob([tsv], { type: 'text/tab-separated-values;charset=utf-8' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = this.makeFileName('resultado', 'tsv');
-      a.click();
-      URL.revokeObjectURL(a.href);
-      this.snack('Download de resultado.tsv concluído.');
-    }
+
+  try {
+    await navigator.clipboard.writeText(tsv);
+    this.copied = true;
+    setTimeout(() => (this.copied = false), 1200);
+    this.snack('Copiado para a área de transferência.');
+    return;
+  } catch {
+
   }
+
+  try {
+    if ('showSaveFilePicker' in window) {
+      const handle = await (window as any).showSaveFilePicker({
+        suggestedName: this.makeFileName('resultado', 'tsv'),
+        types: [
+          {
+            description: 'Arquivo TSV',
+            accept: { 'text/tab-separated-values': ['.tsv'] },
+          },
+        ],
+      });
+
+      const writable = await handle.createWritable();
+      await writable.write(
+        new Blob([tsv], {
+          type: 'text/tab-separated-values;charset=utf-8',
+        })
+      );
+      await writable.close();
+      this.snack(`Arquivo ${handle.name} salvo.`);
+      return;
+    }
+  } catch (e: any) {
+    if (e?.name === 'AbortError') return;
+  }
+
+  const blob = new Blob([tsv], {
+    type: 'text/tab-separated-values;charset=utf-8',
+  });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = this.makeFileName('resultado', 'tsv');
+  a.click();
+  URL.revokeObjectURL(a.href);
+  this.snack('Download de resultado.tsv concluído.');
+}
 
   async saveQueryAsSql() {
     const q = (this.query || '').trim();
@@ -275,4 +344,33 @@ export class QueryRunnerComponent implements OnDestroy {
   private snack(msg: string) {
     this.snackBar.open(msg, 'OK', { duration: 1500 });
   }
+  saveOnSelectedSnippet() {
+  const sql = (this.query || '').trim();
+  if (!sql) {
+    this.snack('Nada para salvar.');
+    return;
+  }
+
+  // se não houver snippet selecionado, usa o fluxo normal (pergunta nome, etc)
+  if (!this.selectedSnippetId) {
+    this.saveCurrentAsSnippet();
+    return;
+  }
+
+  const existing = this.snippetsStore.get(this.selectedSnippetId);
+  if (!existing) {
+    // id inválido/antigo -> cai pro fluxo padrão
+    this.saveCurrentAsSnippet();
+    return;
+  }
+
+  this.snippetsStore.upsert({
+    id: existing.id,     // garante overwrite
+    name: existing.name, // mantém o nome
+    sql,                 // só troca o SQL
+  });
+
+  this.refreshSnippets();
+  this.snack(`Snippet "${existing.name}" atualizado.`);
+}
 }

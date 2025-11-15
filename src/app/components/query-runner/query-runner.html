@@ -22,7 +22,6 @@
       {{ s.name }}
     </button>
 
-    <!-- ações à direita -->
     <div class="fav-actions">
       <button class="link" (click)="selectedSnippetId && renameSnippet(selectedSnippetId)">
         renomear
@@ -30,7 +29,7 @@
       <button class="link danger" (click)="selectedSnippetId && deleteSnippet(selectedSnippetId)">
         excluir
       </button>
-      <button class="link" (click)="saveCurrentAsSnippet()">salvar (Ctrl+S)</button>
+      <button class="link" (click)="saveOnSelectedSnippet()">salvar (Ctrl+S)</button>
     </div>
   </div>
 
@@ -39,7 +38,6 @@
   </ng-template>
 </div>
 
-<!-- Editor Monaco -->
 <div #editorHost class="editor-resize">
   <ngx-monaco-editor
     [(ngModel)]="query"
