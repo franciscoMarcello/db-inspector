@@ -27,10 +27,11 @@
   </aside>
 
   <section class="content">
-    <app-table-details
-      *ngIf="selectedTable"
-      [schema]="schema"
-      [table]="selectedTable">
-    </app-table-details>
+  <app-table-details
+  *ngIf="selectedTable"
+  [schema]="schema"
+  [table]="selectedTable"
+  (navigateToTable)="selectTable($event)">
+</app-table-details>
   </section>
 </div>
