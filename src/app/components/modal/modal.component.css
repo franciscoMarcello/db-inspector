@@ -1,10 +1,11 @@
-/* -------- Dialog & layout -------- */
 .modal {
   border: none;
   padding: 0;
   width: 620px;
   max-width: 92vw;
+  background: transparent;
 }
+
 .modal::backdrop {
   background: rgba(0, 0, 0, 0.45);
 }
@@ -13,66 +14,88 @@
   padding: 16px 20px;
   display: grid;
   gap: 14px;
+
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border-radius: 14px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.6);
 }
 
 .list {
   display: grid;
   gap: 10px;
 }
+
 .row {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 10px;
   align-items: center;
   padding: 10px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border-subtle);
   border-radius: 10px;
-  background: #fff;
+  background: var(--bg-surface-alt);
 }
+
 .meta .name {
   font-weight: 700;
+  color: var(--text-primary);
 }
 .meta .url {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
     'Courier New', monospace;
   font-size: 12px;
-  color: #6b7280;
+  color: var(--text-muted);
   word-break: break-all;
 }
+
 .badge {
   margin-left: 6px;
   font-size: 11px;
   padding: 2px 8px;
   border-radius: 999px;
-  background: #e0f2ff;
-  color: #035388;
+  background: var(--chip-bg);
+  color: var(--chip-bg-active);
 }
 
 .actions {
   display: flex;
   gap: 8px;
+  align-items: center;
 }
 
-/* -------- Form -------- */
 .form {
   display: grid;
   gap: 12px;
 }
+
 .field {
   display: grid;
   gap: 6px;
 }
+
+.field > span {
+  color: var(--text-primary);
+}
+
 .field > input {
   padding: 10px 12px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--border-subtle);
   border-radius: 8px;
-  background: #fff;
+  background: var(--bg-surface-alt);
+  color: var(--text-primary);
 }
+
+.field > input::placeholder {
+  color: var(--text-muted);
+}
+
 .field > input:focus {
   outline: none;
-  border-color: #0f172a;
-  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.15);
+  border-color: var(--chip-bg-active);
+  box-shadow: 0 0 0 3px rgba(76, 111, 255, 0.25);
 }
+
 .field > small {
   color: #d33;
 }
@@ -83,15 +106,10 @@
   justify-content: flex-end;
   align-items: center;
 }
+
 .hint {
   font-size: 12px;
-  color: #6b7280;
-}
-
-.actions {
-  display: flex;
-  gap: 8px;
-  align-items: center;
+  color: var(--text-muted);
 }
 
 button {
@@ -101,6 +119,7 @@ button {
   padding: 0;
   cursor: pointer;
 }
+
 .btn {
   display: inline-flex;
   align-items: center;
@@ -114,10 +133,12 @@ button {
   white-space: nowrap;
   user-select: none;
 }
+
 .btn--sm {
   height: 32px;
   padding: 0 0.7rem;
 }
+
 .btn__icon {
   width: 16px;
   height: 16px;
@@ -127,21 +148,30 @@ button {
 }
 
 .btn--primary {
-  background: #0f172a;
+  background: var(--chip-bg-active);
   color: #fff;
-  border-color: #0f172a;
+  border-color: var(--chip-bg-active);
 }
 .btn--primary:hover {
-  background: #111827;
-  border-color: #111827;
+  filter: brightness(1.05);
 }
 .btn--outline-primary {
   background: transparent;
-  color: #0f172a;
-  border-color: #0f172a;
+  color: var(--chip-bg-active);
+  border-color: var(--chip-bg-active);
 }
 .btn--outline-primary:hover {
-  background: rgba(15, 23, 42, 0.06);
+  background: rgba(76, 111, 255, 0.1);
+}
+.btn--secondary,
+.btn--outline-neutral {
+  background: transparent;
+  color: var(--text-primary);
+  border-color: var(--border-subtle);
+}
+.btn--secondary:hover,
+.btn--outline-neutral:hover {
+  background: var(--bg-surface-alt);
 }
 .btn--danger {
   background: #dc3545;
@@ -152,6 +182,7 @@ button {
   background: #b02a37;
   border-color: #b02a37;
 }
+
 .btn:disabled {
   opacity: 0.55;
   cursor: not-allowed;

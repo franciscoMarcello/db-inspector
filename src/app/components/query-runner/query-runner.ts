@@ -1,5 +1,5 @@
 import { Component, OnDestroy } from '@angular/core';
-import { CommonModule, DatePipe } from '@angular/common';
+import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
@@ -10,6 +10,11 @@ import { MonacoEditorModule } from 'ngx-monaco-editor-v2';
 import { DbInspectorService } from '../../services/db-inspector.service';
 import { finalize } from 'rxjs/operators';
 import { SnippetStorageService, QuerySnippet } from '../../services/snippet-storage.service';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { QueryParam, QueryParamsDialog } from '../query-params-dialog/query-params-dialog';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+
 const STORAGE_KEY = 'dbi.query.state';
 
 @Component({
@@ -24,7 +29,9 @@ const STORAGE_KEY = 'dbi.query.state';
     MatTableModule,
     MatSnackBarModule,
     MonacoEditorModule,
-    DatePipe,
+    MatFormFieldModule,
+    MatInputModule,
+    MatDialogModule,
   ],
   templateUrl: './query-runner.html',
   styleUrls: ['./query-runner.css'],
@@ -39,6 +46,8 @@ export class QueryRunnerComponent implements OnDestroy {
     fontSize: 14,
     readOnly: false,
   };
+  variablesRaw: Record<string, string> = {};
+  variableNames: string[] = [];
 
   lastRunAt: Date | null = null;
   loading = false;
@@ -54,8 +63,10 @@ export class QueryRunnerComponent implements OnDestroy {
   constructor(
     private api: DbInspectorService,
     private snackBar: MatSnackBar,
-    private snippetsStore: SnippetStorageService
+    private snippetsStore: SnippetStorageService,
+    private dialog: MatDialog
   ) {}
+
   snippets: QuerySnippet[] = [];
   snippetFilter = '';
   selectedSnippetId: string | null = null;
@@ -78,8 +89,11 @@ export class QueryRunnerComponent implements OnDestroy {
       } catch {}
     }
 
+    this.updateVariableNamesFromQuery();
+
     editor.onDidChangeModelContent(() => {
       this.query = editor.getValue();
+      this.updateVariableNamesFromQuery();
       this.schedulePersist();
     });
   }
@@ -87,9 +101,11 @@ export class QueryRunnerComponent implements OnDestroy {
   private refreshSnippets() {
     this.snippets = this.snippetsStore.list();
   }
+
   ngOnDestroy() {
     this.persistState();
   }
+
   saveCurrentAsSnippet() {
     const sql = (this.query || '').trim();
     if (!sql) {
@@ -137,12 +153,14 @@ export class QueryRunnerComponent implements OnDestroy {
       }
     }
   }
+
   loadSnippet(id: string) {
     const sn = this.snippetsStore.get(id);
     if (!sn) return;
     this.selectedSnippetId = id;
     this.query = sn.sql;
     this.editor?.setValue(sn.sql);
+    this.updateVariableNamesFromQuery();
     this.persistState();
     this.snack(`Carregado: ${sn.name}`);
   }
@@ -169,6 +187,7 @@ export class QueryRunnerComponent implements OnDestroy {
     clearTimeout(this.saveTimer);
     this.saveTimer = setTimeout(() => this.persistState(), 300);
   }
+
   onKeydown(e: KeyboardEvent) {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
       e.preventDefault();
@@ -193,10 +212,25 @@ export class QueryRunnerComponent implements OnDestroy {
     }
   }
 
-  run() {
+  async run() {
     const q = (this.query || '').trim();
     if (!q) {
       this.error = 'Informe a SQL.';
+      return;
+    }
+
+    const ok = await this.openParamsDialog();
+    if (!ok) {
+      return;
+    }
+
+    const vars = this.buildVariablesMap();
+
+    let finalSql: string;
+    try {
+      finalSql = this.expandVariables(q, vars);
+    } catch (e: any) {
+      this.error = e?.message || 'Erro ao expandir variáveis.';
       return;
     }
 
@@ -210,7 +244,7 @@ export class QueryRunnerComponent implements OnDestroy {
 
     const t0 = performance.now();
     this.api
-      .runQuery(q)
+      .runQuery(finalSql)
       .pipe(
         finalize(() => {
           this.loading = false;
@@ -337,6 +371,7 @@ export class QueryRunnerComponent implements OnDestroy {
   private snack(msg: string) {
     this.snackBar.open(msg, 'OK', { duration: 1500 });
   }
+
   saveOnSelectedSnippet() {
     const sql = (this.query || '').trim();
     if (!sql) {
@@ -363,5 +398,125 @@ export class QueryRunnerComponent implements OnDestroy {
 
     this.refreshSnippets();
     this.snack(`Snippet "${existing.name}" atualizado.`);
+  }
+
+  private formatDateTime(value: Date): string {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const yyyy = value.getFullYear();
+    const MM = pad(value.getMonth() + 1);
+    const dd = pad(value.getDate());
+    const HH = pad(value.getHours());
+    const mm = pad(value.getMinutes());
+    const ss = pad(value.getSeconds());
+    return `${yyyy}-${MM}-${dd} ${HH}:${mm}:${ss}`;
+  }
+
+  private expandVariables(sql: string, vars: Record<string, any>): string {
+    return sql.replace(/:([A-Za-z_][A-Za-z0-9_]*)/g, (full, name) => {
+      if (!(name in vars)) return full;
+
+      const value = vars[name];
+
+      if (value === null || value === undefined) {
+        return 'NULL';
+      }
+
+      if (value instanceof Date) {
+        const s = this.formatDateTime(value);
+        const escaped = s.replace(/'/g, "''");
+        return `'${escaped}'`;
+      }
+
+      if (typeof value === 'number') {
+        if (!Number.isFinite(value)) {
+          throw new Error(`Valor numérico inválido para :${name}`);
+        }
+        return String(value);
+      }
+
+      if (typeof value === 'boolean') {
+        return value ? 'TRUE' : 'FALSE';
+      }
+
+      const s = String(value).replace(/'/g, "''");
+      return `'${s}'`;
+    });
+  }
+
+  private updateVariableNamesFromQuery() {
+    const sql = this.query || '';
+    const names = new Set<string>();
+    const re = /:([A-Za-z_][A-Za-z0-9_]*)/g;
+    let match: RegExpExecArray | null;
+
+    while ((match = re.exec(sql)) !== null) {
+      names.add(match[1]);
+    }
+
+    this.variableNames = Array.from(names).sort();
+  }
+
+  private buildVariablesMap(): Record<string, any> {
+    const map: Record<string, any> = {};
+
+    for (const name of this.variableNames) {
+      const raw = (this.variablesRaw[name] ?? '').trim();
+
+      if (!raw) {
+        map[name] = null;
+        continue;
+      }
+
+      if (/^-?\d+(\.\d+)?$/.test(raw)) {
+        map[name] = Number(raw);
+        continue;
+      }
+
+      if (/^(true|false)$/i.test(raw)) {
+        map[name] = raw.toLowerCase() === 'true';
+        continue;
+      }
+
+      if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+        map[name] = new Date(raw + 'T00:00:00');
+        continue;
+      }
+
+      map[name] = raw;
+    }
+
+    return map;
+  }
+
+  private openParamsDialog(): Promise<boolean> {
+    this.updateVariableNamesFromQuery();
+
+    if (!this.variableNames.length) {
+      return Promise.resolve(true);
+    }
+
+    const params: QueryParam[] = this.variableNames.map((name) => ({
+      name,
+      value: this.variablesRaw[name] ?? '',
+    }));
+
+    const dialogRef = this.dialog.open(QueryParamsDialog, {
+      width: '520px',
+      data: { params },
+    });
+
+    return new Promise<boolean>((resolve) => {
+      dialogRef.afterClosed().subscribe((result: QueryParam[] | undefined) => {
+        if (!result) {
+          resolve(false);
+          return;
+        }
+
+        for (const p of result) {
+          this.variablesRaw[p.name] = p.value ?? '';
+        }
+        resolve(true);
+      });
+    });
   }
 }

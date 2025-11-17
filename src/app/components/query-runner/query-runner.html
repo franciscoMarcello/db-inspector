@@ -73,7 +73,7 @@
 
 <div *ngIf="error" class="error">{{ error }}</div>
 
-<mat-card class="result-card" *ngIf="!loading">
+<mat-card class="result-card" *ngIf="!loading && !error">
   <div *ngIf="rowCount === 0; else hasData" class="muted">Sem resultados.</div>
 
   <ng-template #hasData>

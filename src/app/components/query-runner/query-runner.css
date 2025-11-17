@@ -4,6 +4,7 @@ h3 {
   font-weight: 600;
   color: var(--text-primary);
 }
+
 .fav-bar {
   position: sticky;
   top: 0;
@@ -255,4 +256,28 @@ h3 {
 .result-table .mat-header-row {
   background: var(--bg-surface-alt);
   box-shadow: 0 1px 0 var(--border-subtle);
+}
+
+.error {
+  margin-top: 8px;
+  padding: 6px 10px;
+  border-radius: 8px;
+
+  background: #fee2e2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+
+  font-size: 13px;
+  font-weight: 500;
+}
+
+:host-context(.dark-theme) .error {
+  background: rgba(248, 113, 113, 0.12);
+  border-color: #f87171;
+  color: #fecaca;
+}
+.muted {
+  font-size: 13px;
+  color: var(--text-muted);
+  padding: 6px 8px;
 }

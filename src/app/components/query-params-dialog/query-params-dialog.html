@@ -1,0 +1,31 @@
+<div class="wrap" (click)="$event.stopPropagation()">
+  <h3>Parâmetros da consulta</h3>
+
+  <div *ngIf="!params.length" class="empty">Nenhuma variável foi encontrada na consulta.</div>
+
+  <div *ngIf="params.length" class="var-list">
+    <div *ngFor="let p of params" class="var-row">
+      <span class="var-name">:{{ p.name }}</span>
+
+      <input class="var-input" [(ngModel)]="p.value" placeholder="Valor" />
+    </div>
+  </div>
+
+  <div class="actions">
+    <button type="button" class="btn btn--secondary" (click)="onCancel()">
+      <svg class="btn__icon" viewBox="0 0 24 24" aria-hidden="true">
+        <path
+          d="M18.3 5.71L12 12l6.3 6.29-1.41 1.42L10.59 13.4 4.3 19.71 2.89 18.3 9.17 12 2.89 5.71 4.3 4.29l6.29 6.3 6.29-6.3z"
+        />
+      </svg>
+      Cancelar
+    </button>
+
+    <button type="button" class="btn btn--primary" (click)="onApply()" [disabled]="!canApply">
+      <svg class="btn__icon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M9 16.2l-3.5-3.5-1.4 1.4L9 19 20 8l-1.4-1.4z" />
+      </svg>
+      Aplicar
+    </button>
+  </div>
+</div>
