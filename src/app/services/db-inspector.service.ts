@@ -2,6 +2,37 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { map, Observable } from 'rxjs';
 import { EnvStorageService } from './env-storage.service';
+
+export interface EmailSendPayload {
+  sql: string;
+  to: string;
+  cc?: string;
+  subject?: string;
+  time?: string;
+  days?: string[];
+  asDict?: boolean;
+  withDescription?: boolean;
+}
+
+export interface EmailSendResponse {
+  status: 'sent' | 'scheduled';
+  previewRows?: number;
+  attachedCsv?: boolean;
+  scheduleId?: string;
+  cron?: string;
+  nextRun?: string;
+}
+
+export interface EmailTestPayload {
+  to: string;
+  cc?: string;
+  subject?: string;
+  message?: string;
+}
+
+export interface EmailTestResponse {
+  status: 'sent';
+}
 @Injectable({ providedIn: 'root' })
 export class DbInspectorService {
   private http = inject(HttpClient);
@@ -48,5 +79,17 @@ export class DbInspectorService {
       asDict: true,
       withDescription: true,
     });
+  }
+
+  sendEmail(payload: EmailSendPayload): Observable<EmailSendResponse> {
+    return this.http.post<EmailSendResponse>(`${this.base}/email/send`, {
+      asDict: true,
+      withDescription: true,
+      ...payload,
+    });
+  }
+
+  sendEmailTest(payload: EmailTestPayload): Observable<EmailTestResponse> {
+    return this.http.post<EmailTestResponse>(`${this.base}/email/test`, payload);
   }
 }

@@ -1,0 +1,82 @@
+<div class="wrap" (click)="$event.stopPropagation()">
+  <header class="header">
+    <div>
+      <p class="eyebrow">Agenda por SQL</p>
+      <h3>Criar agendamento</h3>
+      <p class="muted">Defina quando e para quem enviar o resultado desta consulta.</p>
+    </div>
+    <button type="button" class="icon-btn" (click)="cancel()" aria-label="Fechar">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path
+          d="M18.3 5.71 12 12l6.3 6.29-1.41 1.42L10.59 13.4 4.3 19.71 2.89 18.3 9.17 12 2.89 5.71 4.3 4.29l6.29 6.3 6.29-6.3z"
+        />
+      </svg>
+    </button>
+  </header>
+
+  <div class="body">
+    <label class="field">
+      <span>SQL</span>
+      <textarea [(ngModel)]="sql" rows="6" placeholder="SELECT * FROM pedidos WHERE status = 'PENDING';"></textarea>
+    </label>
+
+    <div class="grid">
+      <label class="field">
+        <span>Enviar para</span>
+        <input
+          type="text"
+          [(ngModel)]="to"
+          placeholder="email@empresa.com, outro@empresa.com"
+          autocomplete="off"
+        />
+        <small>Separe múltiplos e-mails com vírgula.</small>
+      </label>
+
+      <label class="field">
+        <span>CC (cópia)</span>
+        <input
+          type="text"
+          [(ngModel)]="cc"
+          placeholder="cc@empresa.com, gestor@empresa.com"
+          autocomplete="off"
+        />
+        <small>Opcional: quem deve receber em cópia.</small>
+      </label>
+    </div>
+
+    <div class="grid">
+      <label class="field">
+        <span>Horário</span>
+        <input type="time" [(ngModel)]="time" />
+      </label>
+
+      <div class="field">
+        <span>Dias da semana</span>
+        <div class="days">
+          <button
+            type="button"
+            class="day"
+            *ngFor="let d of daysOptions"
+            [class.active]="days.has(d.id)"
+            (click)="toggleDay(d.id)"
+          >
+            {{ d.label }}
+          </button>
+        </div>
+        <small>Escolha em quais dias o SQL será executado.</small>
+      </div>
+    </div>
+  </div>
+
+  <footer class="actions">
+    <button type="button" class="btn btn--secondary" (click)="sendTest()" [disabled]="sendingTest">
+      Enviar teste
+    </button>
+    <button type="button" class="btn btn--secondary" (click)="cancel()">
+      Cancelar
+    </button>
+    <button type="button" class="btn btn--primary" [disabled]="!canSave" (click)="save()">
+      Salvar agendamento
+    </button>
+  </footer>
+</div>

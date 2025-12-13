@@ -14,6 +14,10 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { QueryParam, QueryParamsDialog } from '../query-params-dialog/query-params-dialog';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import {
+  EmailScheduleDialogComponent,
+  EmailScheduleResult,
+} from '../email-schedules/email-schedule-dialog';
 
 const STORAGE_KEY = 'dbi.query.state';
 
@@ -398,6 +402,37 @@ export class QueryRunnerComponent implements OnDestroy {
 
     this.refreshSnippets();
     this.snack(`Snippet "${existing.name}" atualizado.`);
+  }
+
+  openScheduleDialog() {
+    const dialogRef = this.dialog.open(EmailScheduleDialogComponent, {
+      data: { sql: this.query ?? '' },
+      width: '1024px',
+      maxWidth: '98vw',
+    });
+
+    dialogRef.afterClosed().subscribe((result?: EmailScheduleResult) => {
+      if (!result) return;
+      const payload = {
+        ...result,
+        asDict: true,
+        withDescription: true,
+      };
+
+      this.api.sendEmail(payload).subscribe({
+        next: (res) => {
+          if (res.status === 'scheduled') {
+            const nxt = res.nextRun ? `Próxima: ${res.nextRun}` : '';
+            this.snack(`Agendado com sucesso. ${nxt}`);
+          } else {
+            this.snack('Relatório enviado por e-mail.');
+          }
+        },
+        error: () => {
+          this.snack('Falha ao agendar ou enviar.');
+        },
+      });
+    });
   }
 
   private formatDateTime(value: Date): string {

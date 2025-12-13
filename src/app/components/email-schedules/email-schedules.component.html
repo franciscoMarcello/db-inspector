@@ -1,0 +1,73 @@
+<div class="page-wrap">
+  <header class="hero">
+    <div>
+      <p class="eyebrow">Envio por e-mail</p>
+      <h2>Agendamentos</h2>
+      <p class="muted">
+        Cadastre consultas que serão enviadas automaticamente e veja quais estão ativos.
+      </p>
+    </div>
+    <div class="hero-actions">
+      <button mat-stroked-button color="primary" (click)="sendSimpleTest()">Enviar teste</button>
+      <button mat-raised-button color="primary" (click)="startNew()">Novo agendamento</button>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <div class="filter">
+      <mat-icon fontIcon="search"></mat-icon>
+      <input
+        type="text"
+        placeholder="Filtrar por e-mail, horário, SQL ou dia..."
+        [(ngModel)]="filter"
+      />
+    </div>
+    <span class="count">{{ filtered.length }} itens</span>
+  </div>
+
+  <div *ngIf="!filtered.length" class="empty">
+    <div>
+      <h4>Nenhum agendamento</h4>
+      <p>Crie o primeiro para começar a enviar consultas automaticamente.</p>
+      <button mat-stroked-button color="primary" (click)="startNew()">Criar agora</button>
+    </div>
+  </div>
+
+  <div class="cards">
+    <article class="card" *ngFor="let s of filtered; trackBy: trackId">
+      <div class="card__top">
+        <div class="status" [class.active]="s.active">{{ s.active ? 'Ativo' : 'Pausado' }}</div>
+        <div class="time">{{ s.time }} • {{ formatDays(s.days) }}</div>
+      </div>
+
+      <div class="sql">
+        <span class="label">SQL</span>
+        <pre>{{ s.sql }}</pre>
+      </div>
+
+      <div class="meta">
+        <div>
+          <span class="label">Destinatários</span>
+          <div class="value">{{ s.to || '—' }}</div>
+        </div>
+        <div>
+          <span class="label">CC</span>
+          <div class="value">{{ s.cc || '—' }}</div>
+        </div>
+        <div>
+          <span class="label">Criado em</span>
+          <div class="value">{{ s.createdAt | date : 'dd/MM/yyyy HH:mm' }}</div>
+        </div>
+      </div>
+
+      <div class="card__actions">
+        <button mat-raised-button color="primary" (click)="sendNow(s)">Enviar agora</button>
+        <button mat-stroked-button (click)="edit(s)">Editar</button>
+        <button mat-stroked-button (click)="toggleActive(s)">
+          {{ s.active ? 'Pausar' : 'Ativar' }}
+        </button>
+        <button mat-button color="warn" (click)="remove(s)">Remover</button>
+      </div>
+    </article>
+  </div>
+</div>
