@@ -92,6 +92,12 @@
               {{ r.source_column }}
             </td>
           </ng-container>
+          <ng-container matColumnDef="target_schema">
+            <th mat-header-cell *matHeaderCellDef>Esquema destino</th>
+            <td mat-cell *matCellDef="let r">
+              {{ r.target_schema || '—' }}
+            </td>
+          </ng-container>
           <ng-container matColumnDef="target_table">
             <th mat-header-cell *matHeaderCellDef>Tabela destino</th>
             <td mat-cell *matCellDef="let r">

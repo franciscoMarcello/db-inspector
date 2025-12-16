@@ -43,13 +43,53 @@ h3 {
   color: var(--text-muted);
 }
 
+.folder-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.folder-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+  background: rgba(37, 99, 235, 0.08);
+  border-color: rgba(37, 99, 235, 0.4);
+  color: var(--text-primary);
+}
+
+.folder-chip .mat-icon {
+  font-size: 14px;
+  width: 16px;
+  height: 16px;
+  line-height: 16px;
+}
+
+.fav-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
 .fav-chips {
+  flex: 1 1 auto;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   overflow: visible;
   padding-bottom: 2px;
+}
+
+.no-snips {
+  flex: 1 1 auto;
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 
 .chip {
@@ -76,18 +116,29 @@ h3 {
 .fav-actions {
   margin-left: auto;
   display: inline-flex;
+  flex-wrap: wrap;
   gap: 10px;
 }
 
-.fav-actions .link {
+.link {
   border: 0;
   background: transparent;
   color: #2563eb;
   cursor: pointer;
   font-size: 12px;
+  padding: 0;
 }
 
-.fav-actions .danger {
+.link.small {
+  font-size: 11px;
+}
+
+.link:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.link.danger {
   color: #dc2626;
 }
 

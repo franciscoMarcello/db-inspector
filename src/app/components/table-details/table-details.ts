@@ -19,6 +19,7 @@ type Col = {
 
 type Rel = {
   source_column: string;
+  target_schema?: string;
   target_table: string;
   target_column: string;
 };
@@ -52,7 +53,7 @@ export class TableDetailsComponent implements OnChanges {
 
   displayedColumns = ['column_name', 'data_type', 'nullable', 'default', 'pk', 'fk'];
 
-  relDisplayedColumns = ['source_column', 'target_table', 'target_column', 'actions'];
+  relDisplayedColumns = ['source_column', 'target_schema', 'target_table', 'target_column', 'actions'];
 
   fkByColumn = new Map<string, Rel[]>();
 
@@ -105,7 +106,9 @@ export class TableDetailsComponent implements OnChanges {
   getFkLabel(col: Col): string | null {
     const rels = this.fkByColumn.get(col.column_name);
     if (!rels?.length) return null;
-    return rels.map((r) => `${r.target_table}.${r.target_column}`).join(', ');
+    return rels
+      .map((r) => `${r.target_schema ? r.target_schema + '.' : ''}${r.target_table}.${r.target_column}`)
+      .join(', ');
   }
 
   onFkClick(col: Col, ev?: MouseEvent) {

@@ -10,17 +10,42 @@
     />
   </div>
 
-  <div class="fav-chips" *ngIf="snippets.length; else noSnips">
+  <div class="folder-bar">
     <button
-      class="chip"
-      *ngFor="let s of snippets; trackBy: trackSnippetId"
-      [hidden]="snippetFilter && !s.name.toLowerCase().includes(snippetFilter.toLowerCase())"
-      (click)="loadSnippet(s.id)"
-      [class.active]="s.id === selectedSnippetId"
-      title="{{ s.name }}"
+      class="chip folder-chip"
+      [class.active]="selectedFolder === null"
+      (click)="selectFolder(null)"
     >
-      {{ s.name }}
+      <mat-icon aria-hidden="true">folder_special</mat-icon>
+      Todas as pastas
     </button>
+    <button
+      class="chip folder-chip"
+      *ngFor="let folder of folders; trackBy: trackFolder"
+      [class.active]="selectedFolder === folder"
+      (click)="selectFolder(folder)"
+    >
+      <mat-icon aria-hidden="true">folder</mat-icon>
+      {{ folderLabel(folder) }}
+    </button>
+    <button class="link small" (click)="createFolder()">+ nova pasta</button>
+  </div>
+
+  <div class="fav-row">
+    <ng-container *ngIf="snippets.length; else noSnips">
+      <div class="fav-chips">
+        <button
+          class="chip"
+          *ngFor="let s of snippets; trackBy: trackSnippetId"
+          [hidden]="!shouldShowSnippet(s)"
+          (click)="loadSnippet(s.id)"
+          [class.active]="s.id === selectedSnippetId"
+          title="{{ s.name }}"
+        >
+          {{ s.name }}
+        </button>
+      </div>
+    </ng-container>
 
     <div class="fav-actions">
       <button class="link" (click)="selectedSnippetId && renameSnippet(selectedSnippetId)">
@@ -30,11 +55,19 @@
         excluir
       </button>
       <button class="link" (click)="saveOnSelectedSnippet()">salvar (Ctrl+S)</button>
+      <button class="link" (click)="selectedSnippetId && moveSnippetToFolder(selectedSnippetId)">
+        mover p/ pasta
+      </button>
+      <button class="link" (click)="exportSnippets()" [disabled]="!snippets.length">exportar</button>
+      <button class="link" (click)="importSnippets()">importar</button>
     </div>
   </div>
 
   <ng-template #noSnips>
-    <div class="muted">Sem favoritos. Use “salvar (Ctrl+S)”.</div>
+    <div class="no-snips muted">
+      Sem favoritos. Use “salvar (Ctrl+S)” ou
+      <button class="link" (click)="importSnippets()">importe um arquivo</button>.
+    </div>
   </ng-template>
 </div>
 

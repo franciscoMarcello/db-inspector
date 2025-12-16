@@ -1,4 +1,4 @@
-import { Component, OnDestroy } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -14,6 +14,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { QueryParam, QueryParamsDialog } from '../query-params-dialog/query-params-dialog';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatIconModule } from '@angular/material/icon';
 
 const STORAGE_KEY = 'dbi.query.state';
 
@@ -32,11 +33,12 @@ const STORAGE_KEY = 'dbi.query.state';
     MatFormFieldModule,
     MatInputModule,
     MatDialogModule,
+    MatIconModule,
   ],
   templateUrl: './query-runner.html',
   styleUrls: ['./query-runner.css'],
 })
-export class QueryRunnerComponent implements OnDestroy {
+export class QueryRunnerComponent implements OnInit, OnDestroy {
   editorOptions = {
     language: 'sql',
     theme: 'vs-dark',
@@ -70,15 +72,22 @@ export class QueryRunnerComponent implements OnDestroy {
   snippets: QuerySnippet[] = [];
   snippetFilter = '';
   selectedSnippetId: string | null = null;
+  folders: string[] = [];
+  selectedFolder: string | null = null;
   private editor!: any;
   private saveTimer: any = null;
   trackSnippetId = (_: number, s: QuerySnippet) => s.id;
+  trackFolder = (_: number, folder: string) => folder;
   query = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null')?.query ?? 'SELECT 1 AS ok;';
+
+  ngOnInit() {
+    // Load stored snippets immediately so the favorites bar renders without waiting for Monaco.
+    this.refreshSnippets();
+  }
 
   onEditorInit(editor: any) {
     const monaco = (window as any).monaco;
     this.editor = editor;
-    this.refreshSnippets();
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => this.run());
 
     const saved = this.loadState();
@@ -100,6 +109,23 @@ export class QueryRunnerComponent implements OnDestroy {
 
   private refreshSnippets() {
     this.snippets = this.snippetsStore.list();
+    this.recomputeFolders();
+  }
+
+  private recomputeFolders() {
+    const bucket = new Set<string>();
+    for (const sn of this.snippets) {
+      bucket.add(this.normalizeFolder(sn.folder));
+    }
+    if (this.selectedFolder !== null) {
+      bucket.add(this.normalizeFolder(this.selectedFolder));
+    }
+    const list = Array.from(bucket.values()).sort((a, b) => {
+      if (!a && b) return -1;
+      if (a && !b) return 1;
+      return a.localeCompare(b, undefined, { sensitivity: 'base' });
+    });
+    this.folders = list;
   }
 
   ngOnDestroy() {
@@ -135,8 +161,13 @@ export class QueryRunnerComponent implements OnDestroy {
       );
 
       if (!existing) {
-        this.snippetsStore.upsert({ name, sql });
+        const saved = this.snippetsStore.upsert({
+          name,
+          sql,
+          folder: this.selectedFolder ?? '',
+        });
         this.refreshSnippets();
+        this.selectedSnippetId = saved.id;
         this.snack('Snippet salvo.');
         return;
       }
@@ -146,8 +177,14 @@ export class QueryRunnerComponent implements OnDestroy {
       );
 
       if (overwrite) {
-        this.snippetsStore.upsert({ id: existing.id, name, sql });
+        const saved = this.snippetsStore.upsert({
+          id: existing.id,
+          name,
+          sql,
+          folder: this.selectedFolder ?? existing.folder ?? '',
+        });
         this.refreshSnippets();
+        this.selectedSnippetId = saved.id;
         this.snack('Snippet atualizado.');
         return;
       }
@@ -398,6 +435,99 @@ export class QueryRunnerComponent implements OnDestroy {
 
     this.refreshSnippets();
     this.snack(`Snippet "${existing.name}" atualizado.`);
+  }
+
+  moveSnippetToFolder(id: string) {
+    const sn = this.snippetsStore.get(id);
+    if (!sn) return;
+    const current = sn.folder ?? '';
+    const input = prompt('Mover para qual pasta? (vazio = sem pasta)', current);
+    if (input === null) return;
+    const target = this.normalizeFolder(input);
+    this.snippetsStore.moveToFolder(id, target);
+    this.selectedFolder = target;
+    this.refreshSnippets();
+    this.snack(target ? `Movido para "${target}".` : 'Movido para "Sem pasta".');
+  }
+
+  folderLabel(folder: string | null): string {
+    if (folder === null) return 'Todas as pastas';
+    return folder ? folder : 'Sem pasta';
+  }
+
+  selectFolder(folder: string | null) {
+    this.selectedFolder = folder;
+    this.recomputeFolders();
+  }
+
+  createFolder() {
+    const input = prompt('Nome da nova pasta:');
+    if (input === null) return;
+    const name = this.normalizeFolder(input);
+    if (!name) {
+      this.snack('Informe um nome para a pasta.');
+      return;
+    }
+    this.selectedFolder = name;
+    this.recomputeFolders();
+    this.snack(`Pasta "${name}" criada. Salve ou mova favoritos para ela.`);
+  }
+
+  shouldShowSnippet(sn: QuerySnippet): boolean {
+    const matchesFolder =
+      this.selectedFolder === null
+        ? true
+        : this.normalizeFolder(sn.folder) === this.normalizeFolder(this.selectedFolder);
+    const term = this.snippetFilter.trim().toLowerCase();
+    const matchesFilter = !term || sn.name.toLowerCase().includes(term);
+    return matchesFolder && matchesFilter;
+  }
+
+  private normalizeFolder(folder: string | null | undefined): string {
+    return (folder ?? '').trim();
+  }
+
+  exportSnippets() {
+    try {
+      const json = this.snippetsStore.export() || '[]';
+      const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = this.makeFileName('favoritos', 'json');
+      a.click();
+      URL.revokeObjectURL(a.href);
+      this.snack('Favoritos exportados.');
+    } catch {
+      this.snack('Falha ao exportar favoritos.');
+    }
+  }
+
+  importSnippets() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/json,.json';
+
+    input.addEventListener('change', async () => {
+      const file = input.files?.[0];
+      if (!file) {
+        input.remove();
+        return;
+      }
+
+      try {
+        const text = await file.text();
+        this.snippetsStore.import(text);
+        this.selectedSnippetId = null;
+        this.refreshSnippets();
+        this.snack('Favoritos importados.');
+      } catch {
+        this.snack('Arquivo de favoritos inválido.');
+      } finally {
+        input.remove();
+      }
+    });
+
+    input.click();
   }
 
   private formatDateTime(value: Date): string {
