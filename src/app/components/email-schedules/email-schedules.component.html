@@ -55,8 +55,12 @@
           <div class="value">{{ s.cc || '—' }}</div>
         </div>
         <div>
-          <span class="label">Criado em</span>
-          <div class="value">{{ s.createdAt | date : 'dd/MM/yyyy HH:mm' }}</div>
+          <span class="label">Assunto</span>
+          <div class="value">{{ s.subject || '' }}</div>
+        </div>
+        <div>
+          <span class="label">Proxima execucao</span>
+          <div class="value">{{ s.nextRun || s.createdAt || '-' }}</div>
         </div>
       </div>
 

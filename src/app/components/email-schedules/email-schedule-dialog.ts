@@ -9,6 +9,7 @@ export interface EmailScheduleData {
   sql: string;
   to?: string;
   cc?: string;
+  subject?: string;
   time?: string;
   days?: string[];
 }
@@ -17,6 +18,7 @@ export interface EmailScheduleResult extends Required<EmailScheduleData> {
   sql: string;
   to: string;
   cc: string;
+  subject: string;
   time: string;
   days: string[];
 }
@@ -42,6 +44,7 @@ export class EmailScheduleDialogComponent {
   sql = '';
   to = '';
   cc = '';
+  subject = '';
   time = '08:00';
   days: Set<string> = new Set(['mon', 'tue', 'wed', 'thu', 'fri']);
 
@@ -57,6 +60,7 @@ export class EmailScheduleDialogComponent {
     this.sql = (data?.sql || '').trim();
     this.to = data?.to || '';
     this.cc = data?.cc || '';
+    this.subject = data?.subject || '';
     this.time = data?.time || '08:00';
     if (data?.days?.length) {
       this.days = new Set(data.days);
@@ -72,7 +76,9 @@ export class EmailScheduleDialogComponent {
   }
 
   get canSave(): boolean {
-    return Boolean(this.sql.trim() && this.to.trim() && this.time && this.days.size);
+    return Boolean(
+      this.sql.trim() && this.to.trim() && this.subject.trim() && this.time && this.days.size
+    );
   }
 
   cancel() {
@@ -92,7 +98,7 @@ export class EmailScheduleDialogComponent {
       .sendEmailTest({
         to: this.to.trim(),
         cc: this.cc.trim(),
-        subject: 'Teste de agendamento',
+        subject: this.subject.trim() || 'Teste de agendamento',
         message: 'Este é um e-mail de teste do agendamento de SQL.',
       })
       .subscribe({
@@ -112,6 +118,7 @@ export class EmailScheduleDialogComponent {
       sql: this.sql.trim(),
       to: this.to.trim(),
       cc: this.cc.trim(),
+      subject: this.subject.trim(),
       time: this.time,
       days: Array.from(this.days),
     };

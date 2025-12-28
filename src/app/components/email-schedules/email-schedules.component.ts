@@ -9,15 +9,22 @@ import {
   EmailScheduleDialogComponent,
   EmailScheduleResult,
 } from './email-schedule-dialog';
-import { DbInspectorService } from '../../services/db-inspector.service';
+import { DbInspectorService, ApiEmailSchedule } from '../../services/db-inspector.service';
 
-interface EmailSchedule extends EmailScheduleResult {
+type EmailSchedule = {
   id: string;
+  sql: string;
+  to: string;
+  cc: string;
+  subject: string;
+  time: string;
+  days: string[];
   active: boolean;
-  createdAt: string;
-}
-
-const STORAGE_KEY = 'dbi.email-schedules';
+  createdAt?: string;
+  status?: string;
+  cron?: string;
+  nextRun?: string;
+};
 
 @Component({
   selector: 'app-email-schedules',
@@ -65,6 +72,7 @@ export class EmailSchedulesComponent implements OnInit {
       return (
         s.to.toLowerCase().includes(q) ||
         s.cc.toLowerCase().includes(q) ||
+        (s.subject || '').toLowerCase().includes(q) ||
         s.sql.toLowerCase().includes(q) ||
         s.time.toLowerCase().includes(q) ||
         this.formatDays(s.days).toLowerCase().includes(q)
@@ -83,20 +91,24 @@ export class EmailSchedulesComponent implements OnInit {
 
     dialogRef.afterClosed().subscribe((res?: EmailScheduleResult) => {
       if (!res) return;
-      this.api.sendEmail(res).subscribe({
-        next: (resp) => {
-          const schedule: EmailSchedule = {
-            ...res,
-            id: resp.scheduleId || this.makeId(),
-            active: resp.status === 'scheduled',
-            createdAt: new Date().toISOString(),
-          };
-          this.schedules = [schedule, ...this.schedules];
-          this.persist();
-          this.snack(resp.status === 'scheduled' ? 'Agendado com sucesso.' : 'Enviado agora.');
-        },
-        error: () => this.snack('Falha ao agendar.'),
-      });
+      this.api
+        .createEmailSchedule({
+          sql: res.sql,
+          to: res.to,
+          cc: res.cc,
+          subject: res.subject,
+          time: res.time,
+          days: this.toApiDays(res.days),
+          asDict: true,
+          withDescription: true,
+        })
+        .subscribe({
+          next: (schedule) => {
+            this.schedules = [this.toUiSchedule(schedule), ...this.schedules];
+            this.snack('Agendado com sucesso.');
+          },
+          error: () => this.snack('Falha ao agendar.'),
+        });
     });
   }
 
@@ -130,25 +142,44 @@ export class EmailSchedulesComponent implements OnInit {
 
     dialogRef.afterClosed().subscribe((res?: EmailScheduleResult) => {
       if (!res) return;
-      this.api.sendEmail({ ...res }).subscribe({
-        next: () => {
-          this.schedules = this.schedules.map((s) =>
-            s.id === schedule.id ? { ...s, ...res } : s
-          );
-          this.persist();
-          this.snack('Agendamento atualizado.');
-        },
-        error: () => this.snack('Falha ao atualizar agendamento.'),
-      });
+      this.api
+        .updateEmailSchedule(schedule.id, {
+          sql: res.sql,
+          to: res.to,
+          cc: res.cc,
+          subject: res.subject,
+          time: res.time,
+          days: this.toApiDays(res.days),
+        })
+        .subscribe({
+          next: (updated) => {
+            const mapped = this.toUiSchedule(updated);
+            this.schedules = this.schedules.map((s) => (s.id === updated.id ? mapped : s));
+            this.snack('Agendamento atualizado.');
+          },
+          error: () => this.snack('Falha ao atualizar agendamento.'),
+        });
     });
   }
 
   toggleActive(schedule: EmailSchedule) {
-    this.schedules = this.schedules.map((s) =>
-      s.id === schedule.id ? { ...s, active: !s.active } : s
-    );
-    this.persist();
-    this.snack(schedule.active ? 'Agendamento pausado.' : 'Agendamento ativado.');
+    const request = schedule.active
+      ? this.api.pauseEmailSchedule(schedule.id)
+      : this.api.resumeEmailSchedule(schedule.id);
+
+    request.subscribe({
+      next: (updated) => {
+        if (!updated) {
+          this.load();
+          this.snack('Status atualizado.');
+          return;
+        }
+        const mapped = this.toUiSchedule(updated);
+        this.schedules = this.schedules.map((s) => (s.id === updated.id ? mapped : s));
+        this.snack(mapped.active ? 'Agendamento ativado.' : 'Agendamento pausado.');
+      },
+      error: () => this.snack('Falha ao atualizar status.'),
+    });
   }
 
   sendNow(schedule: EmailSchedule) {
@@ -157,7 +188,7 @@ export class EmailSchedulesComponent implements OnInit {
         sql: schedule.sql,
         to: schedule.to,
         cc: schedule.cc,
-        subject: 'Envio manual de agendamento',
+        subject: schedule.subject || 'Envio manual de agendamento',
         asDict: true,
         withDescription: true,
       })
@@ -169,9 +200,13 @@ export class EmailSchedulesComponent implements OnInit {
 
   remove(schedule: EmailSchedule) {
     if (!confirm('Remover este agendamento?')) return;
-    this.schedules = this.schedules.filter((s) => s.id !== schedule.id);
-    this.persist();
-    this.snack('Agendamento removido.');
+    this.api.deleteEmailSchedule(schedule.id).subscribe({
+      next: () => {
+        this.schedules = this.schedules.filter((s) => s.id !== schedule.id);
+        this.snack('Agendamento removido.');
+      },
+      error: () => this.snack('Falha ao remover agendamento.'),
+    });
   }
 
   formatDays(days: string[]): string {
@@ -183,41 +218,80 @@ export class EmailSchedulesComponent implements OnInit {
   }
 
   private load() {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) {
-          this.schedules = parsed;
-          return;
-        }
-      }
-    } catch {}
-
-    // Seed com exemplo inicial para primeira execução.
-    this.schedules = [
-      {
-        id: this.makeId(),
-        sql: "SELECT count(*) AS total FROM pedidos WHERE status = 'PENDING';",
-        to: 'alertas@empresa.com',
-        cc: '',
-        time: '08:00',
-        days: ['mon', 'tue', 'wed', 'thu', 'fri'],
-        active: true,
-        createdAt: new Date().toISOString(),
+    this.loading = true;
+    this.api.listEmailSchedules().subscribe({
+      next: (schedules) => {
+        this.schedules = (schedules || []).map((s) => this.toUiSchedule(s));
+        this.loading = false;
       },
-    ];
+      error: () => {
+        this.schedules = [];
+        this.loading = false;
+        this.snack('Falha ao carregar agendamentos.');
+      },
+    });
   }
 
-  private persist() {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.schedules));
-    } catch {}
+  private toUiSchedule(api: ApiEmailSchedule | null | undefined): EmailSchedule {
+    if (!api) {
+      throw new Error('Agendamento invalido');
+    }
+    return {
+      id: api.id,
+      sql: api.sql,
+      to: api.to,
+      cc: api.cc || '',
+      subject: api.subject || '',
+      time: api.time,
+      days: this.fromApiDays(api.days || []),
+      active: this.isActive(api.status),
+      createdAt: api.nextRun || undefined,
+      status: api.status,
+      cron: api.cron,
+      nextRun: api.nextRun,
+    };
   }
 
-  private makeId(): string {
-    const rnd = () => Math.random().toString(16).slice(2);
-    return (crypto?.randomUUID?.() || `sch-${Date.now()}-${rnd()}`).toString();
+  private isActive(status?: string): boolean {
+    const value = (status || '').toUpperCase();
+    if (!value) return true;
+    return value !== 'PAUSED' && value !== 'DISABLED';
+  }
+
+  private toApiDays(days: string[]): string[] {
+    const map: Record<string, string> = {
+      monday: 'mon',
+      tuesday: 'tue',
+      wednesday: 'wed',
+      thursday: 'thu',
+      friday: 'fri',
+      saturday: 'sat',
+      sunday: 'sun',
+    };
+    return days
+      .map((d) => d.toLowerCase())
+      .map((d) => map[d] || d)
+      .filter(Boolean);
+  }
+
+  private fromApiDays(days: string[]): string[] {
+    const map: Record<string, string> = {
+      MONDAY: 'mon',
+      TUESDAY: 'tue',
+      WEDNESDAY: 'wed',
+      THURSDAY: 'thu',
+      FRIDAY: 'fri',
+      SATURDAY: 'sat',
+      SUNDAY: 'sun',
+      monday: 'mon',
+      tuesday: 'tue',
+      wednesday: 'wed',
+      thursday: 'thu',
+      friday: 'fri',
+      saturday: 'sat',
+      sunday: 'sun',
+    };
+    return (days || []).map((d) => map[d] || d.toLowerCase());
   }
 
   private snack(msg: string) {
