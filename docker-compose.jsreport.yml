@@ -1,0 +1,8 @@
+version: '3.8'
+services:
+  jsreport:
+    image: jsreport/jsreport:latest
+    ports:
+      - "5488:5488"
+    volumes:
+      - ./jsreport/data:/app/data
