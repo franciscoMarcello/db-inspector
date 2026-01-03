@@ -5,10 +5,17 @@ export type QuerySnippet = {
   name: string;
   sql: string;
   updatedAt: number;
+  folder: string;
 };
 
 type State = { items: QuerySnippet[] };
 const KEY = 'dbi.snippets.v1';
+type SnippetUpsertInput = {
+  id?: string;
+  name: string;
+  sql: string;
+  folder?: string | null;
+};
 
 @Injectable({ providedIn: 'root' })
 export class SnippetStorageService {
@@ -21,6 +28,7 @@ export class SnippetStorageService {
         name: String(it.name ?? ''),
         sql: String(it.sql ?? ''),
         updatedAt: Number(it.updatedAt ?? Date.now()),
+        folder: String(it.folder ?? '').trim(),
       }));
       return s;
     } catch {
@@ -37,11 +45,13 @@ export class SnippetStorageService {
   get(id: string): QuerySnippet | undefined {
     return this.read().items.find((i) => i.id === id);
   }
-  upsert(sn: Omit<QuerySnippet, 'id' | 'updatedAt'> & { id?: string }): QuerySnippet {
+  upsert(sn: SnippetUpsertInput): QuerySnippet {
     const s = this.read();
     const now = Date.now();
     const name = sn.name.trim();
     const sql = sn.sql;
+    const folderProvided = Object.prototype.hasOwnProperty.call(sn, 'folder');
+    const folderValue = folderProvided ? String(sn.folder ?? '').trim() : undefined;
 
     if (!sn.id) {
       const idxByName = s.items.findIndex(
@@ -54,6 +64,7 @@ export class SnippetStorageService {
           name,
           sql,
           updatedAt: now,
+          ...(folderProvided ? { folder: folderValue ?? '' } : {}),
         };
         this.write(s);
         return s.items[idxByName];
@@ -63,7 +74,13 @@ export class SnippetStorageService {
     if (sn.id) {
       const i = s.items.findIndex((x) => x.id === sn.id);
       if (i >= 0) {
-        s.items[i] = { ...s.items[i], name, sql, updatedAt: now };
+        s.items[i] = {
+          ...s.items[i],
+          name,
+          sql,
+          updatedAt: now,
+          ...(folderProvided ? { folder: folderValue ?? '' } : {}),
+        };
         this.write(s);
         return s.items[i];
       } else {
@@ -72,6 +89,7 @@ export class SnippetStorageService {
           name,
           sql,
           updatedAt: now,
+          folder: folderValue ?? '',
         };
         s.items.push(item);
         this.write(s);
@@ -80,7 +98,7 @@ export class SnippetStorageService {
     }
 
     const id = crypto.randomUUID();
-    const item: QuerySnippet = { id, name, sql, updatedAt: now };
+    const item: QuerySnippet = { id, name, sql, updatedAt: now, folder: folderValue ?? '' };
     s.items.push(item);
     this.write(s);
     return item;
@@ -99,6 +117,18 @@ export class SnippetStorageService {
     s.items = s.items.filter((i) => i.id !== id);
     this.write(s);
   }
+  moveToFolder(id: string, folder: string | null | undefined) {
+    const s = this.read();
+    const i = s.items.findIndex((x) => x.id === id);
+    if (i >= 0) {
+      s.items[i] = {
+        ...s.items[i],
+        folder: String(folder ?? '').trim(),
+        updatedAt: Date.now(),
+      };
+      this.write(s);
+    }
+  }
   // util opcional
   export(): string {
     return JSON.stringify(this.list(), null, 2);
@@ -112,6 +142,7 @@ export class SnippetStorageService {
         name: String(it.name ?? ''),
         sql: String(it.sql ?? ''),
         updatedAt: Number(it.updatedAt ?? Date.now()),
+        folder: String(it.folder ?? '').trim(),
       });
     }
     this.write(s);
