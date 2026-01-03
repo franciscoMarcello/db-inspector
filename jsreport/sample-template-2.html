@@ -1,0 +1,166 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      * { box-sizing: border-box; }
+      body {
+        font-family: "Segoe UI", Arial, sans-serif;
+        font-size: 11px;
+        color: #0f172a;
+        margin: 0;
+        padding: 88px 28px 64px 28px;
+        background: #ffffff;
+      }
+      .header {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 78px;
+        padding: 16px 28px 8px 28px;
+        border-bottom: 2px solid #e2e8f0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: #f8fafc;
+      }
+      .logo {
+        width: 110px;
+        height: 42px;
+        border-radius: 6px;
+        background: #0f172a;
+        color: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+      }
+      .title {
+        font-size: 16px;
+        font-weight: 700;
+        margin: 0 0 4px 0;
+      }
+      .meta {
+        color: #475569;
+        font-size: 10px;
+        line-height: 1.4;
+      }
+      .section {
+        margin-top: 12px;
+        font-weight: 700;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #1f2937;
+      }
+      .summary-bar {
+        display: flex;
+        gap: 10px;
+        margin-top: 8px;
+      }
+      .summary-card {
+        padding: 8px 10px;
+        border-radius: 10px;
+        border: 1px solid #e2e8f0;
+        background: #f8fafc;
+        min-width: 120px;
+      }
+      .summary-card strong {
+        display: block;
+        font-size: 12px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 8px;
+      }
+      th, td {
+        border-bottom: 1px solid #e2e8f0;
+        padding: 6px 8px;
+        vertical-align: top;
+      }
+      th {
+        text-align: left;
+        text-transform: uppercase;
+        font-size: 10px;
+        letter-spacing: 0.06em;
+        color: #475569;
+      }
+      tbody tr:nth-child(even) {
+        background: #f8fafc;
+      }
+      .footer {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 42px;
+        padding: 8px 28px 14px 28px;
+        border-top: 1px solid #e2e8f0;
+        background: #ffffff;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 10px;
+        color: #475569;
+      }
+      .badge {
+        background: #e2e8f0;
+        border-radius: 999px;
+        padding: 2px 8px;
+        font-weight: 700;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+      <div class="logo">ANIMAL</div>
+      <div>
+        <div class="title">Relatorio de Animais</div>
+        <div class="meta">Ambiente: {{meta.environment}}</div>
+        <div class="meta">Gerado em: {{meta.generatedAt}}</div>
+        <div class="meta">Ultima execucao: {{meta.lastRunAt}}</div>
+      </div>
+      <div class="meta">SQL: {{query}}</div>
+    </div>
+
+    <div class="section">Resumo</div>
+    <div class="summary-bar">
+      <div class="summary-card">
+        <span class="meta">Total de linhas</span>
+        <strong>{{meta.rowCount}}</strong>
+      </div>
+      <div class="summary-card">
+        <span class="meta">Tempo</span>
+        <strong>{{meta.elapsedMs}} ms</strong>
+      </div>
+    </div>
+
+    <div class="section">Resultados</div>
+    <table>
+      <thead>
+        <tr>
+          {{#each columns}}
+            <th>{{this}}</th>
+          {{/each}}
+        </tr>
+      </thead>
+      <tbody>
+        {{#each rows}}
+          <tr>
+            {{#each ../columns}}
+              <td>{{lookup .. this}}</td>
+            {{/each}}
+          </tr>
+        {{/each}}
+      </tbody>
+    </table>
+
+    <div class="footer">
+      <div>Total de linhas: <span class="badge">{{meta.rowCount}}</span></div>
+      <div>Gerado em {{meta.generatedAt}}</div>
+    </div>
+  </body>
+</html>

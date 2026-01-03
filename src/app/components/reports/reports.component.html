@@ -1,0 +1,109 @@
+<div class="reports-page">
+  <header class="reports-hero">
+    <div>
+      <p class="eyebrow">Relatorios</p>
+      <h2>Layouts do jsreport</h2>
+      <p class="muted">
+        Crie relatorios com SQL e template dedicado. Todos poderao executar em outras maquinas.
+      </p>
+    </div>
+    <button class="btn btn--primary" type="button" (click)="openCreate()">
+      Novo relatorio
+    </button>
+  </header>
+
+  <section class="card">
+    <h3>Configuracao padrao</h3>
+    <div class="form-grid">
+      <label class="field">
+        <span>URL do jsreport</span>
+        <input type="text" [(ngModel)]="serverUrl" />
+      </label>
+      <label class="field">
+        <span>Template padrao</span>
+        <input type="text" [(ngModel)]="defaultTemplate" />
+      </label>
+    </div>
+    <button class="btn btn--primary" type="button" (click)="saveDefaults()">
+      Salvar configuracao
+    </button>
+  </section>
+
+  <section class="card">
+    <h3>Relatorios</h3>
+    <div *ngIf="reports.length; else empty">
+      <article class="report-row" *ngFor="let r of reports">
+        <div>
+          <div class="report-title">{{ r.name }}</div>
+          <div class="report-meta">Template: {{ r.templateName }}</div>
+          <div class="report-meta" *ngIf="r.description">{{ r.description }}</div>
+          <pre class="sql-preview">{{ r.sql }}</pre>
+        </div>
+        <div class="actions">
+          <button class="btn btn--primary" type="button" (click)="runReport(r)">
+            Executar
+          </button>
+          <button class="btn btn--secondary" type="button" (click)="openEdit(r)">
+            Editar
+          </button>
+          <button class="btn btn--danger" type="button" (click)="removeReport(r)">
+            Remover
+          </button>
+        </div>
+      </article>
+    </div>
+    <ng-template #empty>
+      <p class="muted">Nenhum relatorio criado ainda.</p>
+    </ng-template>
+  </section>
+</div>
+
+<dialog #reportDialog class="report-modal">
+  <div class="modal-wrap" (click)="$event.stopPropagation()">
+    <header class="modal-header">
+      <div>
+        <p class="eyebrow">Relatorio</p>
+        <h3>{{ editing ? 'Editar relatorio' : 'Novo relatorio' }}</h3>
+        <p class="muted">Defina o nome, template e SQL a ser executada.</p>
+      </div>
+      <button type="button" class="icon-btn" (click)="closeDialog()" aria-label="Fechar">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path
+            d="M18.3 5.71 12 12l6.3 6.29-1.41 1.42L10.59 13.4 4.3 19.71 2.89 18.3 9.17 12 2.89 5.71 4.3 4.29l6.29 6.3 6.29-6.3z"
+          />
+        </svg>
+      </button>
+    </header>
+
+    <div class="modal-body">
+      <label class="field">
+        <span>Nome</span>
+        <input type="text" [(ngModel)]="draft.name" placeholder="Relatorio de vendas" />
+      </label>
+
+      <label class="field">
+        <span>Template</span>
+        <input type="text" [(ngModel)]="draft.templateName" placeholder="db-report" />
+      </label>
+
+      <label class="field">
+        <span>SQL</span>
+        <textarea [(ngModel)]="draft.sql" rows="6" placeholder="SELECT ..."></textarea>
+      </label>
+
+      <label class="field">
+        <span>Descricao (opcional)</span>
+        <input type="text" [(ngModel)]="draft.description" placeholder="Notas do relatorio" />
+      </label>
+    </div>
+
+    <footer class="modal-actions">
+      <button type="button" class="btn btn--secondary" (click)="closeDialog()">
+        Cancelar
+      </button>
+      <button type="button" class="btn btn--primary" (click)="saveReport()">
+        Salvar
+      </button>
+    </footer>
+  </div>
+</dialog>

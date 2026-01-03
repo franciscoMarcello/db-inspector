@@ -52,35 +52,92 @@
     <form class="form" [formGroup]="form" (ngSubmit)="save()">
       <h4>{{ editing ? 'Editar ambiente' : 'Novo ambiente' }}</h4>
 
-      <label class="field">
-        <span>Nome</span>
-        <input formControlName="name" />
-        <small *ngIf="form.controls.name.touched && form.controls.name.invalid">
-          Mínimo 2 caracteres
-        </small>
-      </label>
+      <div class="tabs">
+        <button type="button" class="tab" [class.active]="activeTab === 'api'" (click)="setTab('api')">
+          Dados da API
+        </button>
+        <button type="button" class="tab" [class.active]="activeTab === 'db'" (click)="setTab('db')">
+          Banco de dados
+        </button>
+      </div>
 
-      <label class="field">
-        <span>URL</span>
-        <input formControlName="url" placeholder="https://api.exemplo.com" />
-        <small *ngIf="form.controls.url.touched && form.controls.url.invalid">URL inválida</small>
-      </label>
+      <div *ngIf="activeTab === 'api'" class="tab-panel">
+        <label class="field">
+          <span>Nome</span>
+          <input formControlName="name" />
+          <small *ngIf="form.controls.name.touched && form.controls.name.invalid">
+            Mínimo 2 caracteres
+          </small>
+        </label>
 
-      <label class="field">
-        <span>API Key</span>
-        <input type="password" formControlName="apiKey" />
-        <small *ngIf="form.controls.apiKey.touched && form.controls.apiKey.invalid"
-          >Obrigatório</small
-        >
-      </label>
+        <label class="field">
+          <span>URL</span>
+          <input formControlName="url" placeholder="https://api.exemplo.com" />
+          <small *ngIf="form.controls.url.touched && form.controls.url.invalid">URL inválida</small>
+        </label>
 
-      <label class="field">
-        <span>Backend</span>
-        <input formControlName="backend" placeholder="http://localhost:8080/api/db" />
-        <small *ngIf="form.controls.backend.touched && form.controls.backend.invalid">
-          URL do backend inválida (ex.: http://localhost:8080/api/db)
-        </small>
-      </label>
+        <label class="field">
+          <span>API Key</span>
+          <input type="password" formControlName="apiKey" />
+          <small *ngIf="form.controls.apiKey.touched && form.controls.apiKey.invalid"
+            >Obrigatório</small
+          >
+        </label>
+
+        <label class="field">
+          <span>Backend</span>
+          <input formControlName="backend" placeholder="http://localhost:8080/api/db" />
+          <small *ngIf="form.controls.backend.touched && form.controls.backend.invalid">
+            URL do backend inválida (ex.: http://localhost:8080/api/db)
+          </small>
+        </label>
+      </div>
+
+      <div *ngIf="activeTab === 'db'" class="tab-panel">
+        <h5>Banco de dados (Postgres)</h5>
+
+        <div class="grid">
+          <label class="field">
+            <span>Host</span>
+            <input formControlName="dbHost" placeholder="localhost" />
+            <small class="hint">Opcional — se vazio, usar host padrão.</small>
+          </label>
+
+          <label class="field">
+            <span>Porta</span>
+            <input type="number" formControlName="dbPort" placeholder="5432" />
+            <small class="hint">Opcional — default 5432.</small>
+          </label>
+        </div>
+
+        <div class="grid">
+          <label class="field">
+            <span>Database</span>
+            <input formControlName="dbName" placeholder="meu_banco" />
+            <small class="hint">Opcional.</small>
+          </label>
+
+          <label class="field">
+            <span>Schema</span>
+            <input formControlName="dbSchema" placeholder="public" />
+            <small class="hint">Opcional — default public.</small>
+          </label>
+        </div>
+
+        <div class="grid">
+          <label class="field">
+            <span>Usuário</span>
+            <input formControlName="dbUser" placeholder="postgres" />
+            <small class="hint">Opcional.</small>
+          </label>
+
+          <label class="field">
+            <span>Senha</span>
+            <input type="password" formControlName="dbPassword" placeholder="••••••" />
+            <small class="hint">Opcional.</small>
+          </label>
+        </div>
+      </div>
 
       <div class="form-actions">
         <button type="button" class="btn btn--outline-neutral" (click)="startAdd()">

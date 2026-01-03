@@ -1,6 +1,18 @@
 import { Injectable } from '@angular/core';
 
-export type EnvConfig = { id: string; name: string; url: string; apiKey: string; backend: string };
+export type EnvConfig = {
+  id: string;
+  name: string;
+  url: string;
+  apiKey: string;
+  backend: string;
+  dbHost: string;
+  dbPort: number;
+  dbUser: string;
+  dbPassword: string;
+  dbName: string;
+  dbSchema: string;
+};
 type EnvState = { items: EnvConfig[]; activeId: string | null };
 const KEY = 'env_state_v1';
 
@@ -17,6 +29,12 @@ export class EnvStorageService {
         url: String(it.url ?? ''),
         apiKey: String(it.apiKey ?? ''),
         backend: String(it.backend ?? 'http://localhost:8080/api/db'),
+        dbHost: String(it.dbHost ?? 'localhost'),
+        dbPort: Number.isFinite(Number(it.dbPort)) ? Number(it.dbPort) : 5432,
+        dbUser: String(it.dbUser ?? ''),
+        dbPassword: String(it.dbPassword ?? ''),
+        dbName: String(it.dbName ?? ''),
+        dbSchema: String(it.dbSchema ?? 'public'),
       }));
 
       return s;
@@ -50,7 +68,19 @@ export class EnvStorageService {
       else s.items.push(cfg as EnvConfig);
     } else {
       const id = crypto.randomUUID();
-      s.items.push({ id, name: cfg.name, url: cfg.url, apiKey: cfg.apiKey, backend: cfg.backend });
+      s.items.push({
+        id,
+        name: cfg.name,
+        url: cfg.url,
+        apiKey: cfg.apiKey,
+        backend: cfg.backend,
+        dbHost: cfg.dbHost,
+        dbPort: cfg.dbPort,
+        dbUser: cfg.dbUser,
+        dbPassword: cfg.dbPassword,
+        dbName: cfg.dbName,
+        dbSchema: cfg.dbSchema,
+      });
       cfg = { ...cfg, id };
     }
     if (!s.activeId && s.items.length) s.activeId = s.items[0].id;

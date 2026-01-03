@@ -69,6 +69,48 @@
   gap: 12px;
 }
 
+.tabs {
+  display: inline-flex;
+  gap: 6px;
+  background: var(--bg-surface-alt);
+  padding: 4px;
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+}
+
+.tab {
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.tab.active {
+  background: var(--chip-bg);
+  color: #fff;
+}
+
+.tab-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 10px;
+}
+
+h5 {
+  margin: 4px 0 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
 .field {
   display: grid;
   gap: 6px;

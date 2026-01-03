@@ -14,6 +14,12 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { QueryParam, QueryParamsDialog } from '../query-params-dialog/query-params-dialog';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import {
+  EmailScheduleDialogComponent,
+  EmailScheduleResult,
+} from '../email-schedules/email-schedule-dialog';
+import { EnvStorageService } from '../../services/env-storage.service';
+import { ReportService } from '../../services/report.service';
 import { MatIconModule } from '@angular/material/icon';
 
 const STORAGE_KEY = 'dbi.query.state';
@@ -66,7 +72,9 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
     private api: DbInspectorService,
     private snackBar: MatSnackBar,
     private snippetsStore: SnippetStorageService,
-    private dialog: MatDialog
+    private dialog: MatDialog,
+    private envStorage: EnvStorageService,
+    private reportService: ReportService
   ) {}
 
   snippets: QuerySnippet[] = [];
@@ -397,6 +405,44 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
     this.snack('Arquivo .sql baixado.');
   }
 
+  exportPdfViaJsreport() {
+    if (!this.rows?.length) return;
+
+    const serverUrl = this.reportService.getServerUrl();
+    const templateName = this.reportService.getDefaultTemplate();
+
+    if (!serverUrl || !templateName) {
+      this.snack('Configure o jsreport na tela de Relatorios.');
+      return;
+    }
+
+    const columns =
+      this.displayedColumns?.length ? this.displayedColumns : Object.keys(this.rows[0] ?? {});
+    const maxRows = 500;
+    const dataRows = this.rows.slice(0, maxRows);
+    const summaries = this.buildSummaries(columns, dataRows);
+
+    const data = {
+      meta: {
+        environment: this.envStorage.getActive()?.name ?? 'Sem ambiente',
+        generatedAt: this.formatDateTime(new Date()),
+        lastRunAt: this.lastRunAt ? this.formatDateTime(this.lastRunAt) : 'N/A',
+        rowCount: this.rowCount,
+        elapsedMs: this.elapsedMs,
+        truncated: this.rows.length > maxRows,
+      },
+      query: (this.query || '').trim(),
+      columns,
+      rows: dataRows,
+      summaries,
+    };
+
+    this.reportService.renderReport(serverUrl, templateName, data).subscribe({
+      next: (blob) => this.downloadBlob(blob, this.makeFileName('relatorio', 'pdf')),
+      error: () => this.snack('Falha ao gerar PDF via jsreport.'),
+    });
+  }
+
   private makeFileName(prefix: string, ext: string) {
     const d = new Date();
     const p = (n: number) => String(n).padStart(2, '0');
@@ -437,6 +483,35 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
     this.snack(`Snippet "${existing.name}" atualizado.`);
   }
 
+  openScheduleDialog() {
+    const dialogRef = this.dialog.open(EmailScheduleDialogComponent, {
+      data: { sql: this.query ?? '' },
+      width: '1024px',
+      maxWidth: '98vw',
+    });
+
+    dialogRef.afterClosed().subscribe((result?: EmailScheduleResult) => {
+      if (!result) return;
+      const payload = {
+        ...result,
+        asDict: true,
+        withDescription: true,
+      };
+
+      this.api.sendEmail(payload).subscribe({
+        next: (res) => {
+          if (res.status === 'scheduled') {
+            const nxt = res.nextRun ? `Próxima: ${res.nextRun}` : '';
+            this.snack(`Agendado com sucesso. ${nxt}`);
+          } else {
+            this.snack('Relatório enviado por e-mail.');
+          }
+        },
+        error: () => {
+          this.snack('Falha ao agendar ou enviar.');
+        },
+      });
+    });
   moveSnippetToFolder(id: string) {
     const sn = this.snippetsStore.get(id);
     if (!sn) return;
@@ -539,6 +614,38 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
     const mm = pad(value.getMinutes());
     const ss = pad(value.getSeconds());
     return `${yyyy}-${MM}-${dd} ${HH}:${mm}:${ss}`;
+  }
+
+  private buildSummaries(columns: string[], rows: any[]) {
+    return columns
+      .map((column) => {
+        let sum = 0;
+        let hasNumber = false;
+
+        for (const row of rows) {
+          const value = row?.[column];
+          if (value === null || value === undefined || value === '') continue;
+
+          if (typeof value !== 'number' || !Number.isFinite(value)) {
+            return { column, sum: null };
+          }
+
+          sum += value;
+          hasNumber = true;
+        }
+
+        return { column, sum: hasNumber ? sum : null };
+      })
+      .filter((s) => s.sum !== null);
+  }
+
+  private downloadBlob(blob: Blob, fileName: string) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   private expandVariables(sql: string, vars: Record<string, any>): string {

@@ -84,6 +84,9 @@
 <div class="toolbar">
   <div class="btns">
     <button mat-raised-button color="primary" (click)="run()">Executar (Ctrl+Enter)</button>
+    <button mat-stroked-button color="primary" (click)="openScheduleDialog()">
+      Agendar envio por e-mail
+    </button>
     <button
       mat-stroked-button
       (click)="copyResultsForExcel()"
@@ -91,6 +94,9 @@
       [class.pulse]="copied"
     >
       {{ copied ? 'Copiado!' : 'Copiar p/ Excel' }}
+    </button>
+    <button mat-stroked-button (click)="exportPdfViaJsreport()" [disabled]="rows.length === 0">
+      Exportar PDF (jsreport)
     </button>
     <button mat-stroked-button (click)="saveQueryAsSql()">Salvar .sql</button>
     <button mat-stroked-button (click)="saveCurrentAsSnippet()">Salvar favorito (Ctrl+S)</button>
