@@ -416,8 +416,9 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const columns =
-      this.displayedColumns?.length ? this.displayedColumns : Object.keys(this.rows[0] ?? {});
+    const columns = this.displayedColumns?.length
+      ? this.displayedColumns
+      : Object.keys(this.rows[0] ?? {});
     const maxRows = 500;
     const dataRows = this.rows.slice(0, maxRows);
     const summaries = this.buildSummaries(columns, dataRows);
@@ -512,6 +513,7 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
         },
       });
     });
+  }
   moveSnippetToFolder(id: string) {
     const sn = this.snippetsStore.get(id);
     if (!sn) return;

@@ -134,26 +134,64 @@
   border: 1px solid var(--border-subtle);
   border-radius: 10px;
   background: var(--bg-surface-alt);
+  display: flex;
+  flex-direction: column;
+}
+
+.sql__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px 0 10px;
 }
 
 .sql .label {
-  display: block;
-  padding: 6px 10px 0 10px;
   font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text-muted);
 }
 
-.sql pre {
-  margin: 0;
+.sql__toggle {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  line-height: 1;
+  gap: 4px;
+  padding: 0 4px;
+  min-width: 0;
+  color: var(--text-muted);
+  text-transform: none;
+}
+
+.sql__body {
+  position: relative;
   padding: 8px 10px 10px;
+}
+
+.sql__body pre {
+  margin: 0;
   white-space: pre-wrap;
   word-break: break-word;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
     'Courier New', monospace;
   font-size: 13px;
   color: var(--text-primary);
+}
+
+.sql--collapsed .sql__body {
+  max-height: 220px;
+  overflow: hidden;
+}
+
+.sql__fade {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 10px;
+  height: 48px;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0) 0%, var(--bg-surface-alt) 100%);
 }
 
 .meta {

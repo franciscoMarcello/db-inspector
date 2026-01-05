@@ -111,9 +111,12 @@
   border-radius: 10px;
   border: 1px solid var(--border-subtle);
   background: var(--bg-surface-alt);
-  font-size: 12px;
+  font-size: 11px;
   white-space: pre-wrap;
   color: var(--text-primary);
+  max-height: 96px;
+  overflow: hidden;
+  position: relative;
 }
 
 .actions {

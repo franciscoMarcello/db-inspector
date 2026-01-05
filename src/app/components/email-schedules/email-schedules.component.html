@@ -40,9 +40,27 @@
         <div class="time">{{ s.time }} • {{ formatDays(s.days) }}</div>
       </div>
 
-      <div class="sql">
-        <span class="label">SQL</span>
-        <pre>{{ s.sql }}</pre>
+      <div class="sql" [class.sql--collapsed]="!isSqlExpanded(s)">
+        <div class="sql__header">
+          <span class="label">SQL</span>
+          <button
+            mat-button
+            type="button"
+            class="sql__toggle"
+            (click)="toggleSql(s)"
+            [attr.aria-expanded]="isSqlExpanded(s)"
+          >
+            {{ isSqlExpanded(s) ? 'Ver menos' : 'Ver mais' }}
+            <mat-icon
+              [fontIcon]="isSqlExpanded(s) ? 'expand_less' : 'expand_more'"
+              aria-hidden="true"
+            ></mat-icon>
+          </button>
+        </div>
+        <div class="sql__body">
+          <pre>{{ s.sql }}</pre>
+          <div class="sql__fade" *ngIf="!isSqlExpanded(s)"></div>
+        </div>
       </div>
 
       <div class="meta">

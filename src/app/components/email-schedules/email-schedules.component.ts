@@ -44,6 +44,7 @@ export class EmailSchedulesComponent implements OnInit {
   schedules: EmailSchedule[] = [];
   filter = '';
   loading = false;
+  private expandedSql = new Set<string>();
 
   dayLabels: Record<string, string> = {
     mon: 'Seg',
@@ -82,6 +83,18 @@ export class EmailSchedulesComponent implements OnInit {
 
   trackId = (_: number, s: EmailSchedule) => s.id;
 
+  isSqlExpanded(schedule: EmailSchedule): boolean {
+    return this.expandedSql.has(schedule.id);
+  }
+
+  toggleSql(schedule: EmailSchedule) {
+    if (this.expandedSql.has(schedule.id)) {
+      this.expandedSql.delete(schedule.id);
+    } else {
+      this.expandedSql.add(schedule.id);
+    }
+  }
+
   startNew() {
     const dialogRef = this.dialog.open(EmailScheduleDialogComponent, {
       width: '1024px',
@@ -105,6 +118,7 @@ export class EmailSchedulesComponent implements OnInit {
         .subscribe({
           next: (schedule) => {
             this.schedules = [this.toUiSchedule(schedule), ...this.schedules];
+            this.pruneExpandedSql();
             this.snack('Agendado com sucesso.');
           },
           error: () => this.snack('Falha ao agendar.'),
@@ -155,6 +169,7 @@ export class EmailSchedulesComponent implements OnInit {
           next: (updated) => {
             const mapped = this.toUiSchedule(updated);
             this.schedules = this.schedules.map((s) => (s.id === updated.id ? mapped : s));
+            this.pruneExpandedSql();
             this.snack('Agendamento atualizado.');
           },
           error: () => this.snack('Falha ao atualizar agendamento.'),
@@ -203,6 +218,7 @@ export class EmailSchedulesComponent implements OnInit {
     this.api.deleteEmailSchedule(schedule.id).subscribe({
       next: () => {
         this.schedules = this.schedules.filter((s) => s.id !== schedule.id);
+        this.pruneExpandedSql();
         this.snack('Agendamento removido.');
       },
       error: () => this.snack('Falha ao remover agendamento.'),
@@ -222,6 +238,7 @@ export class EmailSchedulesComponent implements OnInit {
     this.api.listEmailSchedules().subscribe({
       next: (schedules) => {
         this.schedules = (schedules || []).map((s) => this.toUiSchedule(s));
+        this.pruneExpandedSql();
         this.loading = false;
       },
       error: () => {
@@ -256,6 +273,15 @@ export class EmailSchedulesComponent implements OnInit {
     const value = (status || '').toUpperCase();
     if (!value) return true;
     return value !== 'PAUSED' && value !== 'DISABLED';
+  }
+
+  private pruneExpandedSql() {
+    const ids = new Set(this.schedules.map((s) => s.id));
+    this.expandedSql.forEach((id) => {
+      if (!ids.has(id)) {
+        this.expandedSql.delete(id);
+      }
+    });
   }
 
   private toApiDays(days: string[]): string[] {
