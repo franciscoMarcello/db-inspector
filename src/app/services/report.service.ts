@@ -9,11 +9,13 @@ export type ReportFolder = {
   id: string;
   name: string;
   description: string | null;
+  archived: boolean;
 };
 
 export type ReportFolderInput = {
   name: string;
   description: string | null;
+  archived?: boolean;
 };
 
 export type ReportVariable = {
@@ -39,6 +41,7 @@ export type ReportDefinition = {
   sql: string;
   description: string | null;
   variables: ReportVariable[];
+  archived: boolean;
   createdAt: number;
   updatedAt: number;
 };
@@ -50,6 +53,7 @@ export type ReportCreateInput = {
   sql: string;
   description: string | null;
   variables: ReportVariableInput[];
+  archived?: boolean;
 };
 
 export type ReportRunSummary = {
@@ -162,6 +166,7 @@ export class ReportService {
         item?.description === null || item?.description === undefined
           ? null
           : String(item.description),
+      archived: Boolean(item?.archived),
     };
   }
 
@@ -192,6 +197,7 @@ export class ReportService {
       variables: Array.isArray(item?.variables)
         ? item.variables.map((v: any) => this.normalizeVariable(v))
         : [],
+      archived: Boolean(item?.archived),
       createdAt: Number(item?.createdAt ?? item?.created_at ?? 0),
       updatedAt: Number(item?.updatedAt ?? item?.updated_at ?? 0),
     };

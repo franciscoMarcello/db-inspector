@@ -32,6 +32,13 @@
   font-weight: 700;
 }
 
+.tree-header__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .tree-header p {
   margin: 4px 0 0;
   color: var(--text-muted);
@@ -56,12 +63,19 @@
 }
 
 .tree-list {
-  padding: 8px;
+  padding: 10px 8px 12px;
   overflow: auto;
 }
 
 .tree-folder + .tree-folder {
-  margin-top: 6px;
+  margin-top: 8px;
+}
+
+.folder-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: center;
 }
 
 .folder-btn,
@@ -72,8 +86,8 @@
   color: inherit;
   text-align: left;
   cursor: pointer;
-  min-height: 28px;
-  border-radius: 6px;
+  min-height: 30px;
+  border-radius: 8px;
 }
 
 .folder-btn:hover,
@@ -91,17 +105,36 @@
 .folder-btn {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 0 6px;
+  gap: 8px;
+  padding: 0 8px;
+  background: #101a2f;
+  border: 1px solid #1e2b46;
 }
 
 .folder-btn.active {
-  background: rgba(37, 99, 235, 0.12);
+  background: #15284f;
+  border-color: #3558a8;
 }
 
 .folder-name {
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.folder-count {
+  margin-left: auto;
+  font-size: 11px;
+  color: #a9b4cc;
+  background: #0d1527;
+  border: 1px solid #263551;
+  border-radius: 999px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .mini {
@@ -109,19 +142,33 @@
 }
 
 .tree-reports {
-  margin-left: 44px;
+  margin-left: 12px;
+  margin-top: 4px;
   display: grid;
+  gap: 4px;
 }
 
 .report-leaf {
   font-size: 12px;
-  color: var(--text-muted);
-  padding: 0 8px;
+  color: #ced9ee;
+  padding: 0 10px;
+  min-height: 28px;
+  border-left: 3px solid transparent;
+  background: #0d1527;
+  border: 1px solid #1b2841;
 }
 
 .report-leaf.active {
-  background: var(--chip-bg-active);
+  background: #4d66f2;
   color: #fff;
+  border-left-color: #a5b4fc;
+  border-color: #627eff;
+}
+
+.tree-empty {
+  color: #7f8ba5;
+  font-size: 11px;
+  padding: 4px 10px;
 }
 
 .content-panel {
@@ -245,6 +292,28 @@
   gap: 6px;
 }
 
+.btn:disabled {
+  background: #334155 !important;
+  border-color: #475569 !important;
+  color: #94a3b8 !important;
+  cursor: not-allowed;
+  opacity: 0.85;
+}
+
+.btn:disabled .btn-icon {
+  opacity: 0.7;
+}
+
+.btn--icon {
+  min-width: 30px;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  justify-content: center;
+  border: none !important;
+  box-shadow: none !important;
+}
+
 .btn--primary {
   background: #4f647a;
   color: #fff;
@@ -286,6 +355,22 @@
   border-color: #b91c1c;
 }
 
+.btn--archive {
+  background: #3f3f46;
+  color: #f4f4f5;
+  border-color: #52525b;
+}
+
+.folder-plus {
+  opacity: 0.9;
+  background: #1b2943;
+  color: #c9d4e9;
+}
+
+.folder-plus:hover {
+  opacity: 1;
+}
+
 .btn-icon {
   font-size: 12px;
   line-height: 1;
@@ -309,6 +394,7 @@
   max-height: 56vh;
   border: 1px solid var(--border-subtle);
   border-radius: 8px;
+  padding: 2px;
 }
 
 table {
@@ -331,6 +417,12 @@ th {
   background: var(--bg-surface);
   font-weight: 700;
   letter-spacing: 0.01em;
+}
+
+.no-results {
+  padding: 18px;
+  color: var(--text-muted);
+  font-size: 13px;
 }
 
 .status-line {

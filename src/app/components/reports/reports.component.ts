@@ -40,6 +40,7 @@ const REPORT_DRAFT_SQL_KEY = 'dbi.reports.pending_sql';
 })
 export class ReportsComponent implements OnInit {
   folders: FolderNode[] = [];
+  allFolders: ReportFolder[] = [];
   reports: ReportDefinition[] = [];
   runResult: ReportRunResponse | null = null;
 
@@ -87,6 +88,13 @@ export class ReportsComponent implements OnInit {
     return result.rows;
   }
 
+  get hasResultRows(): boolean {
+    const result = this.runResult;
+    if (!result) return false;
+    const metaCount = Number(result.meta?.rowCount ?? 0);
+    return metaCount > 0 && this.displayedRows.length > 0;
+  }
+
   get selectedReportVariables() {
     return [...(this.selectedReport?.variables ?? [])].sort((a, b) => a.orderIndex - b.orderIndex);
   }
@@ -116,6 +124,10 @@ export class ReportsComponent implements OnInit {
 
   reportsByFolder(folder: FolderNode): ReportDefinition[] {
     return this.reports.filter((report) => this.belongsToFolder(report, folder));
+  }
+
+  reportCountByFolder(folder: FolderNode): number {
+    return this.reportsByFolder(folder).length;
   }
 
   toggleFolder(folderId: string) {
@@ -153,13 +165,26 @@ export class ReportsComponent implements OnInit {
       return;
     }
 
+    const archivedMatch = this.allFolders.find(
+      (folder) => folder.archived && folder.name.toLowerCase() === name.toLowerCase()
+    );
+    if (archivedMatch) {
+      this.statusMessage = 'Ja existe uma pasta arquivada com esse nome. Desarquive-a para reutilizar.';
+      return;
+    }
+
     this.reportService.createFolder({ name, description: null }).subscribe({
       next: (folder) => {
         this.statusMessage = `Pasta "${folder.name}" criada.`;
         this.newFolderName = '';
         this.loadData(undefined, folder.id);
       },
-      error: () => {
+      error: (err: HttpErrorResponse) => {
+        if (err.status === 409) {
+          this.statusMessage =
+            'Nao foi possivel criar: ja existe uma pasta com esse nome (ativa ou arquivada).';
+          return;
+        }
         this.statusMessage = 'Falha ao criar pasta.';
       },
     });
@@ -209,6 +234,29 @@ export class ReportsComponent implements OnInit {
     });
   }
 
+  archiveSelectedFolder() {
+    const folder = this.selectedFolder;
+    if (!folder) {
+      this.statusMessage = 'Selecione uma pasta para arquivar.';
+      return;
+    }
+    this.reportService
+      .updateFolder(folder.id, {
+        name: folder.name,
+        description: folder.description,
+        archived: true,
+      })
+      .subscribe({
+        next: () => {
+          this.statusMessage = `Pasta "${folder.name}" arquivada.`;
+          this.loadData();
+        },
+        error: () => {
+          this.statusMessage = 'Falha ao arquivar pasta.';
+        },
+      });
+  }
+
   applyFilters() {
     this.statusMessage = 'Consulta executada.';
     this.runSelectedReport();
@@ -232,6 +280,12 @@ export class ReportsComponent implements OnInit {
       folderId: folder.id,
     };
     this.syncDraftVariablesFromSql();
+  }
+
+  openCreateReportForFolder(folder: FolderNode, event?: Event) {
+    event?.stopPropagation();
+    this.selectedFolderId = folder.id;
+    this.openCreateReportModal(undefined);
   }
 
   openEditReportModal() {
@@ -299,6 +353,7 @@ export class ReportsComponent implements OnInit {
       sql,
       description: description || null,
       variables,
+      archived: false,
     };
 
     if (this.reportModalMode === 'create') {
@@ -351,6 +406,52 @@ export class ReportsComponent implements OnInit {
     });
   }
 
+  archiveSelectedReport() {
+    const current = this.selectedReport;
+    if (!current) {
+      this.statusMessage = 'Selecione um relatório para arquivar.';
+      return;
+    }
+    const folder = this.selectedFolder;
+    const folderId =
+      current.folderId ??
+      folder?.id ??
+      this.folders.find((f) => f.name === current.folderName || f.name === current.templateName)?.id;
+
+    if (!folderId) {
+      this.statusMessage = 'Não foi possível identificar a pasta do relatório para arquivar.';
+      return;
+    }
+
+    const payload: ReportCreateInput = {
+      name: current.name,
+      folderId,
+      templateName: folder?.name ?? current.folderName ?? current.templateName,
+      sql: current.sql,
+      description: current.description,
+      variables: (current.variables || []).map((v, idx) => ({
+        id: v.id,
+        key: v.key,
+        label: v.label,
+        type: v.type,
+        required: v.required,
+        defaultValue: v.defaultValue,
+        orderIndex: Number.isFinite(v.orderIndex) ? v.orderIndex : idx,
+      })),
+      archived: true,
+    };
+
+    this.reportService.updateReport(current.id, payload).subscribe({
+      next: () => {
+        this.statusMessage = `Relatório "${current.name}" arquivado.`;
+        this.loadData();
+      },
+      error: () => {
+        this.statusMessage = 'Falha ao arquivar relatório.';
+      },
+    });
+  }
+
   exportExcel() {
     const result = this.runResult;
     if (!result) return;
@@ -373,8 +474,9 @@ export class ReportsComponent implements OnInit {
       reports: this.reportService.listReports(),
     }).subscribe({
       next: ({ folders, reports }) => {
-        this.reports = reports || [];
-        this.rebuildFolders(folders || []);
+        this.allFolders = folders || [];
+        this.reports = (reports || []).filter((r) => !r.archived);
+        this.rebuildFolders((folders || []).filter((f) => !f.archived));
         this.reconcileSelection(preferredReportId, preferredFolderId);
         if (this.pendingCreateSql) {
           const sql = this.pendingCreateSql;
