@@ -1,4 +1,4 @@
-<div [class.dark-theme]="theme === 'dark'">
+<div class="app-shell" [class.dark-theme]="theme === 'dark'">
   <mat-toolbar class="app-toolbar">
     <span class="title">DB Inspector UI</span>
     @if (activeNameValue) {
@@ -35,6 +35,10 @@
   <div class="page">
     <router-outlet></router-outlet>
   </div>
+
+  <footer class="app-footer">
+    <span>Versão {{ appVersion }}</span>
+  </footer>
 
   <app-modal #envModal (saved)="onSaved($event)"></app-modal>
 </div>
