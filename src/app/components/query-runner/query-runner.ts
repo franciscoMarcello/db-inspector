@@ -14,6 +14,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { QueryParam, QueryParamsDialog } from '../query-params-dialog/query-params-dialog';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { Router } from '@angular/router';
 import {
   EmailScheduleDialogComponent,
   EmailScheduleResult,
@@ -22,6 +23,7 @@ import { MatIconModule } from '@angular/material/icon';
 
 const STORAGE_KEY = 'dbi.query.state';
 const SQL_VARIABLE_RE = /(^|[^:]):([A-Za-z_][A-Za-z0-9_]*)/g;
+const REPORT_DRAFT_SQL_KEY = 'dbi.reports.pending_sql';
 
 @Component({
   selector: 'app-query-runner',
@@ -71,7 +73,8 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
     private api: DbInspectorService,
     private snackBar: MatSnackBar,
     private snippetsStore: SnippetStorageService,
-    private dialog: MatDialog
+    private dialog: MatDialog,
+    private router: Router
   ) {}
 
   snippets: QuerySnippet[] = [];
@@ -402,7 +405,19 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
     this.snack('Arquivo .sql baixado.');
   }
 
-  saveAsReport() {}
+  saveAsReport() {
+    const sql = (this.query || '').trim();
+    if (!sql) {
+      this.snack('Nada para salvar como relatório.');
+      return;
+    }
+
+    try {
+      localStorage.setItem(REPORT_DRAFT_SQL_KEY, sql);
+    } catch {}
+
+    this.router.navigate(['/reports']);
+  }
 
   private makeFileName(prefix: string, ext: string) {
     const d = new Date();
