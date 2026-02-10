@@ -13,6 +13,22 @@
         (keydown.enter)="createFolder()"
       />
       <button type="button" class="btn btn--primary" (click)="createFolder()">Criar</button>
+      <button
+        type="button"
+        class="btn btn--secondary"
+        (click)="renameSelectedFolder()"
+        [disabled]="!selectedFolder"
+      >
+        Renomear
+      </button>
+      <button
+        type="button"
+        class="btn btn--secondary"
+        (click)="deleteSelectedFolder()"
+        [disabled]="!selectedFolder"
+      >
+        Excluir pasta
+      </button>
     </div>
 
     <div class="tree-list">
@@ -33,7 +49,7 @@
           <button
             type="button"
             class="report-leaf"
-            *ngFor="let report of reportsByFolder(folder.id)"
+            *ngFor="let report of reportsByFolder(folder)"
             [class.active]="selectedReportId === report.id"
             (click)="selectReport(report.id)"
           >
@@ -47,47 +63,99 @@
   <main class="content-panel">
     <section class="card filters">
       <div class="title">
-        <h2>{{ selectedReport?.name || 'Relatorio' }}</h2>
+        <h2>{{ runResult?.name || selectedReport?.name || 'Relatorio' }}</h2>
         <p>{{ selectedReport?.description || 'Selecione um relatorio na arvore.' }}</p>
       </div>
 
-      <div class="filters-grid">
-        <label>
-          <span>Filtro</span>
-          <input type="text" [(ngModel)]="filterTerm" placeholder="Ex.: curral D04" />
-        </label>
-        <label>
-          <span>Periodo inicial</span>
-          <input type="date" [(ngModel)]="periodFrom" />
-        </label>
-        <label>
-          <span>Periodo final</span>
-          <input type="date" [(ngModel)]="periodTo" />
-        </label>
+      <div class="vars-panel" *ngIf="selectedReportVariables.length">
+        <div class="vars-title">Parâmetros da consulta</div>
+        <div class="vars-grid">
+          <label class="var-field" *ngFor="let v of selectedReportVariables">
+            <span>{{ v.label || v.key }} <em *ngIf="v.required">*</em></span>
+            <ng-container [ngSwitch]="v.type">
+              <input
+                *ngSwitchCase="'date'"
+                type="date"
+                [(ngModel)]="variableInputs[v.key]"
+                [ngModelOptions]="{ standalone: true }"
+              />
+              <input
+                *ngSwitchCase="'datetime'"
+                type="datetime-local"
+                [(ngModel)]="variableInputs[v.key]"
+                [ngModelOptions]="{ standalone: true }"
+              />
+              <input
+                *ngSwitchCase="'number'"
+                type="number"
+                [(ngModel)]="variableInputs[v.key]"
+                [ngModelOptions]="{ standalone: true }"
+              />
+              <select
+                *ngSwitchCase="'boolean'"
+                [(ngModel)]="variableInputs[v.key]"
+                [ngModelOptions]="{ standalone: true }"
+              >
+                <option value="">(padrão)</option>
+                <option value="true">true</option>
+                <option value="false">false</option>
+              </select>
+              <input
+                *ngSwitchDefault
+                type="text"
+                [(ngModel)]="variableInputs[v.key]"
+                [ngModelOptions]="{ standalone: true }"
+              />
+            </ng-container>
+          </label>
+        </div>
       </div>
 
-      <div class="actions" *ngIf="selectedReport as report">
-        <button type="button" class="btn btn--primary" (click)="applyFilters()">Aplicar</button>
-        <button type="button" class="btn btn--secondary" (click)="exportExcel(report)">
-          Exportar Excel
+      <p class="params-error" *ngIf="paramsError">{{ paramsError }}</p>
+
+      <div class="actions">
+        <button type="button" class="btn btn--primary" (click)="applyFilters()">
+          <span class="btn-icon">▶</span> Executar
         </button>
-        <button type="button" class="btn btn--secondary" (click)="exportPdf(report)">
-          Exportar PDF
+        <button type="button" class="btn btn--neutral" (click)="openCreateReportModal()">
+          <span class="btn-icon">＋</span> Novo relatorio
+        </button>
+        <button
+          type="button"
+          class="btn btn--edit"
+          (click)="openEditReportModal()"
+          [disabled]="!selectedReport"
+        >
+          <span class="btn-icon">✎</span> Editar
+        </button>
+        <button type="button" class="btn btn--danger" (click)="deleteSelectedReport()" [disabled]="!selectedReport">
+          <span class="btn-icon">🗑</span> Excluir
+        </button>
+        <button type="button" class="btn btn--excel" (click)="exportExcel()" [disabled]="!runResult">
+          <span class="btn-icon">⤓</span> Exportar Excel
+        </button>
+        <button type="button" class="btn btn--pdf" (click)="exportPdf()" [disabled]="!runResult">
+          <span class="btn-icon">⎙</span> Exportar PDF
         </button>
       </div>
     </section>
 
-    <section class="card table-card" *ngIf="selectedReport as report; else emptyState">
+    <section class="card table-card" *ngIf="runResult as result; else emptyState">
+      <div class="table-meta">
+        <span>Total de linhas: <strong>{{ result.meta.rowCount }}</strong></span>
+        <span>Exibindo: <strong>{{ displayedRows.length }}</strong></span>
+        <span *ngIf="result.meta.elapsedMs">Tempo: <strong>{{ result.meta.elapsedMs }} ms</strong></span>
+      </div>
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
-              <th *ngFor="let col of report.columns">{{ col }}</th>
+              <th *ngFor="let col of result.columns">{{ col }}</th>
             </tr>
           </thead>
           <tbody>
             <tr *ngFor="let row of displayedRows">
-              <td *ngFor="let col of report.columns">{{ row[col] }}</td>
+              <td *ngFor="let col of result.columns">{{ row[col] }}</td>
             </tr>
           </tbody>
         </table>
@@ -98,10 +166,120 @@
 
 <ng-template #emptyState>
   <section class="card table-card">
-    <p class="muted">Nenhum relatorio selecionado.</p>
+    <p class="muted">{{ loadingRun ? 'Executando relatorio...' : 'Nenhum resultado para exibir.' }}</p>
   </section>
 </ng-template>
 
 <section class="card status-card" *ngIf="statusMessage">
-  <p>{{ statusMessage }}</p>
+  <div class="status-line" [ngClass]="statusToneClass">
+    <strong>{{ statusTitle }}</strong>
+    <span>{{ statusMessage }}</span>
+  </div>
+  <div class="status-meta" *ngIf="runResult?.meta as meta">
+    <span>Ambiente: {{ meta.environment || 'N/A' }}</span>
+    <span>Gerado em: {{ meta.generatedAt || 'N/A' }}</span>
+    <span>Última execução: {{ meta.lastRunAt || 'N/A' }}</span>
+    <span>Linhas: {{ meta.rowCount }}</span>
+    <span>Tempo: {{ meta.elapsedMs }} ms</span>
+  </div>
 </section>
+
+<dialog class="report-modal" [open]="reportModalOpen">
+  <div class="report-modal__panel">
+    <div class="report-modal__header">
+      <h3>{{ reportModalMode === 'create' ? 'Novo relatório' : 'Editar relatório' }}</h3>
+      <button type="button" class="btn btn--secondary" (click)="closeReportModal()">Fechar</button>
+    </div>
+
+    <div class="report-modal__body">
+      <label class="var-field">
+        <span>Nome</span>
+        <input
+          type="text"
+          [(ngModel)]="reportDraft.name"
+          [ngModelOptions]="{ standalone: true }"
+          placeholder="Nome do relatório"
+        />
+      </label>
+
+      <label class="var-field">
+        <span>Pasta</span>
+        <select [(ngModel)]="reportDraft.folderId" [ngModelOptions]="{ standalone: true }">
+          <option *ngFor="let folder of folders" [value]="folder.id">{{ folder.name }}</option>
+        </select>
+      </label>
+
+      <label class="var-field">
+        <span>Descrição</span>
+        <input
+          type="text"
+          [(ngModel)]="reportDraft.description"
+          [ngModelOptions]="{ standalone: true }"
+          placeholder="Descrição (opcional)"
+        />
+      </label>
+
+      <label class="var-field">
+        <span>SQL</span>
+        <textarea
+          rows="10"
+          [(ngModel)]="reportDraft.sql"
+          [ngModelOptions]="{ standalone: true }"
+          (input)="onDraftSqlChanged()"
+          placeholder="SELECT * FROM ... WHERE data >= :data_inicio"
+        ></textarea>
+      </label>
+
+      <div class="vars-panel">
+        <div class="vars-title">Variáveis detectadas</div>
+        <div class="draft-vars-empty" *ngIf="!reportDraftVariables.length">
+          Nenhum placeholder :variavel detectado na SQL.
+        </div>
+        <div class="draft-vars-grid" *ngIf="reportDraftVariables.length">
+          <div class="draft-vars-head">Usar</div>
+          <div class="draft-vars-head">Key</div>
+          <div class="draft-vars-head">Label</div>
+          <div class="draft-vars-head">Tipo</div>
+          <div class="draft-vars-head">Obrigatória</div>
+          <div class="draft-vars-head">Padrão</div>
+
+          <ng-container *ngFor="let v of reportDraftVariables">
+            <div>
+              <input type="checkbox" [(ngModel)]="v.enabled" [ngModelOptions]="{ standalone: true }" />
+            </div>
+            <div>{{ v.key }}</div>
+            <div>
+              <input type="text" [(ngModel)]="v.label" [ngModelOptions]="{ standalone: true }" />
+            </div>
+            <div>
+              <select [(ngModel)]="v.type" [ngModelOptions]="{ standalone: true }">
+                <option value="string">string</option>
+                <option value="number">number</option>
+                <option value="date">date</option>
+                <option value="datetime">datetime</option>
+                <option value="boolean">boolean</option>
+              </select>
+            </div>
+            <div>
+              <input type="checkbox" [(ngModel)]="v.required" [ngModelOptions]="{ standalone: true }" />
+            </div>
+            <div>
+              <input
+                type="text"
+                [(ngModel)]="v.defaultValue"
+                [ngModelOptions]="{ standalone: true }"
+                placeholder="opcional"
+              />
+            </div>
+          </ng-container>
+        </div>
+      </div>
+
+      <p class="params-error" *ngIf="reportDraftError">{{ reportDraftError }}</p>
+    </div>
+
+    <div class="report-modal__footer">
+      <button type="button" class="btn btn--primary" (click)="saveReportFromModal()">Salvar</button>
+    </div>
+  </div>
+</dialog>
