@@ -11,130 +11,132 @@
   <div *ngIf="loading" class="td-loading">Carregando detalhes...</div>
   <div *ngIf="error" class="td-error">{{ error }}</div>
   <ng-container *ngIf="!loading && !error">
-    <div class="td-cols-wrapper">
-      <table mat-table [dataSource]="columns" class="td-cols-table mat-elevation-z1">
-        <ng-container matColumnDef="column_name">
-          <th mat-header-cell *matHeaderCellDef>Coluna</th>
-          <td mat-cell *matCellDef="let col">
-            {{ col.column_name }}
-          </td>
-        </ng-container>
-
-        <ng-container matColumnDef="data_type">
-          <th mat-header-cell *matHeaderCellDef>Tipo</th>
-          <td mat-cell *matCellDef="let col">
-            {{ col.data_type }}
-          </td>
-        </ng-container>
-
-        <ng-container matColumnDef="nullable">
-          <th mat-header-cell *matHeaderCellDef>Null</th>
-          <td mat-cell *matCellDef="let col" class="td-center">
-            <mat-icon *ngIf="col.is_nullable" class="td-icon-ok" matTooltip="Aceita nulo">
-              check_circle
-            </mat-icon>
-            <mat-icon *ngIf="!col.is_nullable" class="td-icon-bad" matTooltip="Não aceita nulo">
-              cancel
-            </mat-icon>
-          </td>
-        </ng-container>
-
-        <ng-container matColumnDef="default">
-          <th mat-header-cell *matHeaderCellDef>Default</th>
-          <td mat-cell *matCellDef="let col">
-            {{ col.column_default || '—' }}
-          </td>
-        </ng-container>
-
-        <ng-container matColumnDef="pk">
-          <th mat-header-cell *matHeaderCellDef class="pk-header">PK</th>
-          <td mat-cell *matCellDef="let col" class="td-center pk-cell">
-            <mat-icon *ngIf="col.is_pk" matTooltip="Primary key"> vpn_key </mat-icon>
-            <span *ngIf="!col.is_pk">—</span>
-          </td>
-        </ng-container>
-        <ng-container matColumnDef="fk">
-          <th mat-header-cell *matHeaderCellDef class="fk-header">FK</th>
-          <td mat-cell *matCellDef="let col" class="td-center fk-cell">
-            <ng-container *ngIf="col.is_fk; else noFk">
-              <button
-                mat-icon-button
-                matTooltip="FK para {{ getFkLabel(col) }}"
-                (click)="onFkClick(col, $event)"
-              >
-                <mat-icon>link</mat-icon>
-              </button>
-            </ng-container>
-            <ng-template #noFk>—</ng-template>
-          </td>
-        </ng-container>
-        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-
-        <tr
-          mat-row
-          *matRowDef="let row; columns: displayedColumns"
-          [ngClass]="{
-            'td-row-pk': row.is_pk,
-            'td-row-fk': row.is_fk
-          }"
-        ></tr>
-      </table>
-    </div>
-    <div class="relations-block">
-      <h4>Relações (FK)</h4>
-
-      <div class="relations-scroll" *ngIf="relations.length; else noRelations">
-        <table mat-table [dataSource]="relations" class="td-rel-table mat-elevation-z1">
-          <!-- Coluna origem -->
-          <ng-container matColumnDef="source_column">
+    <div class="td-main-layout">
+      <div class="td-cols-wrapper">
+        <table mat-table [dataSource]="columns" class="td-cols-table mat-elevation-z1">
+          <ng-container matColumnDef="column_name">
             <th mat-header-cell *matHeaderCellDef>Coluna</th>
-            <td mat-cell *matCellDef="let r">
-              {{ r.source_column }}
-            </td>
-          </ng-container>
-          <ng-container matColumnDef="target_schema">
-            <th mat-header-cell *matHeaderCellDef>Esquema destino</th>
-            <td mat-cell *matCellDef="let r">
-              {{ r.target_schema || '—' }}
-            </td>
-          </ng-container>
-          <ng-container matColumnDef="target_table">
-            <th mat-header-cell *matHeaderCellDef>Tabela destino</th>
-            <td mat-cell *matCellDef="let r">
-              {{ r.target_table }}
+            <td mat-cell *matCellDef="let col">
+              {{ col.column_name }}
             </td>
           </ng-container>
 
-          <!-- Coluna destino -->
-          <ng-container matColumnDef="target_column">
-            <th mat-header-cell *matHeaderCellDef>Coluna destino</th>
-            <td mat-cell *matCellDef="let r">
-              {{ r.target_column }}
+          <ng-container matColumnDef="data_type">
+            <th mat-header-cell *matHeaderCellDef>Tipo</th>
+            <td mat-cell *matCellDef="let col">
+              {{ col.data_type }}
             </td>
           </ng-container>
 
-          <ng-container matColumnDef="actions">
-            <th mat-header-cell *matHeaderCellDef></th>
-            <td mat-cell *matCellDef="let r" class="rel-action">
-              <button
-                mat-stroked-button
-                color="primary"
-                (click)="gotoTable(r.target_table); $event.stopPropagation()"
-              >
-                Ver tabela
-              </button>
+          <ng-container matColumnDef="nullable">
+            <th mat-header-cell *matHeaderCellDef>Null</th>
+            <td mat-cell *matCellDef="let col" class="td-center">
+              <mat-icon *ngIf="col.is_nullable" class="td-icon-ok" matTooltip="Aceita nulo">
+                check_circle
+              </mat-icon>
+              <mat-icon *ngIf="!col.is_nullable" class="td-icon-bad" matTooltip="Não aceita nulo">
+                cancel
+              </mat-icon>
             </td>
           </ng-container>
 
-          <tr mat-header-row *matHeaderRowDef="relDisplayedColumns"></tr>
+          <ng-container matColumnDef="default">
+            <th mat-header-cell *matHeaderCellDef>Default</th>
+            <td mat-cell *matCellDef="let col">
+              {{ col.column_default || '—' }}
+            </td>
+          </ng-container>
 
-          <tr mat-row *matRowDef="let row; columns: relDisplayedColumns"></tr>
+          <ng-container matColumnDef="pk">
+            <th mat-header-cell *matHeaderCellDef class="pk-header">PK</th>
+            <td mat-cell *matCellDef="let col" class="td-center pk-cell">
+              <mat-icon *ngIf="col.is_pk" matTooltip="Primary key"> vpn_key </mat-icon>
+              <span *ngIf="!col.is_pk">—</span>
+            </td>
+          </ng-container>
+          <ng-container matColumnDef="fk">
+            <th mat-header-cell *matHeaderCellDef class="fk-header">FK</th>
+            <td mat-cell *matCellDef="let col" class="td-center fk-cell">
+              <ng-container *ngIf="col.is_fk; else noFk">
+                <button
+                  mat-icon-button
+                  matTooltip="FK para {{ getFkLabel(col) }}"
+                  (click)="onFkClick(col, $event)"
+                >
+                  <mat-icon>link</mat-icon>
+                </button>
+              </ng-container>
+              <ng-template #noFk>—</ng-template>
+            </td>
+          </ng-container>
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+
+          <tr
+            mat-row
+            *matRowDef="let row; columns: displayedColumns"
+            [ngClass]="{
+              'td-row-pk': row.is_pk,
+              'td-row-fk': row.is_fk
+            }"
+          ></tr>
         </table>
       </div>
+      <div class="relations-block">
+        <h4>Relações (FK)</h4>
 
-      <ng-template #noRelations>
-        <div class="muted">Nenhuma relação encontrada.</div>
-      </ng-template>
+        <div class="relations-scroll" *ngIf="relations.length; else noRelations">
+          <table mat-table [dataSource]="relations" class="td-rel-table mat-elevation-z1">
+            <!-- Coluna origem -->
+            <ng-container matColumnDef="source_column">
+              <th mat-header-cell *matHeaderCellDef>Coluna</th>
+              <td mat-cell *matCellDef="let r">
+                {{ r.source_column }}
+              </td>
+            </ng-container>
+            <ng-container matColumnDef="target_schema">
+              <th mat-header-cell *matHeaderCellDef>Esquema destino</th>
+              <td mat-cell *matCellDef="let r">
+                {{ r.target_schema || '—' }}
+              </td>
+            </ng-container>
+            <ng-container matColumnDef="target_table">
+              <th mat-header-cell *matHeaderCellDef>Tabela destino</th>
+              <td mat-cell *matCellDef="let r">
+                {{ r.target_table }}
+              </td>
+            </ng-container>
+
+            <!-- Coluna destino -->
+            <ng-container matColumnDef="target_column">
+              <th mat-header-cell *matHeaderCellDef>Coluna destino</th>
+              <td mat-cell *matCellDef="let r">
+                {{ r.target_column }}
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="actions">
+              <th mat-header-cell *matHeaderCellDef></th>
+              <td mat-cell *matCellDef="let r" class="rel-action">
+                <button
+                  mat-stroked-button
+                  color="primary"
+                  (click)="gotoTable(r.target_table); $event.stopPropagation()"
+                >
+                  Ver tabela
+                </button>
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="relDisplayedColumns"></tr>
+
+            <tr mat-row *matRowDef="let row; columns: relDisplayedColumns"></tr>
+          </table>
+        </div>
+
+        <ng-template #noRelations>
+          <div class="muted">Nenhuma relação encontrada.</div>
+        </ng-template>
+      </div>
     </div>
   </ng-container>
 </div>

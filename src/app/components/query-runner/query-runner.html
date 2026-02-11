@@ -1,16 +1,25 @@
 <h3>Executar SQL</h3>
 <div class="fav-bar">
   <div class="fav-left">
-    <strong>Favoritos</strong>
-    <input
-      type="text"
-      placeholder="Filtrar..."
-      [(ngModel)]="snippetFilter"
-      [ngModelOptions]="{ standalone: true }"
-    />
+    <div class="fav-left-main">
+      <strong>Favoritos</strong>
+      <input
+        *ngIf="!snippetsCollapsed"
+        type="text"
+        placeholder="Filtrar..."
+        [(ngModel)]="snippetFilter"
+        [ngModelOptions]="{ standalone: true }"
+      />
+    </div>
+    <button class="snippet-toggle-btn" (click)="toggleSnippetsPanel()">
+      <mat-icon aria-hidden="true">
+        {{ snippetsCollapsed ? 'unfold_more' : 'unfold_less' }}
+      </mat-icon>
+      {{ snippetsCollapsed ? 'Mostrar snippets' : 'Ocultar snippets' }}
+    </button>
   </div>
 
-  <div class="folder-bar">
+  <div class="folder-bar" *ngIf="!snippetsCollapsed">
     <button
       class="chip folder-chip"
       [class.active]="selectedFolder === null"
@@ -31,7 +40,7 @@
     <button class="link small" (click)="createFolder()">+ nova pasta</button>
   </div>
 
-  <div class="fav-row">
+  <div class="fav-row" *ngIf="!snippetsCollapsed">
     <ng-container *ngIf="snippets.length; else noSnips">
       <div class="fav-chips">
         <button

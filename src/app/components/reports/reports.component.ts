@@ -2,6 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { MatIconModule } from '@angular/material/icon';
 import { forkJoin } from 'rxjs';
 import {
   JasperTemplateResponse,
@@ -43,7 +44,7 @@ const REPORT_DRAFT_SQL_KEY = 'dbi.reports.pending_sql';
 @Component({
   selector: 'app-reports',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, MatIconModule],
   templateUrl: './reports.component.html',
   styleUrls: ['./reports.component.css'],
 })

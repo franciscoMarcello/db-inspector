@@ -182,7 +182,8 @@
           (click)="exportPdf()"
           [disabled]="loadingPdf"
         >
-          <span class="btn-icon">📄</span> {{ loadingPdf ? 'Gerando PDF...' : 'Exportar PDF' }}
+          <mat-icon class="btn-icon btn-icon--pdf" aria-hidden="true">picture_as_pdf</mat-icon>
+          {{ loadingPdf ? 'Gerando PDF...' : 'Exportar PDF' }}
         </button>
       </div>
     </section>

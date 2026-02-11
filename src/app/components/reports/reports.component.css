@@ -2,6 +2,7 @@
   display: grid;
   grid-template-columns: 300px minmax(0, 1fr);
   gap: 12px;
+  min-width: 0;
   color: var(--text-primary);
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   font-size: 14px;
@@ -178,10 +179,12 @@
 .content-panel {
   display: grid;
   gap: 12px;
+  min-width: 0;
 }
 
 .card {
   padding: 12px;
+  min-width: 0;
 }
 
 .title h2 {
@@ -404,15 +407,27 @@
   line-height: 1;
 }
 
+.btn .mat-icon.btn-icon {
+  width: 16px;
+  height: 16px;
+  font-size: 16px;
+  line-height: 16px;
+}
+
+.btn-icon--pdf {
+  color: #fecaca;
+}
+
 .table-card {
   height: 420px;
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 @media (min-width: 1900px) {
   .table-card {
-    height: 500px;
+    height: 460px;
   }
 }
 
@@ -428,6 +443,7 @@
 .table-wrap {
   flex: 1 1 auto;
   min-height: 0;
+  min-width: 0;
   overflow: auto;
   max-height: none;
   border: 1px solid var(--border-subtle);
@@ -436,9 +452,10 @@
 }
 
 table {
-  width: 100%;
+  width: max-content;
+  min-width: 100%;
   border-collapse: collapse;
-  min-width: 760px;
+  max-width: none;
 }
 
 th,

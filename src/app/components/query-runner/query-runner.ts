@@ -78,6 +78,7 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
   ) {}
 
   snippets: QuerySnippet[] = [];
+  snippetsCollapsed = false;
   snippetFilter = '';
   selectedSnippetId: string | null = null;
   folders: string[] = [];
@@ -523,6 +524,10 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
     this.selectedFolder = name;
     this.recomputeFolders();
     this.snack(`Pasta "${name}" criada. Salve ou mova favoritos para ela.`);
+  }
+
+  toggleSnippetsPanel() {
+    this.snippetsCollapsed = !this.snippetsCollapsed;
   }
 
   shouldShowSnippet(sn: QuerySnippet): boolean {
