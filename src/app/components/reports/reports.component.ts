@@ -1,469 +1,775 @@
-import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
+import { HttpErrorResponse } from '@angular/common/http';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { DbInspectorService } from '../../services/db-inspector.service';
-import { EnvStorageService } from '../../services/env-storage.service';
-import { ReportDefinition, ReportService } from '../../services/report.service';
-import { QueryParam, QueryParamsDialog } from '../query-params-dialog/query-params-dialog';
+import { forkJoin } from 'rxjs';
+import {
+  ReportCreateInput,
+  ReportDefinition,
+  ReportFolder,
+  ReportRunResponse,
+  ReportService,
+  ReportVariableInput,
+} from '../../services/report.service';
+
+type FolderNode = ReportFolder & {
+  expanded: boolean;
+};
+
+type DraftVariable = ReportVariableInput & {
+  enabled: boolean;
+};
+
+type ReportDraft = {
+  id: string | null;
+  name: string;
+  sql: string;
+  description: string;
+  folderId: string;
+};
+
+const SQL_VARIABLE_RE = /(^|[^:]):([A-Za-z_][A-Za-z0-9_]*)/g;
+const REPORT_DRAFT_SQL_KEY = 'dbi.reports.pending_sql';
 
 @Component({
   selector: 'app-reports',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatSnackBarModule, MatDialogModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './reports.component.html',
   styleUrls: ['./reports.component.css'],
 })
 export class ReportsComponent implements OnInit {
-  @ViewChild('reportDialog') reportDialog!: ElementRef<HTMLDialogElement>;
-
-  serverUrl = '';
-  defaultTemplate = '';
+  folders: FolderNode[] = [];
+  allFolders: ReportFolder[] = [];
   reports: ReportDefinition[] = [];
+  runResult: ReportRunResponse | null = null;
 
-  editing: ReportDefinition | null = null;
-  draft: {
-    name: string;
-    templateName: string;
-    sql: string;
-    description: string;
-  } = {
+  selectedFolderId: string | null = null;
+  selectedReportId: string | null = null;
+  newFolderName = '';
+  statusMessage = '';
+  paramsError = '';
+  loadingList = false;
+  loadingRun = false;
+  variableInputs: Record<string, string> = {};
+  reportModalOpen = false;
+  reportModalMode: 'create' | 'edit' = 'create';
+  reportDraft: ReportDraft = {
+    id: null,
     name: '',
-    templateName: '',
     sql: '',
     description: '',
+    folderId: '',
   };
-  variablesRaw: Record<string, string> = {};
-  variableNames: string[] = [];
+  reportDraftVariables: DraftVariable[] = [];
+  reportDraftError = '';
+  private pendingCreateSql: string | null = null;
 
-  constructor(
-    private reportService: ReportService,
-    private dbInspector: DbInspectorService,
-    private envStorage: EnvStorageService,
-    private dialog: MatDialog,
-    private snackBar: MatSnackBar
-  ) {}
+  constructor(private reportService: ReportService) {}
 
   ngOnInit(): void {
-    this.serverUrl = this.reportService.getServerUrl() || 'http://localhost:5488';
-    this.defaultTemplate = this.reportService.getDefaultTemplate() || 'db-report';
-    this.loadReports();
+    this.pendingCreateSql = this.consumePendingSql();
+    this.loadData();
   }
 
-  saveDefaults() {
-    const serverUrl = this.serverUrl.trim();
-    const template = this.defaultTemplate.trim();
+  get selectedReport(): ReportDefinition | null {
+    if (!this.selectedReportId) return null;
+    return this.reports.find((report) => report.id === this.selectedReportId) ?? null;
+  }
 
-    if (!serverUrl || !template) {
-      this.snack('Preencha a URL e o template padrao.');
+  get selectedFolder(): FolderNode | null {
+    if (!this.selectedFolderId) return null;
+    return this.folders.find((folder) => folder.id === this.selectedFolderId) ?? null;
+  }
+
+  get displayedRows(): Record<string, unknown>[] {
+    const result = this.runResult;
+    if (!result) return [];
+    return result.rows;
+  }
+
+  get hasResultRows(): boolean {
+    const result = this.runResult;
+    if (!result) return false;
+    const metaCount = Number(result.meta?.rowCount ?? 0);
+    return metaCount > 0 && this.displayedRows.length > 0;
+  }
+
+  get selectedReportVariables() {
+    return [...(this.selectedReport?.variables ?? [])].sort((a, b) => a.orderIndex - b.orderIndex);
+  }
+
+  get statusToneClass(): string {
+    const msg = (this.statusMessage || '').toLowerCase();
+    if (msg.includes('falha') || msg.includes('inválido') || msg.includes('invalido')) {
+      return 'status-error';
+    }
+    if (
+      msg.includes('criado') ||
+      msg.includes('atualizado') ||
+      msg.includes('removido') ||
+      msg.includes('concluida') ||
+      msg.includes('executada')
+    ) {
+      return 'status-success';
+    }
+    return 'status-info';
+  }
+
+  get statusTitle(): string {
+    if (this.statusToneClass === 'status-error') return 'Erro';
+    if (this.statusToneClass === 'status-success') return 'Sucesso';
+    return 'Info';
+  }
+
+  reportsByFolder(folder: FolderNode): ReportDefinition[] {
+    return this.reports.filter((report) => this.belongsToFolder(report, folder));
+  }
+
+  reportCountByFolder(folder: FolderNode): number {
+    return this.reportsByFolder(folder).length;
+  }
+
+  toggleFolder(folderId: string) {
+    this.folders = this.folders.map((folder) =>
+      folder.id === folderId ? { ...folder, expanded: !folder.expanded } : folder
+    );
+  }
+
+  selectFolder(folder: FolderNode) {
+    this.selectedFolderId = folder.id;
+    const first = this.reportsByFolder(folder)[0];
+    this.selectedReportId = first?.id ?? null;
+    this.runResult = null;
+    this.statusMessage = '';
+    if (this.selectedReportId) this.runSelectedReport();
+  }
+
+  selectReport(reportId: string) {
+    this.selectedReportId = reportId;
+    this.statusMessage = '';
+    this.paramsError = '';
+    this.initVariableInputs();
+    this.runSelectedReport();
+  }
+
+  createFolder() {
+    const name = this.newFolderName.trim();
+    if (!name) {
+      this.statusMessage = 'Informe um nome para a pasta.';
       return;
     }
 
-    this.reportService.setServerUrl(serverUrl);
-    this.reportService.setDefaultTemplate(template);
-    this.snack('Configuracao salva.');
+    if (this.folders.some((folder) => folder.name.toLowerCase() === name.toLowerCase())) {
+      this.statusMessage = 'Ja existe uma pasta com esse nome.';
+      return;
+    }
+
+    const archivedMatch = this.allFolders.find(
+      (folder) => folder.archived && folder.name.toLowerCase() === name.toLowerCase()
+    );
+    if (archivedMatch) {
+      this.statusMessage = 'Ja existe uma pasta arquivada com esse nome. Desarquive-a para reutilizar.';
+      return;
+    }
+
+    this.reportService.createFolder({ name, description: null }).subscribe({
+      next: (folder) => {
+        this.statusMessage = `Pasta "${folder.name}" criada.`;
+        this.newFolderName = '';
+        this.loadData(undefined, folder.id);
+      },
+      error: (err: HttpErrorResponse) => {
+        if (err.status === 409) {
+          this.statusMessage =
+            'Nao foi possivel criar: ja existe uma pasta com esse nome (ativa ou arquivada).';
+          return;
+        }
+        this.statusMessage = 'Falha ao criar pasta.';
+      },
+    });
   }
 
-  openCreate() {
-    this.editing = null;
-    this.draft = {
+  renameSelectedFolder() {
+    const folder = this.selectedFolder;
+    if (!folder) {
+      this.statusMessage = 'Selecione uma pasta para renomear.';
+      return;
+    }
+
+    const name = (prompt('Novo nome da pasta:', folder.name) || '').trim();
+    if (!name || name === folder.name) return;
+
+    this.reportService.updateFolder(folder.id, { name, description: folder.description }).subscribe({
+      next: (updated) => {
+        this.statusMessage = `Pasta renomeada para "${updated.name}".`;
+        this.loadData(undefined, updated.id);
+      },
+      error: () => {
+        this.statusMessage = 'Falha ao renomear pasta.';
+      },
+    });
+  }
+
+  deleteSelectedFolder() {
+    const folder = this.selectedFolder;
+    if (!folder) {
+      this.statusMessage = 'Selecione uma pasta para excluir.';
+      return;
+    }
+    if (!confirm(`Excluir pasta "${folder.name}"?`)) return;
+
+    this.reportService.deleteFolder(folder.id).subscribe({
+      next: () => {
+        this.statusMessage = `Pasta "${folder.name}" removida.`;
+        this.loadData();
+      },
+      error: (err: HttpErrorResponse) => {
+        if (err.status === 409) {
+          this.statusMessage = 'Nao foi possivel excluir: existe relatorio vinculado a esta pasta.';
+          return;
+        }
+        this.statusMessage = 'Falha ao excluir pasta.';
+      },
+    });
+  }
+
+  archiveSelectedFolder() {
+    const folder = this.selectedFolder;
+    if (!folder) {
+      this.statusMessage = 'Selecione uma pasta para arquivar.';
+      return;
+    }
+    this.reportService
+      .updateFolder(folder.id, {
+        name: folder.name,
+        description: folder.description,
+        archived: true,
+      })
+      .subscribe({
+        next: () => {
+          this.statusMessage = `Pasta "${folder.name}" arquivada.`;
+          this.loadData();
+        },
+        error: () => {
+          this.statusMessage = 'Falha ao arquivar pasta.';
+        },
+      });
+  }
+
+  applyFilters() {
+    this.statusMessage = 'Consulta executada.';
+    this.runSelectedReport();
+  }
+
+  openCreateReportModal(presetSql?: string) {
+    const folder = this.selectedFolder;
+    if (!folder) {
+      this.statusMessage = 'Selecione ou crie uma pasta antes de criar um relatorio.';
+      return;
+    }
+
+    this.reportModalMode = 'create';
+    this.reportModalOpen = true;
+    this.reportDraftError = '';
+    this.reportDraft = {
+      id: null,
       name: '',
-      templateName: this.defaultTemplate.trim(),
-      sql: '',
+      sql: (presetSql || 'SELECT 1 AS ok;').trim(),
       description: '',
+      folderId: folder.id,
     };
-    this.reportDialog.nativeElement.showModal();
+    this.syncDraftVariablesFromSql();
   }
 
-  openEdit(report: ReportDefinition) {
-    this.editing = report;
-    this.draft = {
-      name: report.name,
-      templateName: report.templateName,
-      sql: report.sql,
-      description: report.description || '',
+  openCreateReportForFolder(folder: FolderNode, event?: Event) {
+    event?.stopPropagation();
+    this.selectedFolderId = folder.id;
+    this.openCreateReportModal(undefined);
+  }
+
+  openEditReportModal() {
+    const current = this.selectedReport;
+    const folder = this.selectedFolder;
+    if (!current || !folder) return;
+
+    this.reportModalMode = 'edit';
+    this.reportModalOpen = true;
+    this.reportDraftError = '';
+    this.reportDraft = {
+      id: current.id,
+      name: current.name,
+      sql: current.sql,
+      description: current.description || '',
+      folderId: folder.id,
     };
-    this.reportDialog.nativeElement.showModal();
+    this.syncDraftVariablesFromSql(current.variables || []);
   }
 
-  closeDialog() {
-    this.reportDialog.nativeElement.close();
+  closeReportModal() {
+    this.reportModalOpen = false;
+    this.reportDraftError = '';
   }
 
-  saveReport() {
-    const name = this.draft.name.trim();
-    const templateName = this.draft.templateName.trim();
-    const sql = this.draft.sql.trim();
+  onDraftSqlChanged() {
+    this.syncDraftVariablesFromSql(this.reportDraftVariables);
+  }
 
-    if (!name || !templateName || !sql) {
-      this.snack('Nome, template e SQL sao obrigatorios.');
+  saveReportFromModal() {
+    const folder = this.folders.find((item) => item.id === this.reportDraft.folderId);
+    if (!folder) {
+      this.reportDraftError = 'Selecione uma pasta válida.';
       return;
     }
 
-    const payload = {
-      name,
-      templateName,
-      sql,
-      description: this.draft.description.trim(),
-    };
+    const name = this.reportDraft.name.trim();
+    const sql = this.reportDraft.sql.trim();
+    const description = this.reportDraft.description.trim();
 
-    const request = this.editing
-      ? this.reportService.updateReport(this.editing.id, payload)
-      : this.reportService.createReport(payload);
-
-    request.subscribe({
-      next: () => {
-        this.loadReports();
-        this.reportDialog.nativeElement.close();
-        this.snack('Relatorio salvo.');
-      },
-      error: () => this.snack('Falha ao salvar relatorio.'),
-    });
-  }
-
-  removeReport(report: ReportDefinition) {
-    if (!confirm(`Remover "${report.name}"?`)) return;
-    this.reportService.removeReport(report.id).subscribe({
-      next: () => {
-        this.loadReports();
-        this.snack('Relatorio removido.');
-      },
-      error: () => this.snack('Falha ao remover relatorio.'),
-    });
-  }
-
-  async runReport(report: ReportDefinition) {
-    const serverUrl = this.reportService.getServerUrl();
-    const templateName = report.templateName || this.reportService.getDefaultTemplate();
-
-    if (!serverUrl || !templateName) {
-      this.snack('Configure o jsreport antes de executar.');
+    if (!name) {
+      this.reportDraftError = 'Informe o nome do relatório.';
       return;
     }
-
-    const sql = (report.sql || '').trim();
     if (!sql) {
-      this.snack('SQL do relatorio vazia.');
+      this.reportDraftError = 'Informe a SQL do relatório.';
       return;
     }
 
-    const ok = await this.openParamsDialog(sql);
-    if (!ok) return;
+    const enabledVars = this.reportDraftVariables.filter((v) => v.enabled);
+    const variables: ReportVariableInput[] = enabledVars.map((v, idx) => ({
+      id: v.id,
+      key: v.key,
+      label: (v.label || v.key).trim(),
+      type: v.type,
+      required: v.required,
+      defaultValue: v.defaultValue ? String(v.defaultValue) : null,
+      orderIndex: idx,
+    }));
 
-    const vars = this.buildVariablesMap();
+    const payload: ReportCreateInput = {
+      name,
+      folderId: folder.id,
+      templateName: folder.name,
+      sql,
+      description: description || null,
+      variables,
+      archived: false,
+    };
 
-    let finalSql: string;
-    try {
-      finalSql = this.expandVariables(sql, vars);
-    } catch (e: any) {
-      this.snack(e?.message || 'Erro ao montar SQL com parametros.');
+    if (this.reportModalMode === 'create') {
+      console.log('[reports] create payload', payload);
+      this.reportService.createReport(payload).subscribe({
+        next: (created) => {
+          this.statusMessage = `Relatorio "${created.name}" criado.`;
+          this.reportModalOpen = false;
+          this.loadData(created.id, folder.id);
+        },
+        error: () => {
+          this.reportDraftError = 'Falha ao criar relatorio.';
+        },
+      });
       return;
     }
 
-    const t0 = performance.now();
-    this.dbInspector.runQuery(finalSql).subscribe({
-      next: (res) => {
-        const elapsedMs = Math.round(performance.now() - t0);
-        const payload = this.buildReportPayload(report, res, elapsedMs, finalSql, vars);
-        this.reportService.renderReport(serverUrl, templateName, payload).subscribe({
-          next: (blob) => this.downloadBlob(blob, this.makeFileName(report.name, 'pdf')),
-          error: () => this.snack('Falha ao gerar PDF via jsreport.'),
-        });
+    if (!this.reportDraft.id) {
+      this.reportDraftError = 'Relatório inválido para atualização.';
+      return;
+    }
+
+    console.log('[reports] update payload', { id: this.reportDraft.id, payload });
+    this.reportService.updateReport(this.reportDraft.id, payload).subscribe({
+      next: (updated) => {
+        this.statusMessage = `Relatorio "${updated.name}" atualizado.`;
+        this.reportModalOpen = false;
+        const nextFolder = updated.folderId ?? this.selectedFolderId;
+        this.loadData(updated.id, nextFolder ?? undefined);
       },
-      error: () => this.snack('Falha ao executar a consulta do relatorio.'),
+      error: () => {
+        this.reportDraftError = 'Falha ao atualizar relatorio.';
+      },
     });
   }
 
-  private loadReports() {
-    this.reportService.listReports().subscribe({
-      next: (reports) => {
-        this.reports = reports || [];
+  deleteSelectedReport() {
+    const current = this.selectedReport;
+    if (!current) return;
+    if (!confirm(`Excluir relatorio "${current.name}"?`)) return;
+
+    this.reportService.deleteReport(current.id).subscribe({
+      next: () => {
+        this.statusMessage = `Relatorio "${current.name}" removido.`;
+        this.loadData(undefined, this.selectedFolderId ?? undefined);
+      },
+      error: () => {
+        this.statusMessage = 'Falha ao remover relatorio.';
+      },
+    });
+  }
+
+  archiveSelectedReport() {
+    const current = this.selectedReport;
+    if (!current) {
+      this.statusMessage = 'Selecione um relatório para arquivar.';
+      return;
+    }
+    const folder = this.selectedFolder;
+    const folderId =
+      current.folderId ??
+      folder?.id ??
+      this.folders.find((f) => f.name === current.folderName || f.name === current.templateName)?.id;
+
+    if (!folderId) {
+      this.statusMessage = 'Não foi possível identificar a pasta do relatório para arquivar.';
+      return;
+    }
+
+    const payload: ReportCreateInput = {
+      name: current.name,
+      folderId,
+      templateName: folder?.name ?? current.folderName ?? current.templateName,
+      sql: current.sql,
+      description: current.description,
+      variables: (current.variables || []).map((v, idx) => ({
+        id: v.id,
+        key: v.key,
+        label: v.label,
+        type: v.type,
+        required: v.required,
+        defaultValue: v.defaultValue,
+        orderIndex: Number.isFinite(v.orderIndex) ? v.orderIndex : idx,
+      })),
+      archived: true,
+    };
+
+    this.reportService.updateReport(current.id, payload).subscribe({
+      next: () => {
+        this.statusMessage = `Relatório "${current.name}" arquivado.`;
+        this.loadData();
+      },
+      error: () => {
+        this.statusMessage = 'Falha ao arquivar relatório.';
+      },
+    });
+  }
+
+  exportExcel() {
+    const result = this.runResult;
+    if (!result) return;
+    const csv = this.toCsv(result.columns, result.rows);
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    this.downloadBlob(blob, `${this.fileName(result.name)}.csv`);
+    this.statusMessage = `Exportacao Excel concluida para "${result.name}".`;
+  }
+
+  exportPdf() {
+    const result = this.runResult;
+    if (!result) return;
+    this.statusMessage = `Exportacao PDF de "${result.name}" ainda sera integrada.`;
+  }
+
+  private loadData(preferredReportId?: string, preferredFolderId?: string) {
+    this.loadingList = true;
+    forkJoin({
+      folders: this.reportService.listFolders(),
+      reports: this.reportService.listReports(),
+    }).subscribe({
+      next: ({ folders, reports }) => {
+        this.allFolders = folders || [];
+        this.reports = (reports || []).filter((r) => !r.archived);
+        this.rebuildFolders((folders || []).filter((f) => !f.archived));
+        this.reconcileSelection(preferredReportId, preferredFolderId);
+        if (this.pendingCreateSql) {
+          const sql = this.pendingCreateSql;
+          this.pendingCreateSql = null;
+          this.openCreateReportModal(sql);
+        }
+        this.loadingList = false;
       },
       error: () => {
         this.reports = [];
-        this.snack('Falha ao carregar relatorios.');
+        this.folders = [];
+        this.runResult = null;
+        this.selectedFolderId = null;
+        this.selectedReportId = null;
+        this.loadingList = false;
+        this.statusMessage = 'Falha ao carregar relatorios/pastas.';
       },
     });
   }
 
-  private buildReportPayload(
-    report: ReportDefinition,
-    res: any,
-    elapsedMs: number,
-    executedQuery: string,
-    paramsMap: Record<string, any>
-  ) {
-    const data = Array.isArray(res?.data)
-      ? res.data
-      : Array.isArray(res)
-      ? res
-      : Array.isArray(res?.rows)
-      ? res.rows
-      : [];
-    const columns =
-      data.length && typeof data[0] === 'object' && !Array.isArray(data[0])
-        ? Object.keys(data[0])
-        : ['value'];
-    const rows =
-      columns.length === 1 && columns[0] === 'value'
-        ? data.map((v: any) => ({ value: v }))
-        : data;
-    const summaries = this.buildSummaries(columns, rows);
-    const totals = this.computeTotals(rows);
+  private runSelectedReport() {
+    if (!this.selectedReportId) {
+      this.runResult = null;
+      return;
+    }
 
-    return {
-      meta: {
-        reportName: report.name,
-        environment: this.envStorage.getActive()?.name ?? 'Sem ambiente',
-        generatedAt: this.formatDateTime(new Date()),
-        lastRunAt: this.formatDateTime(new Date()),
-        rowCount: rows.length,
-        elapsedMs,
-        truncated: false,
-        period: this.buildPeriodLabel(paramsMap),
+    const params = this.buildRunParams();
+    if (params === null) {
+      this.runResult = null;
+      return;
+    }
+
+    this.loadingRun = true;
+    this.reportService.runReportWithParams(this.selectedReportId, params).subscribe({
+      next: (res) => {
+        this.paramsError = '';
+        this.runResult = res;
+        this.loadingRun = false;
       },
-      query: executedQuery || report.sql,
-      params: this.buildParamsPayload(paramsMap),
-      paramsMap,
-      columns,
-      rows,
-      summaries,
-      totals,
-    };
+      error: () => {
+        this.runResult = null;
+        this.loadingRun = false;
+        this.statusMessage = 'Falha ao executar relatorio.';
+      },
+    });
   }
 
-  private buildSummaries(columns: string[], rows: any[]) {
-    return columns
-      .map((column) => {
-        let sum = 0;
-        let hasNumber = false;
+  private rebuildFolders(apiFolders: ReportFolder[]) {
+    const expanded = new Map(this.folders.map((folder) => [folder.id, folder.expanded]));
+    this.folders = (apiFolders || [])
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
+      .map((folder) => ({
+        ...folder,
+        expanded: expanded.get(folder.id) ?? true,
+      }));
 
-        for (const row of rows) {
-          const value = row?.[column];
-          if (value === null || value === undefined || value === '') continue;
-
-          if (typeof value !== 'number' || !Number.isFinite(value)) {
-            return { column, sum: null };
-          }
-
-          sum += value;
-          hasNumber = true;
-        }
-
-        return { column, sum: hasNumber ? sum : null };
-      })
-      .filter((s) => s.sum !== null);
+    if (this.selectedFolderId && !this.folders.some((folder) => folder.id === this.selectedFolderId)) {
+      this.selectedFolderId = null;
+    }
   }
 
-  private formatDateTime(value: Date): string {
-    const pad = (n: number) => String(n).padStart(2, '0');
-    const date = this.formatDate(value);
-    const HH = pad(value.getHours());
-    const mm = pad(value.getMinutes());
-    const ss = pad(value.getSeconds());
-    return `${date} ${HH}:${mm}:${ss}`;
+  private reconcileSelection(preferredReportId?: string, preferredFolderId?: string) {
+    if (!this.reports.length || !this.folders.length) {
+      this.selectedFolderId = this.folders[0]?.id ?? null;
+      this.selectedReportId = null;
+      this.runResult = null;
+      return;
+    }
+
+    if (preferredFolderId) {
+      this.selectedFolderId = preferredFolderId;
+    } else if (!this.selectedFolderId) {
+      this.selectedFolderId = this.folders[0]?.id ?? null;
+    }
+
+    const selectedFolder = this.selectedFolder;
+    let report = preferredReportId
+      ? this.reports.find((item) => item.id === preferredReportId)
+      : this.selectedReportId
+      ? this.reports.find((item) => item.id === this.selectedReportId)
+      : undefined;
+
+    if (!report && selectedFolder) {
+      report = this.reports.find((item) => this.belongsToFolder(item, selectedFolder));
+    }
+    if (!report) report = this.reports[0];
+
+    this.selectedReportId = report?.id ?? null;
+
+    if (this.selectedReportId) {
+      if (report?.folderId) {
+        this.selectedFolderId = report.folderId;
+      } else if (report?.folderName) {
+        const folderByName = this.folders.find((folder) => folder.name === report.folderName);
+        if (folderByName) this.selectedFolderId = folderByName.id;
+      } else if (report?.templateName) {
+        // Backward compatibility if API still returns templateName.
+        const folderByTemplate = this.folders.find(
+          (folder) => folder.name === report.templateName || folder.id === report.templateName
+        );
+        if (folderByTemplate) this.selectedFolderId = folderByTemplate.id;
+      }
+      this.initVariableInputs();
+      this.runSelectedReport();
+    } else {
+      this.runResult = null;
+    }
   }
 
-  private formatDateTimeSql(value: Date): string {
-    const pad = (n: number) => String(n).padStart(2, '0');
-    const yyyy = value.getFullYear();
-    const MM = pad(value.getMonth() + 1);
-    const dd = pad(value.getDate());
-    const HH = pad(value.getHours());
-    const mm = pad(value.getMinutes());
-    const ss = pad(value.getSeconds());
-    return `${yyyy}-${MM}-${dd} ${HH}:${mm}:${ss}`;
+  private variablesFromSql(sql: string, currentVars: ReportVariableInput[] = []): ReportVariableInput[] {
+    const currentByKey = new Map(currentVars.map((v) => [v.key, v]));
+    const seen = new Set<string>();
+    const vars: ReportVariableInput[] = [];
+    let match: RegExpExecArray | null;
+
+    while ((match = SQL_VARIABLE_RE.exec(sql)) !== null) {
+      const key = match[2];
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const current = currentByKey.get(key);
+      vars.push({
+        key,
+        label: current?.label ?? key,
+        type: current?.type ?? 'string',
+        required: current?.required ?? false,
+        defaultValue: current?.defaultValue ?? null,
+        orderIndex: vars.length,
+      });
+    }
+
+    return vars;
   }
 
-  private formatDate(value: Date): string {
-    const pad = (n: number) => String(n).padStart(2, '0');
-    const yyyy = value.getFullYear();
-    const MM = pad(value.getMonth() + 1);
-    const dd = pad(value.getDate());
-    return `${dd}/${MM}/${yyyy}`;
-  }
-
-  private makeFileName(prefix: string, ext: string) {
-    const d = new Date();
-    const p = (n: number) => String(n).padStart(2, '0');
-    return `${prefix}-${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(
-      d.getHours()
-    )}${p(d.getMinutes())}${p(d.getSeconds())}.${ext}`;
+  private toCsv(columns: string[], rows: Record<string, unknown>[]): string {
+    const escape = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+    const header = columns.map((col) => escape(col)).join(',');
+    const lines = rows.map((row) => columns.map((col) => escape(row[col])).join(','));
+    return [header, ...lines].join('\n');
   }
 
   private downloadBlob(blob: Blob, fileName: string) {
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = fileName;
-    a.click();
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = fileName;
+    anchor.click();
     URL.revokeObjectURL(url);
   }
 
-  private snack(message: string) {
-    this.snackBar.open(message, 'OK', { duration: 1800 });
+  private fileName(value: string): string {
+    return value
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9-]/g, '');
   }
 
-  private buildParamsPayload(map: Record<string, any>) {
-    const items = this.variableNames.map((name) => ({
-      name,
-      value: map[name],
-      display: this.formatParamValue(map[name]),
-    }));
-    return items;
+  private belongsToFolder(report: ReportDefinition, folder: FolderNode): boolean {
+    if (report.folderId && String(report.folderId) === String(folder.id)) return true;
+    if (report.folderName && String(report.folderName) === String(folder.name)) return true;
+    if (report.templateName && String(report.templateName) === String(folder.name)) return true;
+    if (report.templateName && String(report.templateName) === String(folder.id)) return true;
+    return false;
   }
 
-  private formatParamValue(value: any): string {
-    if (value === null || value === undefined) return 'NULL';
-    if (value instanceof Date) return this.formatDate(value);
-    if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
-    return String(value);
-  }
-
-  private computeTotals(rows: any[]) {
-    const normalize = (v: any) => {
-      if (typeof v === 'number' && Number.isFinite(v)) return v;
-      if (v === null || v === undefined || v === '') return 0;
-      const cleaned = String(v).replace(/\./g, '').replace(',', '.');
-      const n = Number(cleaned);
-      return Number.isFinite(n) ? n : 0;
-    };
-
-    const raw = (rows || []).reduce((acc, row) => acc + normalize(row?.['qt_consumido']), 0);
-    const formatted = new Intl.NumberFormat('pt-BR', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(raw);
-
-    return {
-      qtConsumido: raw,
-      qtConsumidoFormatted: formatted,
-    };
-  }
-
-  private buildPeriodLabel(map: Record<string, any>): string | null {
-    const start = map?.['data'] ?? map?.['dataInicio'];
-    const end = map?.['data1'] ?? map?.['dataFim'];
-
-    if (!start && !end) return null;
-
-    const formatValue = (v: any) => {
-      if (v instanceof Date) return this.formatDate(v);
-      const s = String(v ?? '').trim();
-      return s || '?';
-    };
-
-    if (start && end) return `Periodo: ${formatValue(start)} ate ${formatValue(end)}`;
-    if (start) return `Periodo: ${formatValue(start)}`;
-    return `Periodo ate ${formatValue(end)}`;
-  }
-
-  private expandVariables(sql: string, vars: Record<string, any>): string {
-    return sql.replace(/:([A-Za-z_][A-Za-z0-9_]*)/g, (full, name) => {
-      if (!(name in vars)) return full;
-
-      const value = vars[name];
-
-      if (value === null || value === undefined) {
-        return 'NULL';
+  private initVariableInputs() {
+    const vars = this.selectedReportVariables;
+    const next: Record<string, string> = {};
+    for (const v of vars) {
+      const existing = this.variableInputs[v.key];
+      if (existing !== undefined) {
+        next[v.key] = existing;
+        continue;
       }
-
-      if (value instanceof Date) {
-        const s = this.formatDateTimeSql(value);
-        const escaped = s.replace(/'/g, "''");
-        return `'${escaped}'`;
-      }
-
-      if (typeof value === 'number') {
-        if (!Number.isFinite(value)) {
-          throw new Error(`Valor numerico invalido para :${name}`);
-        }
-        return String(value);
-      }
-
-      if (typeof value === 'boolean') {
-        return value ? 'TRUE' : 'FALSE';
-      }
-
-      const s = String(value).replace(/'/g, "''");
-      return `'${s}'`;
-    });
-  }
-
-  private updateVariableNamesFromQuery(sql: string) {
-    const names = new Set<string>();
-    const re = /:([A-Za-z_][A-Za-z0-9_]*)/g;
-    let match: RegExpExecArray | null;
-
-    while ((match = re.exec(sql)) !== null) {
-      names.add(match[1]);
+      next[v.key] = v.defaultValue ?? '';
     }
-
-    this.variableNames = Array.from(names).sort();
+    this.variableInputs = next;
   }
 
-  private buildVariablesMap(): Record<string, any> {
-    const map: Record<string, any> = {};
+  private buildRunParams(): Record<string, unknown> | null {
+    const vars = this.selectedReportVariables;
+    if (!vars.length) return {};
 
-    for (const name of this.variableNames) {
-      const raw = (this.variablesRaw[name] ?? '').trim();
+    const params: Record<string, unknown> = {};
+    for (const v of vars) {
+      const rawInput = (this.variableInputs[v.key] ?? '').trim();
+      const raw = rawInput || (v.defaultValue ?? '');
 
       if (!raw) {
-        map[name] = null;
+        if (v.required) {
+          this.paramsError = `Parametro obrigatório sem valor: ${v.label || v.key}`;
+          this.statusMessage = this.paramsError;
+          return null;
+        }
         continue;
       }
 
-      if (/^-?\d+(\.\d+)?$/.test(raw)) {
-        map[name] = Number(raw);
-        continue;
-      }
-
-      if (/^(true|false)$/i.test(raw)) {
-        map[name] = raw.toLowerCase() === 'true';
-        continue;
-      }
-
-      if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
-        map[name] = new Date(raw + 'T00:00:00');
-        continue;
-      }
-
-      map[name] = raw;
+      const converted = this.convertVariableValue(v.type, raw, v.key);
+      if (converted === undefined) return null;
+      params[v.key] = converted;
     }
 
-    return map;
+    this.paramsError = '';
+    return params;
   }
 
-  private openParamsDialog(sql: string): Promise<boolean> {
-    this.updateVariableNamesFromQuery(sql);
+  private convertVariableValue(
+    type: ReportVariableInput['type'],
+    raw: string,
+    key: string
+  ): unknown | undefined {
+    if (type === 'string') return raw;
 
-    if (!this.variableNames.length) {
-      return Promise.resolve(true);
+    if (type === 'number') {
+      const n = Number(raw);
+      if (!Number.isFinite(n)) {
+        this.paramsError = `Valor inválido para ${key}: esperado número.`;
+        this.statusMessage = this.paramsError;
+        return undefined;
+      }
+      return n;
     }
 
-    const params: QueryParam[] = this.variableNames.map((name) => ({
-      name,
-      value: this.variablesRaw[name] ?? '',
-    }));
+    if (type === 'boolean') {
+      const normalized = raw.toLowerCase();
+      if (['true', '1', 'sim', 'yes'].includes(normalized)) return true;
+      if (['false', '0', 'nao', 'não', 'no'].includes(normalized)) return false;
+      this.paramsError = `Valor inválido para ${key}: esperado booleano.`;
+      this.statusMessage = this.paramsError;
+      return undefined;
+    }
 
-    const dialogRef = this.dialog.open(QueryParamsDialog, {
-      width: '520px',
-      data: { params },
+    if (type === 'date') {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+        this.paramsError = `Valor inválido para ${key}: esperado yyyy-MM-dd.`;
+        this.statusMessage = this.paramsError;
+        return undefined;
+      }
+      return raw;
+    }
+
+    if (type === 'datetime') {
+      if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(raw)) return raw;
+      const fromLocal = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(raw)
+        ? new Date(`${raw}:00`)
+        : new Date(raw);
+      if (Number.isNaN(fromLocal.getTime())) {
+        this.paramsError = `Valor inválido para ${key}: esperado datetime ISO.`;
+        this.statusMessage = this.paramsError;
+        return undefined;
+      }
+      return this.formatDateTime(fromLocal);
+    }
+
+    return raw;
+  }
+
+  private formatDateTime(value: Date): string {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())} ${pad(
+      value.getHours()
+    )}:${pad(value.getMinutes())}:${pad(value.getSeconds())}`;
+  }
+
+  private syncDraftVariablesFromSql(existing: Array<Partial<DraftVariable>> = []) {
+    const existingByKey = new Map(existing.map((v) => [String(v.key || ''), v]));
+    const detected = this.variablesFromSql(this.reportDraft.sql, []);
+    this.reportDraftVariables = detected.map((v, idx) => {
+      const current = existingByKey.get(v.key);
+      return {
+        id: current?.id ? String(current.id) : undefined,
+        key: v.key,
+        label: String(current?.label ?? v.key),
+        type: (current?.type as DraftVariable['type']) || 'string',
+        required: Boolean(current?.required ?? false),
+        defaultValue:
+          current?.defaultValue === undefined || current?.defaultValue === null
+            ? null
+            : String(current.defaultValue),
+        orderIndex: idx,
+        enabled: Boolean(current?.enabled ?? true),
+      };
     });
+  }
 
-    return new Promise<boolean>((resolve) => {
-      dialogRef.afterClosed().subscribe((result: QueryParam[] | undefined) => {
-        if (!result) {
-          resolve(false);
-          return;
-        }
-
-        for (const p of result) {
-          this.variablesRaw[p.name] = p.value ?? '';
-        }
-        resolve(true);
-      });
-    });
+  private consumePendingSql(): string | null {
+    try {
+      const sql = (localStorage.getItem(REPORT_DRAFT_SQL_KEY) || '').trim();
+      localStorage.removeItem(REPORT_DRAFT_SQL_KEY);
+      return sql || null;
+    } catch {
+      return null;
+    }
   }
 }

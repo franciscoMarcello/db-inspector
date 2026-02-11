@@ -6,6 +6,7 @@ import { ModalComponent } from './components/modal/modal.component';
 import { EnvStorageService, EnvConfig } from './services/env-storage.service';
 import { MatIconModule } from '@angular/material/icon';
 import { OverlayContainer } from '@angular/cdk/overlay'; // <-- ADICIONA ISSO
+import packageJson from '../../package.json';
 
 @Component({
   selector: 'app-root',
@@ -34,6 +35,7 @@ export class App implements AfterViewInit {
 
   private storage = inject(EnvStorageService);
   private overlay = inject(OverlayContainer); // <-- INJETADO
+  appVersion = packageJson.version;
 
   activeName = signal(this.storage.getActive()?.name ?? '');
   get activeNameValue() {

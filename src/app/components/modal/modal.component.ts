@@ -28,7 +28,6 @@ export class ModalComponent {
 
   list = signal<EnvConfig[]>(this.storage.all());
   activeId = signal<string | null>(this.storage.getActive()?.id ?? null);
-  activeTab: 'api' | 'db' = 'api';
 
   editing: EnvConfig | null = null;
 
@@ -37,12 +36,6 @@ export class ModalComponent {
     url: ['', [Validators.required, Validators.pattern(/^https?:\/\/[^\s/$.?#].[^\s]*$/i)]],
     apiKey: ['', [Validators.required]],
     backend: ['', [Validators.required, Validators.pattern(/^https?:\/\/[^\s]+$/i)]],
-    dbHost: [''],
-    dbPort: [5432],
-    dbUser: [''],
-    dbPassword: [''],
-    dbName: [''],
-    dbSchema: ['public'],
   });
 
   open() {
@@ -53,12 +46,6 @@ export class ModalComponent {
         url: '',
         apiKey: '',
         backend: 'http://localhost:8080/api/db',
-        dbHost: 'localhost',
-        dbPort: 5432,
-        dbUser: '',
-        dbPassword: '',
-        dbName: '',
-        dbSchema: 'public',
       });
     }
     this.dlg.nativeElement.showModal();
@@ -74,12 +61,6 @@ export class ModalComponent {
       url: '',
       apiKey: '',
       backend: 'http://localhost:8080/api/db',
-      dbHost: 'localhost',
-      dbPort: 5432,
-      dbUser: '',
-      dbPassword: '',
-      dbName: '',
-      dbSchema: 'public',
     });
   }
   startEdit(item: EnvConfig) {
@@ -89,12 +70,6 @@ export class ModalComponent {
       url: item.url ?? '',
       apiKey: item.apiKey ?? '',
       backend: item.backend ?? 'http://localhost:8080/api/db',
-      dbHost: item.dbHost ?? 'localhost',
-      dbPort: item.dbPort ?? 5432,
-      dbUser: item.dbUser ?? '',
-      dbPassword: item.dbPassword ?? '',
-      dbName: item.dbName ?? '',
-      dbSchema: item.dbSchema ?? 'public',
     });
   }
 
@@ -124,9 +99,5 @@ export class ModalComponent {
     this.storage.setActive(item.id);
     this.refresh(); // força re-render, mostra/esconde "Ativar" corretamente
     this.saved.emit(item);
-  }
-
-  setTab(tab: 'api' | 'db') {
-    this.activeTab = tab;
   }
 }

@@ -14,15 +14,16 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { QueryParam, QueryParamsDialog } from '../query-params-dialog/query-params-dialog';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { Router } from '@angular/router';
 import {
   EmailScheduleDialogComponent,
   EmailScheduleResult,
 } from '../email-schedules/email-schedule-dialog';
-import { EnvStorageService } from '../../services/env-storage.service';
-import { ReportService } from '../../services/report.service';
 import { MatIconModule } from '@angular/material/icon';
 
 const STORAGE_KEY = 'dbi.query.state';
+const SQL_VARIABLE_RE = /(^|[^:]):([A-Za-z_][A-Za-z0-9_]*)/g;
+const REPORT_DRAFT_SQL_KEY = 'dbi.reports.pending_sql';
 
 @Component({
   selector: 'app-query-runner',
@@ -73,8 +74,7 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
     private snackBar: MatSnackBar,
     private snippetsStore: SnippetStorageService,
     private dialog: MatDialog,
-    private envStorage: EnvStorageService,
-    private reportService: ReportService
+    private router: Router
   ) {}
 
   snippets: QuerySnippet[] = [];
@@ -405,43 +405,18 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
     this.snack('Arquivo .sql baixado.');
   }
 
-  exportPdfViaJsreport() {
-    if (!this.rows?.length) return;
-
-    const serverUrl = this.reportService.getServerUrl();
-    const templateName = this.reportService.getDefaultTemplate();
-
-    if (!serverUrl || !templateName) {
-      this.snack('Configure o jsreport na tela de Relatorios.');
+  saveAsReport() {
+    const sql = (this.query || '').trim();
+    if (!sql) {
+      this.snack('Nada para salvar como relatório.');
       return;
     }
 
-    const columns = this.displayedColumns?.length
-      ? this.displayedColumns
-      : Object.keys(this.rows[0] ?? {});
-    const maxRows = 500;
-    const dataRows = this.rows.slice(0, maxRows);
-    const summaries = this.buildSummaries(columns, dataRows);
+    try {
+      localStorage.setItem(REPORT_DRAFT_SQL_KEY, sql);
+    } catch {}
 
-    const data = {
-      meta: {
-        environment: this.envStorage.getActive()?.name ?? 'Sem ambiente',
-        generatedAt: this.formatDateTime(new Date()),
-        lastRunAt: this.lastRunAt ? this.formatDateTime(this.lastRunAt) : 'N/A',
-        rowCount: this.rowCount,
-        elapsedMs: this.elapsedMs,
-        truncated: this.rows.length > maxRows,
-      },
-      query: (this.query || '').trim(),
-      columns,
-      rows: dataRows,
-      summaries,
-    };
-
-    this.reportService.renderReport(serverUrl, templateName, data).subscribe({
-      next: (blob) => this.downloadBlob(blob, this.makeFileName('relatorio', 'pdf')),
-      error: () => this.snack('Falha ao gerar PDF via jsreport.'),
-    });
+    this.router.navigate(['/reports']);
   }
 
   private makeFileName(prefix: string, ext: string) {
@@ -618,78 +593,45 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
     return `${yyyy}-${MM}-${dd} ${HH}:${mm}:${ss}`;
   }
 
-  private buildSummaries(columns: string[], rows: any[]) {
-    return columns
-      .map((column) => {
-        let sum = 0;
-        let hasNumber = false;
-
-        for (const row of rows) {
-          const value = row?.[column];
-          if (value === null || value === undefined || value === '') continue;
-
-          if (typeof value !== 'number' || !Number.isFinite(value)) {
-            return { column, sum: null };
-          }
-
-          sum += value;
-          hasNumber = true;
-        }
-
-        return { column, sum: hasNumber ? sum : null };
-      })
-      .filter((s) => s.sum !== null);
-  }
-
-  private downloadBlob(blob: Blob, fileName: string) {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = fileName;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
   private expandVariables(sql: string, vars: Record<string, any>): string {
-    return sql.replace(/:([A-Za-z_][A-Za-z0-9_]*)/g, (full, name) => {
+    return sql.replace(SQL_VARIABLE_RE, (full, prefix, name) => {
       if (!(name in vars)) return full;
 
       const value = vars[name];
 
       if (value === null || value === undefined) {
-        return 'NULL';
+        return `${prefix}NULL`;
       }
 
       if (value instanceof Date) {
         const s = this.formatDateTime(value);
         const escaped = s.replace(/'/g, "''");
-        return `'${escaped}'`;
+        return `${prefix}'${escaped}'`;
       }
 
       if (typeof value === 'number') {
         if (!Number.isFinite(value)) {
           throw new Error(`Valor numérico inválido para :${name}`);
         }
-        return String(value);
+        return `${prefix}${value}`;
       }
 
       if (typeof value === 'boolean') {
-        return value ? 'TRUE' : 'FALSE';
+        return `${prefix}${value ? 'TRUE' : 'FALSE'}`;
       }
 
       const s = String(value).replace(/'/g, "''");
-      return `'${s}'`;
+      return `${prefix}'${s}'`;
     });
   }
 
   private updateVariableNamesFromQuery() {
     const sql = this.query || '';
     const names = new Set<string>();
-    const re = /:([A-Za-z_][A-Za-z0-9_]*)/g;
     let match: RegExpExecArray | null;
 
-    while ((match = re.exec(sql)) !== null) {
-      names.add(match[1]);
+    while ((match = SQL_VARIABLE_RE.exec(sql)) !== null) {
+      names.add(match[2]);
     }
 
     this.variableNames = Array.from(names).sort();

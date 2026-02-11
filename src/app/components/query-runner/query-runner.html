@@ -95,10 +95,8 @@
     >
       {{ copied ? 'Copiado!' : 'Copiar p/ Excel' }}
     </button>
-    <button mat-stroked-button (click)="exportPdfViaJsreport()" [disabled]="rows.length === 0">
-      Exportar PDF (jsreport)
-    </button>
     <button mat-stroked-button (click)="saveQueryAsSql()">Salvar .sql</button>
+    <button mat-stroked-button (click)="saveAsReport()">Salvar como relatório</button>
     <button mat-stroked-button (click)="saveCurrentAsSnippet()">Salvar favorito (Ctrl+S)</button>
   </div>
 
