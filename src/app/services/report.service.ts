@@ -5,6 +5,26 @@ import { map } from 'rxjs/operators';
 import { EnvStorageService } from './env-storage.service';
 
 export type ReportVariableType = 'string' | 'number' | 'date' | 'datetime' | 'boolean';
+export type JasperTemplateInput = {
+  name: string;
+  description: string | null;
+  jrxml: string;
+  archived?: boolean;
+};
+
+export type JasperTemplateSummary = {
+  id: string;
+  name: string;
+  archived: boolean;
+};
+
+export type JasperTemplateResponse = JasperTemplateInput & {
+  id: string;
+  archived: boolean;
+  createdAt: number;
+  updatedAt: number;
+};
+
 export type ReportFolder = {
   id: string;
   name: string;
@@ -38,6 +58,8 @@ export type ReportDefinition = {
   folderId?: string | null;
   folderName?: string;
   templateName?: string;
+  jasperTemplateId?: string | null;
+  jasperTemplate?: JasperTemplateSummary | null;
   sql: string;
   description: string | null;
   variables: ReportVariable[];
@@ -50,6 +72,7 @@ export type ReportCreateInput = {
   name: string;
   folderId: string;
   templateName?: string;
+  jasperTemplateId?: string | null;
   sql: string;
   description: string | null;
   variables: ReportVariableInput[];
@@ -108,6 +131,34 @@ export class ReportService {
     return this.http.delete<void>(`${this.base}/report-folders/${encodeURIComponent(id)}`);
   }
 
+  listTemplates(): Observable<JasperTemplateResponse[]> {
+    return this.http
+      .get<any>(`${this.base}/report-templates`)
+      .pipe(map((res) => this.normalizeTemplates(res)));
+  }
+
+  getTemplate(id: string): Observable<JasperTemplateResponse> {
+    return this.http
+      .get<any>(`${this.base}/report-templates/${encodeURIComponent(id)}`)
+      .pipe(map((res) => this.normalizeTemplate(res)));
+  }
+
+  createTemplate(payload: JasperTemplateInput): Observable<JasperTemplateResponse> {
+    return this.http
+      .post<any>(`${this.base}/report-templates`, payload)
+      .pipe(map((res) => this.normalizeTemplate(res)));
+  }
+
+  updateTemplate(id: string, payload: JasperTemplateInput): Observable<JasperTemplateResponse> {
+    return this.http
+      .put<any>(`${this.base}/report-templates/${encodeURIComponent(id)}`, payload)
+      .pipe(map((res) => this.normalizeTemplate(res)));
+  }
+
+  deleteTemplate(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/report-templates/${encodeURIComponent(id)}`);
+  }
+
   listReports(): Observable<ReportDefinition[]> {
     return this.http
       .get<any>(`${this.base}/reports`)
@@ -144,11 +195,21 @@ export class ReportService {
     id: string,
     params?: Record<string, unknown> | null
   ): Observable<ReportRunResponse> {
-    const body =
-      params && Object.keys(params).length
-        ? { params }
-        : null;
+    const body = params && Object.keys(params).length ? { params } : null;
     return this.http.post<ReportRunResponse>(`${this.base}/reports/${encodeURIComponent(id)}/run`, body);
+  }
+
+  generateReportPdf(
+    id: string,
+    params?: Record<string, unknown> | null,
+    safe?: boolean
+  ): Observable<Blob> {
+    const body: Record<string, unknown> = {};
+    if (params && Object.keys(params).length) body['params'] = params;
+    if (safe !== undefined) body['safe'] = safe;
+    return this.http.post(`${this.base}/reports/${encodeURIComponent(id)}/pdf`, body, {
+      responseType: 'blob',
+    });
   }
 
   private normalizeFolders(res: any): ReportFolder[] {
@@ -178,6 +239,7 @@ export class ReportService {
   }
 
   private normalizeReport(item: any): ReportDefinition {
+    const jasperTemplate = this.normalizeTemplateSummary(item?.jasperTemplate ?? item?.jasper_template);
     return {
       id: String(item?.id ?? ''),
       name: String(item?.name ?? ''),
@@ -189,6 +251,8 @@ export class ReportService {
           : item?.template_name !== undefined
           ? String(item.template_name ?? '')
           : undefined,
+      jasperTemplateId: this.extractJasperTemplateId(item),
+      jasperTemplate,
       sql: String(item?.sql ?? ''),
       description:
         item?.description === null || item?.description === undefined
@@ -200,6 +264,39 @@ export class ReportService {
       archived: Boolean(item?.archived),
       createdAt: Number(item?.createdAt ?? item?.created_at ?? 0),
       updatedAt: Number(item?.updatedAt ?? item?.updated_at ?? 0),
+    };
+  }
+
+  private normalizeTemplates(res: any): JasperTemplateResponse[] {
+    const data = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
+    return data
+      .map((item: any) => this.normalizeTemplate(item))
+      .filter((item: JasperTemplateResponse | null): item is JasperTemplateResponse => !!item);
+  }
+
+  private normalizeTemplate(item: any): JasperTemplateResponse {
+    return {
+      id: String(item?.id ?? ''),
+      name: String(item?.name ?? ''),
+      description:
+        item?.description === null || item?.description === undefined
+          ? null
+          : String(item.description),
+      jrxml: String(item?.jrxml ?? ''),
+      archived: Boolean(item?.archived),
+      createdAt: Number(item?.createdAt ?? item?.created_at ?? 0),
+      updatedAt: Number(item?.updatedAt ?? item?.updated_at ?? 0),
+    };
+  }
+
+  private normalizeTemplateSummary(item: any): JasperTemplateSummary | null {
+    if (!item) return null;
+    const id = String(item?.id ?? '');
+    if (!id) return null;
+    return {
+      id,
+      name: String(item?.name ?? ''),
+      archived: Boolean(item?.archived),
     };
   }
 
@@ -245,6 +342,17 @@ export class ReportService {
       item?.folder?.name ??
       undefined;
     if (raw === undefined || raw === null || raw === '') return undefined;
+    return String(raw);
+  }
+
+  private extractJasperTemplateId(item: any): string | null {
+    const raw =
+      item?.jasperTemplateId ??
+      item?.jasper_template_id ??
+      item?.jasperTemplate?.id ??
+      item?.jasper_template?.id ??
+      null;
+    if (raw === null || raw === undefined || raw === '') return null;
     return String(raw);
   }
 }

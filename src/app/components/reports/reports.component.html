@@ -1,10 +1,10 @@
-<div class="reports-shell">
-  <aside class="tree-panel">
+<div class="reports-shell" [class.sidebar-collapsed]="sidebarCollapsed">
+  <aside class="tree-panel" *ngIf="!sidebarCollapsed">
     <div class="tree-header">
       <div class="tree-header__row">
         <h3>Visualizador de Relatorios</h3>
-        <button type="button" class="btn btn--neutral btn--icon" (click)="openCreateReportModal()">
-          ＋
+        <button type="button" class="btn btn--neutral btn--icon" (click)="toggleSidebar()">
+          ◀
         </button>
       </div>
       <p>Pastas e consultas</p>
@@ -33,6 +33,9 @@
         [disabled]="!selectedFolder"
       >
         Arquivar pasta
+      </button>
+      <button type="button" class="btn btn--neutral" (click)="openTemplateManager()">
+        Templates PDF
       </button>
     </div>
 
@@ -81,7 +84,17 @@
   <main class="content-panel">
     <section class="card filters">
       <div class="title">
-        <h2>{{ runResult?.name || selectedReport?.name || 'Relatorio' }}</h2>
+        <div class="title-row">
+          <h2>{{ runResult?.name || selectedReport?.name || 'Relatorio' }}</h2>
+          <button
+            *ngIf="sidebarCollapsed"
+            type="button"
+            class="btn btn--show-sidebar btn--sm"
+            (click)="toggleSidebar()"
+          >
+            ▶ Mostrar pastas
+          </button>
+        </div>
         <p>{{ selectedReport?.description || 'Selecione um relatorio na arvore.' }}</p>
       </div>
 
@@ -162,6 +175,15 @@
         >
           <span class="btn-icon">⤓</span> Exportar Excel
         </button>
+        <button
+          *ngIf="canExportPdf"
+          type="button"
+          class="btn btn--pdf"
+          (click)="exportPdf()"
+          [disabled]="loadingPdf"
+        >
+          <span class="btn-icon">📄</span> {{ loadingPdf ? 'Gerando PDF...' : 'Exportar PDF' }}
+        </button>
       </div>
     </section>
 
@@ -196,8 +218,8 @@
   </section>
 </ng-template>
 
-<section class="card status-card" *ngIf="statusMessage">
-  <div class="status-line" [ngClass]="statusToneClass">
+<section class="card status-card" *ngIf="statusMessage || runResult?.meta">
+  <div class="status-line" [ngClass]="statusToneClass" *ngIf="statusMessage">
     <strong>{{ statusTitle }}</strong>
     <span>{{ statusMessage }}</span>
   </div>
@@ -230,9 +252,27 @@
 
       <label class="var-field">
         <span>Pasta</span>
-        <select [(ngModel)]="reportDraft.folderId" [ngModelOptions]="{ standalone: true }">
-          <option *ngFor="let folder of folders" [value]="folder.id">{{ folder.name }}</option>
-        </select>
+        <div class="folder-picker">
+          <select [(ngModel)]="reportDraft.folderId" [ngModelOptions]="{ standalone: true }">
+            <option *ngFor="let folder of folders" [value]="folder.id">{{ folder.name }}</option>
+          </select>
+          <button type="button" class="btn btn--neutral" (click)="createFolderFromReportModal()">
+            + Pasta
+          </button>
+        </div>
+      </label>
+
+      <label class="var-field">
+        <span>Template PDF (Jasper)</span>
+        <div class="template-picker">
+          <select [(ngModel)]="reportDraft.jasperTemplateId" [ngModelOptions]="{ standalone: true }">
+            <option value="">Sem template</option>
+            <option *ngFor="let template of templates" [value]="template.id">{{ template.name }}</option>
+          </select>
+          <button type="button" class="btn btn--neutral" (click)="openTemplateManager()">
+            Gerenciar templates
+          </button>
+        </div>
       </label>
 
       <label class="var-field">
@@ -306,6 +346,107 @@
 
     <div class="report-modal__footer">
       <button type="button" class="btn btn--primary" (click)="saveReportFromModal()">Salvar</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog class="report-modal" [open]="templateManagerOpen">
+  <div class="report-modal__panel">
+    <div class="report-modal__header">
+      <h3>Gerenciar templates PDF</h3>
+      <button type="button" class="btn btn--secondary" (click)="closeTemplateManager()">Fechar</button>
+    </div>
+
+    <div class="report-modal__body template-manager">
+      <div class="template-manager__list">
+        <div class="template-manager__top">
+          <button type="button" class="btn btn--neutral" (click)="startNewTemplate()">Novo</button>
+        </div>
+        <button
+          type="button"
+          class="template-item"
+          *ngFor="let template of templates"
+          [class.active]="template.id === selectedTemplateId"
+          (click)="selectTemplate(template.id)"
+        >
+          {{ template.name }}
+        </button>
+        <p class="muted" *ngIf="!templates.length">Nenhum template cadastrado.</p>
+      </div>
+
+      <div class="template-manager__form">
+        <label class="var-field">
+          <span>Nome</span>
+          <input
+            type="text"
+            [(ngModel)]="templateDraft.name"
+            [ngModelOptions]="{ standalone: true }"
+            placeholder="Ex.: Curral PDF"
+          />
+        </label>
+
+        <label class="var-field">
+          <span>Descrição</span>
+          <input
+            type="text"
+            [(ngModel)]="templateDraft.description"
+            [ngModelOptions]="{ standalone: true }"
+            placeholder="Opcional"
+          />
+        </label>
+
+        <label class="var-field">
+          <span>Arquivo JRXML</span>
+          <div class="file-picker">
+            <label class="btn btn--secondary file-picker__btn" for="template-jrxml-file">Escolher arquivo</label>
+            <input
+              id="template-jrxml-file"
+              type="file"
+              accept=".jrxml,application/xml,text/xml"
+              (change)="onTemplateManagerFileSelected($event)"
+            />
+            <span class="file-picker__name">
+              {{ templateFileName || 'Nenhum arquivo selecionado' }}
+            </span>
+          </div>
+        </label>
+
+        <label class="var-field">
+          <span>Conteúdo JRXML</span>
+          <textarea
+            rows="12"
+            [(ngModel)]="templateDraft.jrxml"
+            [ngModelOptions]="{ standalone: true }"
+            placeholder="<jasperReport ...>...</jasperReport>"
+          ></textarea>
+        </label>
+
+        <p class="muted" *ngIf="loadingTemplate">Carregando template...</p>
+        <p class="params-error" *ngIf="templateDraftError">{{ templateDraftError }}</p>
+        <p class="muted" *ngIf="templateDraftStatus">{{ templateDraftStatus }}</p>
+      </div>
+    </div>
+
+    <div class="report-modal__footer report-modal__footer--spaced">
+      <button
+        type="button"
+        class="btn btn--danger"
+        (click)="deleteTemplateFromManager()"
+        [disabled]="creatingTemplate || !templateDraft.id"
+      >
+        Excluir
+      </button>
+      <button
+        type="button"
+        class="btn btn--neutral"
+        (click)="applyTemplateToReport()"
+        [disabled]="!templateDraft.id"
+      >
+        Vincular ao relatório
+      </button>
+      <button type="button" class="btn btn--primary" (click)="saveTemplateFromModal()" [disabled]="creatingTemplate">
+        {{ creatingTemplate ? 'Salvando...' : templateDraft.id ? 'Atualizar template' : 'Criar template' }}
+      </button>
     </div>
   </div>
 </dialog>

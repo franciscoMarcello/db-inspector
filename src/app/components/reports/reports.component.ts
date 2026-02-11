@@ -4,6 +4,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { forkJoin } from 'rxjs';
 import {
+  JasperTemplateResponse,
   ReportCreateInput,
   ReportDefinition,
   ReportFolder,
@@ -26,6 +27,14 @@ type ReportDraft = {
   sql: string;
   description: string;
   folderId: string;
+  jasperTemplateId: string;
+};
+
+type TemplateDraft = {
+  id: string | null;
+  name: string;
+  description: string;
+  jrxml: string;
 };
 
 const SQL_VARIABLE_RE = /(^|[^:]):([A-Za-z_][A-Za-z0-9_]*)/g;
@@ -42,6 +51,7 @@ export class ReportsComponent implements OnInit {
   folders: FolderNode[] = [];
   allFolders: ReportFolder[] = [];
   reports: ReportDefinition[] = [];
+  templates: JasperTemplateResponse[] = [];
   runResult: ReportRunResponse | null = null;
 
   selectedFolderId: string | null = null;
@@ -51,6 +61,8 @@ export class ReportsComponent implements OnInit {
   paramsError = '';
   loadingList = false;
   loadingRun = false;
+  loadingPdf = false;
+  sidebarCollapsed = false;
   variableInputs: Record<string, string> = {};
   reportModalOpen = false;
   reportModalMode: 'create' | 'edit' = 'create';
@@ -60,9 +72,23 @@ export class ReportsComponent implements OnInit {
     sql: '',
     description: '',
     folderId: '',
+    jasperTemplateId: '',
   };
   reportDraftVariables: DraftVariable[] = [];
   reportDraftError = '';
+  templateManagerOpen = false;
+  selectedTemplateId: string | null = null;
+  templateDraft: TemplateDraft = {
+    id: null,
+    name: '',
+    description: '',
+    jrxml: '',
+  };
+  templateDraftError = '';
+  templateDraftStatus = '';
+  templateFileName = '';
+  loadingTemplate = false;
+  creatingTemplate = false;
   private pendingCreateSql: string | null = null;
 
   constructor(private reportService: ReportService) {}
@@ -93,6 +119,10 @@ export class ReportsComponent implements OnInit {
     if (!result) return false;
     const metaCount = Number(result.meta?.rowCount ?? 0);
     return metaCount > 0 && this.displayedRows.length > 0;
+  }
+
+  get canExportPdf(): boolean {
+    return Boolean(this.selectedReport?.jasperTemplateId);
   }
 
   get selectedReportVariables() {
@@ -153,6 +183,10 @@ export class ReportsComponent implements OnInit {
     this.runSelectedReport();
   }
 
+  toggleSidebar() {
+    this.sidebarCollapsed = !this.sidebarCollapsed;
+  }
+
   createFolder() {
     const name = this.newFolderName.trim();
     if (!name) {
@@ -186,6 +220,43 @@ export class ReportsComponent implements OnInit {
           return;
         }
         this.statusMessage = 'Falha ao criar pasta.';
+      },
+    });
+  }
+
+  createFolderFromReportModal() {
+    const name = (prompt('Nome da nova pasta:', '') || '').trim();
+    if (!name) return;
+
+    if (this.folders.some((folder) => folder.name.toLowerCase() === name.toLowerCase())) {
+      this.reportDraftError = 'Ja existe uma pasta com esse nome.';
+      return;
+    }
+
+    const archivedMatch = this.allFolders.find(
+      (folder) => folder.archived && folder.name.toLowerCase() === name.toLowerCase()
+    );
+    if (archivedMatch) {
+      this.reportDraftError = 'Ja existe uma pasta arquivada com esse nome. Desarquive-a para reutilizar.';
+      return;
+    }
+
+    this.reportService.createFolder({ name, description: null }).subscribe({
+      next: (folder) => {
+        this.allFolders = [...this.allFolders, folder];
+        this.rebuildFolders(this.allFolders.filter((f) => !f.archived));
+        this.selectedFolderId = folder.id;
+        this.reportDraft.folderId = folder.id;
+        this.reportDraftError = '';
+        this.statusMessage = `Pasta "${folder.name}" criada.`;
+      },
+      error: (err: HttpErrorResponse) => {
+        if (err.status === 409) {
+          this.reportDraftError =
+            'Nao foi possivel criar: ja existe uma pasta com esse nome (ativa ou arquivada).';
+          return;
+        }
+        this.reportDraftError = 'Falha ao criar pasta.';
       },
     });
   }
@@ -278,6 +349,7 @@ export class ReportsComponent implements OnInit {
       sql: (presetSql || 'SELECT 1 AS ok;').trim(),
       description: '',
       folderId: folder.id,
+      jasperTemplateId: '',
     };
     this.syncDraftVariablesFromSql();
   }
@@ -302,6 +374,7 @@ export class ReportsComponent implements OnInit {
       sql: current.sql,
       description: current.description || '',
       folderId: folder.id,
+      jasperTemplateId: current.jasperTemplateId || '',
     };
     this.syncDraftVariablesFromSql(current.variables || []);
   }
@@ -313,6 +386,218 @@ export class ReportsComponent implements OnInit {
 
   onDraftSqlChanged() {
     this.syncDraftVariablesFromSql(this.reportDraftVariables);
+  }
+
+  openTemplateManager() {
+    this.templateManagerOpen = true;
+    this.templateDraftError = '';
+    this.templateDraftStatus = '';
+    this.creatingTemplate = false;
+    this.loadingTemplate = false;
+    this.startNewTemplate();
+    this.refreshTemplates(this.reportDraft.jasperTemplateId || undefined);
+  }
+
+  closeTemplateManager() {
+    this.templateManagerOpen = false;
+    this.templateDraftError = '';
+    this.templateDraftStatus = '';
+    this.creatingTemplate = false;
+    this.loadingTemplate = false;
+  }
+
+  startNewTemplate() {
+    this.selectedTemplateId = null;
+    this.templateDraftError = '';
+    this.templateDraftStatus = '';
+    this.templateDraft = {
+      id: null,
+      name: '',
+      description: '',
+      jrxml: '',
+    };
+    this.templateFileName = '';
+  }
+
+  selectTemplate(templateId: string) {
+    this.selectedTemplateId = templateId;
+    this.templateDraftError = '';
+    this.templateDraftStatus = '';
+    this.loadingTemplate = true;
+    this.reportService.getTemplate(templateId).subscribe({
+      next: (template) => {
+        this.loadingTemplate = false;
+        this.templateDraft = {
+          id: template.id,
+          name: template.name,
+          description: template.description || '',
+          jrxml: template.jrxml,
+        };
+        this.templateFileName = '';
+      },
+      error: () => {
+        this.loadingTemplate = false;
+        this.templateDraftError = 'Falha ao carregar template.';
+      },
+    });
+  }
+
+  onTemplateManagerFileSelected(event: Event) {
+    const input = event.target as HTMLInputElement | null;
+    const file = input?.files?.[0];
+    if (!file) return;
+
+    const fileName = file.name || '';
+    if (!fileName.toLowerCase().endsWith('.jrxml')) {
+      this.templateDraftError = 'Selecione um arquivo .jrxml válido.';
+      if (input) input.value = '';
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const jrxml = String(reader.result || '').trim();
+      if (!jrxml) {
+        this.templateDraftError = 'Arquivo JRXML vazio.';
+        if (input) input.value = '';
+        return;
+      }
+      this.templateDraft.jrxml = jrxml;
+      this.templateFileName = fileName;
+      if (!this.templateDraft.name.trim()) {
+        this.templateDraft.name = fileName.replace(/\.jrxml$/i, '').trim();
+      }
+      if (input) input.value = '';
+    };
+
+    reader.onerror = () => {
+      this.templateDraftError = 'Falha ao ler arquivo JRXML.';
+      if (input) input.value = '';
+    };
+
+    reader.readAsText(file, 'utf-8');
+  }
+
+  saveTemplateFromModal() {
+    const name = this.templateDraft.name.trim();
+    const description = this.templateDraft.description.trim();
+    const jrxml = this.templateDraft.jrxml.trim();
+
+    if (!name) {
+      this.templateDraftError = 'Informe o nome do template.';
+      return;
+    }
+    if (!jrxml) {
+      this.templateDraftError = 'Informe ou carregue o conteúdo JRXML.';
+      return;
+    }
+
+    this.creatingTemplate = true;
+    this.templateDraftError = '';
+    const onSuccess = (savedId: string, action: 'criado' | 'atualizado') => {
+      this.creatingTemplate = false;
+      this.reportDraft.jasperTemplateId = savedId;
+      this.templateDraftStatus = `Template ${action} e vinculado ao relatório.`;
+      this.refreshTemplates(savedId);
+    };
+
+    const onError = (action: 'criar' | 'atualizar') => {
+      this.creatingTemplate = false;
+      this.templateDraftError = `Falha ao ${action} template PDF.`;
+    };
+
+    if (this.templateDraft.id) {
+      this.reportService
+        .updateTemplate(this.templateDraft.id, {
+          name,
+          description: description || null,
+          jrxml,
+          archived: false,
+        })
+        .subscribe({
+          next: (updated) => onSuccess(updated.id, 'atualizado'),
+          error: () => onError('atualizar'),
+        });
+      return;
+    }
+
+    this.reportService
+      .createTemplate({
+        name,
+        description: description || null,
+        jrxml,
+        archived: false,
+      })
+      .subscribe({
+        next: (created) => onSuccess(created.id, 'criado'),
+        error: () => onError('criar'),
+      });
+  }
+
+  deleteTemplateFromManager() {
+    if (!this.templateDraft.id) {
+      this.templateDraftError = 'Selecione um template para excluir.';
+      return;
+    }
+    if (!confirm(`Excluir template "${this.templateDraft.name}"?`)) return;
+
+    this.creatingTemplate = true;
+    this.templateDraftError = '';
+    this.templateDraftStatus = '';
+    this.reportService.deleteTemplate(this.templateDraft.id).subscribe({
+      next: () => {
+        const deletedId = this.templateDraft.id;
+        this.creatingTemplate = false;
+        if (this.reportDraft.jasperTemplateId === deletedId) {
+          this.reportDraft.jasperTemplateId = '';
+        }
+        this.startNewTemplate();
+        this.templateDraftStatus = 'Template excluído.';
+        this.refreshTemplates();
+      },
+      error: (err: HttpErrorResponse) => {
+        this.creatingTemplate = false;
+        if (err.status === 409) {
+          this.templateDraftError = 'Não foi possível excluir: template vinculado a relatório.';
+          return;
+        }
+        this.templateDraftError = 'Falha ao excluir template.';
+      },
+    });
+  }
+
+  applyTemplateToReport() {
+    if (!this.templateDraft.id) {
+      this.templateDraftError = 'Selecione um template para vincular.';
+      return;
+    }
+    this.reportDraft.jasperTemplateId = this.templateDraft.id;
+    this.templateDraftStatus = `Template "${this.templateDraft.name}" vinculado ao relatório.`;
+  }
+
+  private refreshTemplates(preferredId?: string) {
+    this.reportService.listTemplates().subscribe({
+      next: (templates) => {
+        this.templates = (templates || [])
+          .filter((t) => !t.archived)
+          .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+
+        const nextId =
+          preferredId && this.templates.some((t) => t.id === preferredId)
+            ? preferredId
+            : this.selectedTemplateId && this.templates.some((t) => t.id === this.selectedTemplateId)
+            ? this.selectedTemplateId
+            : null;
+        if (nextId) {
+          this.selectTemplate(nextId);
+        } else {
+          this.selectedTemplateId = null;
+        }
+      },
+      error: () => {
+        this.templateDraftError = 'Falha ao listar templates.';
+      },
+    });
   }
 
   saveReportFromModal() {
@@ -350,6 +635,7 @@ export class ReportsComponent implements OnInit {
       name,
       folderId: folder.id,
       templateName: folder.name,
+      jasperTemplateId: this.reportDraft.jasperTemplateId || undefined,
       sql,
       description: description || null,
       variables,
@@ -357,7 +643,6 @@ export class ReportsComponent implements OnInit {
     };
 
     if (this.reportModalMode === 'create') {
-      console.log('[reports] create payload', payload);
       this.reportService.createReport(payload).subscribe({
         next: (created) => {
           this.statusMessage = `Relatorio "${created.name}" criado.`;
@@ -376,7 +661,6 @@ export class ReportsComponent implements OnInit {
       return;
     }
 
-    console.log('[reports] update payload', { id: this.reportDraft.id, payload });
     this.reportService.updateReport(this.reportDraft.id, payload).subscribe({
       next: (updated) => {
         this.statusMessage = `Relatorio "${updated.name}" atualizado.`;
@@ -427,6 +711,7 @@ export class ReportsComponent implements OnInit {
       name: current.name,
       folderId,
       templateName: folder?.name ?? current.folderName ?? current.templateName,
+      jasperTemplateId: current.jasperTemplateId ?? undefined,
       sql: current.sql,
       description: current.description,
       variables: (current.variables || []).map((v, idx) => ({
@@ -462,9 +747,31 @@ export class ReportsComponent implements OnInit {
   }
 
   exportPdf() {
-    const result = this.runResult;
-    if (!result) return;
-    this.statusMessage = `Exportacao PDF de "${result.name}" ainda sera integrada.`;
+    const report = this.selectedReport;
+    if (!report?.id) {
+      this.statusMessage = 'Selecione um relatório para exportar PDF.';
+      return;
+    }
+    if (!report.jasperTemplateId) {
+      this.statusMessage = 'Este relatório não possui template Jasper vinculado.';
+      return;
+    }
+
+    const params = this.buildRunParams();
+    if (params === null) return;
+
+    this.loadingPdf = true;
+    this.reportService.generateReportPdf(report.id, params, true).subscribe({
+      next: (blob) => {
+        this.loadingPdf = false;
+        this.downloadBlob(blob, `${this.fileName(report.name)}.pdf`);
+        this.statusMessage = `Exportacao PDF concluida para "${report.name}".`;
+      },
+      error: () => {
+        this.loadingPdf = false;
+        this.statusMessage = 'Falha ao exportar PDF.';
+      },
+    });
   }
 
   private loadData(preferredReportId?: string, preferredFolderId?: string) {
@@ -472,10 +779,12 @@ export class ReportsComponent implements OnInit {
     forkJoin({
       folders: this.reportService.listFolders(),
       reports: this.reportService.listReports(),
+      templates: this.reportService.listTemplates(),
     }).subscribe({
-      next: ({ folders, reports }) => {
+      next: ({ folders, reports, templates }) => {
         this.allFolders = folders || [];
         this.reports = (reports || []).filter((r) => !r.archived);
+        this.templates = (templates || []).filter((t) => !t.archived);
         this.rebuildFolders((folders || []).filter((f) => !f.archived));
         this.reconcileSelection(preferredReportId, preferredFolderId);
         if (this.pendingCreateSql) {
@@ -487,6 +796,7 @@ export class ReportsComponent implements OnInit {
       },
       error: () => {
         this.reports = [];
+        this.templates = [];
         this.folders = [];
         this.runResult = null;
         this.selectedFolderId = null;

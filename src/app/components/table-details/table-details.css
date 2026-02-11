@@ -181,3 +181,18 @@
   font-size: 12px;
   color: var(--text-muted);
 }
+
+@media (max-height: 820px) {
+  .table-details-root {
+    margin-top: 12px;
+    gap: 6px;
+  }
+
+  .td-cols-wrapper {
+    max-height: 30vh;
+  }
+
+  .relations-scroll {
+    max-height: 16vh;
+  }
+}

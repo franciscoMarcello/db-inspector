@@ -65,3 +65,10 @@
   background: var(--chip-bg-active);
   color: #ffffff;
 }
+
+@media (max-height: 820px) {
+  .split {
+    height: 68vh;
+    margin-top: 10px;
+  }
+}
