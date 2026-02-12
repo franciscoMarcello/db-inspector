@@ -789,9 +789,9 @@ export class ReportsComponent implements OnInit {
   exportExcel() {
     const result = this.runResult;
     if (!result) return;
-    const csv = this.toCsv(result.columns, result.rows);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-    this.downloadBlob(blob, `${this.fileName(result.name)}.csv`);
+    const xls = this.toXlsHtml(result.columns, result.rows);
+    const blob = new Blob(['\uFEFF', xls], { type: 'application/vnd.ms-excel;charset=utf-8' });
+    this.downloadBlob(blob, `${this.fileName(result.name)}.xls`);
     this.statusMessage = `Exportacao Excel concluida para "${result.name}".`;
   }
 
@@ -977,11 +977,37 @@ export class ReportsComponent implements OnInit {
     return vars;
   }
 
-  private toCsv(columns: string[], rows: Record<string, unknown>[]): string {
-    const escape = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`;
-    const header = columns.map((col) => escape(col)).join(',');
-    const lines = rows.map((row) => columns.map((col) => escape(row[col])).join(','));
-    return [header, ...lines].join('\n');
+  private toXlsHtml(columns: string[], rows: Record<string, unknown>[]): string {
+    const esc = (value: unknown) =>
+      String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+
+    const thead = `<tr>${columns.map((col) => `<th>${esc(col)}</th>`).join('')}</tr>`;
+    const tbody = rows
+      .map((row) => `<tr>${columns.map((col) => `<td>${esc(row[col])}</td>`).join('')}</tr>`)
+      .join('');
+
+    return `<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      table { border-collapse: collapse; }
+      th, td { border: 1px solid #cbd5e1; padding: 4px 8px; text-align: left; white-space: nowrap; }
+      th { font-weight: 700; background: #f1f5f9; }
+    </style>
+  </head>
+  <body>
+    <table>
+      <thead>${thead}</thead>
+      <tbody>${tbody}</tbody>
+    </table>
+  </body>
+</html>`;
   }
 
   private downloadBlob(blob: Blob, fileName: string) {
