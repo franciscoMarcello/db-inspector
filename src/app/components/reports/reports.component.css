@@ -288,74 +288,14 @@
   resize: vertical;
 }
 
-.var-mat-select {
-  display: block;
-  width: 100%;
-  margin: 0;
-  --mat-form-field-container-height: 34px;
-  --mat-form-field-container-vertical-padding: 0px;
-  font-size: 14px;
-}
-
-:host ::ng-deep .var-mat-select .mat-mdc-text-field-wrapper {
-  height: 34px !important;
-  min-height: 34px !important;
-  border-radius: 6px;
-  background: var(--bg-surface-alt);
-  border: 1px solid var(--border-subtle);
-  color: var(--text-primary);
-}
-
-:host ::ng-deep .var-mat-select .mdc-notched-outline__leading,
-:host ::ng-deep .var-mat-select .mdc-notched-outline__notch,
-:host ::ng-deep .var-mat-select .mdc-notched-outline__trailing {
-  border-color: var(--border-subtle) !important;
-}
-
-:host ::ng-deep .var-mat-select .mat-mdc-form-field-infix {
-  min-height: 34px !important;
-  height: 34px !important;
-  padding-top: 0 !important;
-  padding-bottom: 0 !important;
-}
-
-:host ::ng-deep .var-mat-select input.mat-mdc-input-element {
+:host ::ng-deep .var-field input.var-autocomplete.mat-mdc-input-element {
   color: var(--text-primary);
   font-size: 14px;
-  line-height: 34px;
-  padding: 0 8px !important;
-  margin: 0 !important;
 }
 
-:host ::ng-deep .var-mat-select .mat-mdc-form-field-subscript-wrapper {
-  display: none;
-}
-
-:host ::ng-deep .report-var-options-panel.mat-mdc-select-panel,
-:host ::ng-deep .cdk-overlay-pane .report-var-options-panel.mat-mdc-select-panel {
-  max-height: 280px !important;
-  background: var(--bg-surface-alt) !important;
-  color: var(--text-primary) !important;
-  border: 1px solid var(--border-subtle);
-}
-
-:host ::ng-deep .report-var-options-panel .mat-mdc-option,
-:host ::ng-deep .cdk-overlay-pane .report-var-options-panel .mat-mdc-option {
-  font-size: 13px;
-  min-height: 34px;
-  color: var(--text-primary) !important;
-}
-
-:host ::ng-deep .report-var-options-panel .mat-mdc-option:hover,
-:host ::ng-deep .report-var-options-panel .mat-mdc-option.mdc-list-item--selected,
-:host ::ng-deep .cdk-overlay-pane .report-var-options-panel .mat-mdc-option:hover,
-:host ::ng-deep .cdk-overlay-pane .report-var-options-panel .mat-mdc-option.mdc-list-item--selected {
-  background: color-mix(in srgb, var(--chip-bg-active) 30%, var(--bg-surface-alt)) !important;
-}
-
-:host ::ng-deep .report-var-options-panel .mdc-list-item__primary-text,
-:host ::ng-deep .cdk-overlay-pane .report-var-options-panel .mdc-list-item__primary-text {
-  color: var(--text-primary) !important;
+:host-context(.dark-theme) ::ng-deep .var-field input.var-autocomplete.mat-mdc-input-element::placeholder {
+  color: #ffffff !important;
+  opacity: 0.95;
 }
 
 .params-error {

@@ -1086,6 +1086,12 @@ export class ReportsComponent implements OnInit {
     this.onVariableInputChanged();
   }
 
+  displayVariableOption(value: ReportVariableOption | string | null): string {
+    if (!value) return '';
+    if (typeof value === 'string') return value;
+    return String(value.descricao ?? '');
+  }
+
   private reloadVariableOptions() {
     const reportId = this.selectedReport?.id;
     if (!reportId) {
