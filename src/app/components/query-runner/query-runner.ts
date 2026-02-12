@@ -417,7 +417,7 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
       localStorage.setItem(REPORT_DRAFT_SQL_KEY, sql);
     } catch {}
 
-    this.router.navigate(['/reports']);
+    this.router.navigate(['/reports/manage']);
   }
 
   private makeFileName(prefix: string, ext: string) {

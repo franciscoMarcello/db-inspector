@@ -19,8 +19,24 @@
       Agendamentos
     </button>
 
-    <button mat-button class="nav-btn" routerLink="/reports" routerLinkActive="active">
+    <button
+      mat-button
+      class="nav-btn"
+      routerLink="/reports"
+      routerLinkActive="active"
+      [routerLinkActiveOptions]="{ exact: true }"
+    >
       Relatorios
+    </button>
+
+    <button
+      mat-button
+      class="nav-btn"
+      routerLink="/reports/manage"
+      routerLinkActive="active"
+      [routerLinkActiveOptions]="{ exact: true }"
+    >
+      Gerenciar Relatorios
     </button>
 
     <button mat-button class="nav-btn" (click)="openEnv()">Ambientes</button>

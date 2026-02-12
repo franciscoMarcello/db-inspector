@@ -3,6 +3,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
+import { ActivatedRoute, Router } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import {
   JasperTemplateResponse,
@@ -11,6 +12,8 @@ import {
   ReportFolder,
   ReportRunResponse,
   ReportService,
+  ReportVariable,
+  ReportVariableOption,
   ReportVariableInput,
 } from '../../services/report.service';
 
@@ -63,8 +66,11 @@ export class ReportsComponent implements OnInit {
   loadingList = false;
   loadingRun = false;
   loadingPdf = false;
+  manageMode = false;
   sidebarCollapsed = false;
   variableInputs: Record<string, string> = {};
+  variableOptions: Record<string, ReportVariableOption[]> = {};
+  loadingVariableOptions: Record<string, boolean> = {};
   reportModalOpen = false;
   reportModalMode: 'create' | 'edit' = 'create';
   reportDraft: ReportDraft = {
@@ -91,11 +97,18 @@ export class ReportsComponent implements OnInit {
   loadingTemplate = false;
   creatingTemplate = false;
   private pendingCreateSql: string | null = null;
+  private optionsReloadTimer: ReturnType<typeof setTimeout> | null = null;
+  private optionsParamsSignatureByKey: Record<string, string> = {};
 
-  constructor(private reportService: ReportService) {}
+  constructor(
+    private reportService: ReportService,
+    private route: ActivatedRoute,
+    private router: Router
+  ) {}
 
   ngOnInit(): void {
-    this.pendingCreateSql = this.consumePendingSql();
+    this.manageMode = this.route.snapshot.data['manage'] === true;
+    this.pendingCreateSql = this.manageMode ? this.consumePendingSql() : null;
     this.loadData();
   }
 
@@ -124,6 +137,17 @@ export class ReportsComponent implements OnInit {
 
   get canExportPdf(): boolean {
     return Boolean(this.selectedReport?.jasperTemplateId);
+  }
+
+  get hasRequiredParamsForRun(): boolean {
+    const vars = this.selectedReportVariables;
+    for (const v of vars) {
+      if (!v.required) continue;
+      const rawInput = (this.variableInputs[v.key] ?? '').trim();
+      const fallback = (v.defaultValue ?? '').trim();
+      if (!rawInput && !fallback) return false;
+    }
+    return true;
   }
 
   get selectedReportVariables() {
@@ -173,19 +197,30 @@ export class ReportsComponent implements OnInit {
     this.selectedReportId = first?.id ?? null;
     this.runResult = null;
     this.statusMessage = '';
-    if (this.selectedReportId) this.runSelectedReport();
+    this.optionsParamsSignatureByKey = {};
+    if (this.selectedReportId) {
+      this.initVariableInputs();
+      this.reloadVariableOptions();
+      this.runSelectedReport();
+    }
   }
 
   selectReport(reportId: string) {
     this.selectedReportId = reportId;
     this.statusMessage = '';
     this.paramsError = '';
+    this.optionsParamsSignatureByKey = {};
     this.initVariableInputs();
+    this.reloadVariableOptions();
     this.runSelectedReport();
   }
 
   toggleSidebar() {
     this.sidebarCollapsed = !this.sidebarCollapsed;
+  }
+
+  goToManagement() {
+    this.router.navigate(['/reports/manage']);
   }
 
   createFolder() {
@@ -630,6 +665,7 @@ export class ReportsComponent implements OnInit {
       required: v.required,
       defaultValue: v.defaultValue ? String(v.defaultValue) : null,
       orderIndex: idx,
+      optionsSql: v.optionsSql?.trim() ? String(v.optionsSql).trim() : null,
     }));
 
     const payload: ReportCreateInput = {
@@ -723,6 +759,7 @@ export class ReportsComponent implements OnInit {
         required: v.required,
         defaultValue: v.defaultValue,
         orderIndex: Number.isFinite(v.orderIndex) ? v.orderIndex : idx,
+        optionsSql: v.optionsSql?.trim() ? String(v.optionsSql).trim() : null,
       })),
       archived: true,
     };
@@ -788,7 +825,7 @@ export class ReportsComponent implements OnInit {
         this.templates = (templates || []).filter((t) => !t.archived);
         this.rebuildFolders((folders || []).filter((f) => !f.archived));
         this.reconcileSelection(preferredReportId, preferredFolderId);
-        if (this.pendingCreateSql) {
+        if (this.manageMode && this.pendingCreateSql) {
           const sql = this.pendingCreateSql;
           this.pendingCreateSql = null;
           this.openCreateReportModal(sql);
@@ -855,6 +892,9 @@ export class ReportsComponent implements OnInit {
       this.selectedFolderId = this.folders[0]?.id ?? null;
       this.selectedReportId = null;
       this.runResult = null;
+      this.variableOptions = {};
+      this.loadingVariableOptions = {};
+      this.optionsParamsSignatureByKey = {};
       return;
     }
 
@@ -892,9 +932,13 @@ export class ReportsComponent implements OnInit {
         if (folderByTemplate) this.selectedFolderId = folderByTemplate.id;
       }
       this.initVariableInputs();
+      this.reloadVariableOptions();
       this.runSelectedReport();
     } else {
       this.runResult = null;
+      this.variableOptions = {};
+      this.loadingVariableOptions = {};
+      this.optionsParamsSignatureByKey = {};
     }
   }
 
@@ -957,8 +1001,9 @@ export class ReportsComponent implements OnInit {
   private initVariableInputs() {
     const vars = this.selectedReportVariables;
     const next: Record<string, string> = {};
+    const previous = this.variableInputs;
     for (const v of vars) {
-      const existing = this.variableInputs[v.key];
+      const existing = previous[v.key];
       if (existing !== undefined) {
         next[v.key] = existing;
         continue;
@@ -966,6 +1011,100 @@ export class ReportsComponent implements OnInit {
       next[v.key] = v.defaultValue ?? '';
     }
     this.variableInputs = next;
+  }
+
+  onVariableInputChanged() {
+    if (this.optionsReloadTimer) {
+      clearTimeout(this.optionsReloadTimer);
+    }
+    this.optionsReloadTimer = setTimeout(() => this.reloadVariableOptions(), 250);
+  }
+
+  hasVariableOptions(variable: ReportVariable): boolean {
+    return Boolean(variable.optionsSql && variable.optionsSql.trim());
+  }
+
+  variableOptionItems(variable: ReportVariable): ReportVariableOption[] {
+    return this.variableOptions[variable.key] || [];
+  }
+
+  variableOptionsLoading(variable: ReportVariable): boolean {
+    return Boolean(this.loadingVariableOptions[variable.key]);
+  }
+
+  private reloadVariableOptions() {
+    const reportId = this.selectedReport?.id;
+    if (!reportId) {
+      this.variableOptions = {};
+      this.loadingVariableOptions = {};
+      this.optionsParamsSignatureByKey = {};
+      return;
+    }
+
+    const optionVars = this.selectedReportVariables.filter((v) => this.hasVariableOptions(v));
+    if (!optionVars.length) {
+      this.variableOptions = {};
+      this.loadingVariableOptions = {};
+      this.optionsParamsSignatureByKey = {};
+      return;
+    }
+
+    for (const variable of optionVars) {
+      const params = this.buildParamsForOptions(variable.key);
+      const signature = JSON.stringify(params);
+      if (this.optionsParamsSignatureByKey[variable.key] === signature) {
+        continue;
+      }
+      this.loadingVariableOptions = {
+        ...this.loadingVariableOptions,
+        [variable.key]: true,
+      };
+      this.reportService.listVariableOptions(reportId, variable.key, params, 100).subscribe({
+        next: (options) => {
+          this.optionsParamsSignatureByKey = {
+            ...this.optionsParamsSignatureByKey,
+            [variable.key]: signature,
+          };
+          this.variableOptions = {
+            ...this.variableOptions,
+            [variable.key]: options,
+          };
+          this.loadingVariableOptions = {
+            ...this.loadingVariableOptions,
+            [variable.key]: false,
+          };
+        },
+        error: () => {
+          this.optionsParamsSignatureByKey = {
+            ...this.optionsParamsSignatureByKey,
+            [variable.key]: signature,
+          };
+          this.variableOptions = {
+            ...this.variableOptions,
+            [variable.key]: [],
+          };
+          this.loadingVariableOptions = {
+            ...this.loadingVariableOptions,
+            [variable.key]: false,
+          };
+        },
+      });
+    }
+  }
+
+  private buildParamsForOptions(excludeKey: string): Record<string, unknown> {
+    const vars = this.selectedReportVariables;
+    const params: Record<string, unknown> = {};
+    for (const v of vars) {
+      if (v.key === excludeKey) continue;
+      const raw = (this.variableInputs[v.key] ?? '').trim();
+      if (!raw) continue;
+      const converted = this.convertVariableValue(v.type, raw, v.key, false);
+      if (converted !== undefined) {
+        params[v.key] = converted;
+      }
+    }
+    return params;
   }
 
   private buildRunParams(): Record<string, unknown> | null {
@@ -998,15 +1137,18 @@ export class ReportsComponent implements OnInit {
   private convertVariableValue(
     type: ReportVariableInput['type'],
     raw: string,
-    key: string
+    key: string,
+    setErrors = true
   ): unknown | undefined {
     if (type === 'string') return raw;
 
     if (type === 'number') {
       const n = Number(raw);
       if (!Number.isFinite(n)) {
-        this.paramsError = `Valor inválido para ${key}: esperado número.`;
-        this.statusMessage = this.paramsError;
+        if (setErrors) {
+          this.paramsError = `Valor inválido para ${key}: esperado número.`;
+          this.statusMessage = this.paramsError;
+        }
         return undefined;
       }
       return n;
@@ -1016,15 +1158,19 @@ export class ReportsComponent implements OnInit {
       const normalized = raw.toLowerCase();
       if (['true', '1', 'sim', 'yes'].includes(normalized)) return true;
       if (['false', '0', 'nao', 'não', 'no'].includes(normalized)) return false;
-      this.paramsError = `Valor inválido para ${key}: esperado booleano.`;
-      this.statusMessage = this.paramsError;
+      if (setErrors) {
+        this.paramsError = `Valor inválido para ${key}: esperado booleano.`;
+        this.statusMessage = this.paramsError;
+      }
       return undefined;
     }
 
     if (type === 'date') {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
-        this.paramsError = `Valor inválido para ${key}: esperado yyyy-MM-dd.`;
-        this.statusMessage = this.paramsError;
+        if (setErrors) {
+          this.paramsError = `Valor inválido para ${key}: esperado yyyy-MM-dd.`;
+          this.statusMessage = this.paramsError;
+        }
         return undefined;
       }
       return raw;
@@ -1036,8 +1182,10 @@ export class ReportsComponent implements OnInit {
         ? new Date(`${raw}:00`)
         : new Date(raw);
       if (Number.isNaN(fromLocal.getTime())) {
-        this.paramsError = `Valor inválido para ${key}: esperado datetime ISO.`;
-        this.statusMessage = this.paramsError;
+        if (setErrors) {
+          this.paramsError = `Valor inválido para ${key}: esperado datetime ISO.`;
+          this.statusMessage = this.paramsError;
+        }
         return undefined;
       }
       return this.formatDateTime(fromLocal);
@@ -1068,6 +1216,10 @@ export class ReportsComponent implements OnInit {
           current?.defaultValue === undefined || current?.defaultValue === null
             ? null
             : String(current.defaultValue),
+        optionsSql:
+          current?.optionsSql === undefined || current?.optionsSql === null
+            ? null
+            : String(current.optionsSql),
         orderIndex: idx,
         enabled: Boolean(current?.enabled ?? true),
       };

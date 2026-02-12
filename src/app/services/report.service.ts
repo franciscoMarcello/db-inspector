@@ -46,6 +46,7 @@ export type ReportVariable = {
   required: boolean;
   defaultValue: string | null;
   orderIndex: number;
+  optionsSql?: string | null;
 };
 
 export type ReportVariableInput = Omit<ReportVariable, 'id'> & {
@@ -98,6 +99,11 @@ export type ReportRunResponse = {
   columns: string[];
   rows: Record<string, unknown>[];
   summaries: ReportRunSummary[];
+};
+
+export type ReportVariableOption = {
+  valor: string | number | boolean | null;
+  descricao: string;
 };
 
 @Injectable({ providedIn: 'root' })
@@ -166,18 +172,22 @@ export class ReportService {
   }
 
   createReport(payload: ReportCreateInput): Observable<ReportDefinition> {
+    const variables = (payload.variables || []).map((variable) => this.toVariablePayload(variable));
     return this.http
       .post<any>(`${this.base}/reports`, {
         ...payload,
+        variables,
         folder_id: payload.folderId,
       })
       .pipe(map((res) => this.normalizeReport(res)));
   }
 
   updateReport(id: string, payload: ReportCreateInput): Observable<ReportDefinition> {
+    const variables = (payload.variables || []).map((variable) => this.toVariablePayload(variable));
     return this.http
       .put<any>(`${this.base}/reports/${encodeURIComponent(id)}`, {
         ...payload,
+        variables,
         folder_id: payload.folderId,
       })
       .pipe(map((res) => this.normalizeReport(res)));
@@ -197,6 +207,22 @@ export class ReportService {
   ): Observable<ReportRunResponse> {
     const body = params && Object.keys(params).length ? { params } : null;
     return this.http.post<ReportRunResponse>(`${this.base}/reports/${encodeURIComponent(id)}/run`, body);
+  }
+
+  listVariableOptions(
+    reportId: string,
+    key: string,
+    params?: Record<string, unknown> | null,
+    limit = 100
+  ): Observable<ReportVariableOption[]> {
+    const body: Record<string, unknown> = { limit };
+    if (params && Object.keys(params).length) body['params'] = params;
+    return this.http
+      .post<any>(
+        `${this.base}/reports/${encodeURIComponent(reportId)}/variables/${encodeURIComponent(key)}/options`,
+        body
+      )
+      .pipe(map((res) => this.normalizeVariableOptions(res)));
   }
 
   generateReportPdf(
@@ -301,6 +327,21 @@ export class ReportService {
   }
 
   private normalizeVariable(item: any): ReportVariable {
+    const rawOptionsSql =
+      item?.optionsSql ??
+      item?.options_sql ??
+      item?.optionSql ??
+      item?.option_sql ??
+      item?.optionsQuery ??
+      item?.options_query ??
+      item?.sqlOptions ??
+      item?.sql_options ??
+      null;
+    const optionsSql =
+      rawOptionsSql === null || rawOptionsSql === undefined
+        ? null
+        : String(rawOptionsSql).trim() || null;
+
     return {
       id: item?.id ? String(item.id) : undefined,
       key: String(item?.key ?? ''),
@@ -312,7 +353,21 @@ export class ReportService {
           ? null
           : String(item.defaultValue),
       orderIndex: Number(item?.orderIndex ?? 0),
+      optionsSql,
     };
+  }
+
+  private normalizeVariableOptions(res: any): ReportVariableOption[] {
+    const data = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
+    return data.map((item: any) => ({
+      valor:
+        item?.valor === undefined
+          ? item?.value === undefined
+            ? null
+            : item.value
+          : item.valor,
+      descricao: String(item?.descricao ?? item?.description ?? item?.label ?? item?.valor ?? ''),
+    }));
   }
 
   private normalizeVariableType(value: any): ReportVariableType {
@@ -354,5 +409,20 @@ export class ReportService {
       null;
     if (raw === null || raw === undefined || raw === '') return null;
     return String(raw);
+  }
+
+  private toVariablePayload(variable: ReportVariableInput): Record<string, unknown> {
+    const optionsSql =
+      variable.optionsSql === undefined || variable.optionsSql === null
+        ? null
+        : String(variable.optionsSql).trim() || null;
+
+    return {
+      ...variable,
+      optionsSql,
+      options_sql: optionsSql,
+      optionsQuery: optionsSql,
+      options_query: optionsSql,
+    };
   }
 }
