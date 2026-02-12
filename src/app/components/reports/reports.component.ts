@@ -3,6 +3,9 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { ActivatedRoute, Router } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import {
@@ -47,7 +50,14 @@ const REPORT_DRAFT_SQL_KEY = 'dbi.reports.pending_sql';
 @Component({
   selector: 'app-reports',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatIconModule],
+  imports: [
+    CommonModule,
+    FormsModule,
+    MatIconModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatAutocompleteModule,
+  ],
   templateUrl: './reports.component.html',
   styleUrls: ['./reports.component.css'],
 })
@@ -71,6 +81,7 @@ export class ReportsComponent implements OnInit {
   variableInputs: Record<string, string> = {};
   variableOptions: Record<string, ReportVariableOption[]> = {};
   loadingVariableOptions: Record<string, boolean> = {};
+  variableOptionSearchText: Record<string, string> = {};
   reportModalOpen = false;
   reportModalMode: 'create' | 'edit' = 'create';
   reportDraft: ReportDraft = {
@@ -1028,8 +1039,51 @@ export class ReportsComponent implements OnInit {
     return this.variableOptions[variable.key] || [];
   }
 
+  filteredVariableOptionItems(variable: ReportVariable): ReportVariableOption[] {
+    const all = this.variableOptionItems(variable);
+    const term = (this.variableOptionSearchText[variable.key] || '').trim().toLowerCase();
+    if (!term) return all;
+    return all.filter((opt) => String(opt.descricao ?? '').toLowerCase().includes(term));
+  }
+
   variableOptionsLoading(variable: ReportVariable): boolean {
     return Boolean(this.loadingVariableOptions[variable.key]);
+  }
+
+  onVariableOptionSearchChange(variable: ReportVariable, text: string) {
+    const key = variable.key;
+    this.variableOptionSearchText = {
+      ...this.variableOptionSearchText,
+      [key]: text,
+    };
+
+    const normalized = text.trim().toLowerCase();
+    const exact = this.variableOptionItems(variable).find(
+      (opt) => String(opt.descricao ?? '').trim().toLowerCase() === normalized
+    );
+
+    this.variableInputs[key] = exact ? String(exact.valor ?? '') : '';
+    this.onVariableInputChanged();
+  }
+
+  onVariableOptionSelected(variable: ReportVariable, option: ReportVariableOption | null) {
+    const key = variable.key;
+    if (!option) {
+      this.variableInputs[key] = '';
+      this.variableOptionSearchText = {
+        ...this.variableOptionSearchText,
+        [key]: '',
+      };
+      this.onVariableInputChanged();
+      return;
+    }
+
+    this.variableInputs[key] = String(option.valor ?? '');
+    this.variableOptionSearchText = {
+      ...this.variableOptionSearchText,
+      [key]: String(option.descricao ?? ''),
+    };
+    this.onVariableInputChanged();
   }
 
   private reloadVariableOptions() {
@@ -1069,6 +1123,7 @@ export class ReportsComponent implements OnInit {
             ...this.variableOptions,
             [variable.key]: options,
           };
+          this.syncOptionSearchText(variable.key, options);
           this.loadingVariableOptions = {
             ...this.loadingVariableOptions,
             [variable.key]: false,
@@ -1105,6 +1160,22 @@ export class ReportsComponent implements OnInit {
       }
     }
     return params;
+  }
+
+  private syncOptionSearchText(key: string, options: ReportVariableOption[]) {
+    const rawValue = String(this.variableInputs[key] ?? '').trim();
+    if (!rawValue) {
+      this.variableOptionSearchText = {
+        ...this.variableOptionSearchText,
+        [key]: '',
+      };
+      return;
+    }
+    const match = options.find((opt) => String(opt.valor ?? '') === rawValue);
+    this.variableOptionSearchText = {
+      ...this.variableOptionSearchText,
+      [key]: match ? String(match.descricao ?? '') : rawValue,
+    };
   }
 
   private buildRunParams(): Record<string, unknown> | null {

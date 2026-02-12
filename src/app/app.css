@@ -85,4 +85,18 @@
   background: var(--bg-surface);
   color: var(--text-muted);
   font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  position: relative;
+  gap: 12px;
+}
+
+.footer-center {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  color: var(--text-muted);
+  font-size: 12px;
+  white-space: nowrap;
 }

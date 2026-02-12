@@ -112,13 +112,13 @@
   align-items: center;
   gap: 8px;
   padding: 0 8px;
-  background: #101a2f;
-  border: 1px solid #1e2b46;
+  background: var(--bg-surface-alt);
+  border: 1px solid var(--border-subtle);
 }
 
 .folder-btn.active {
-  background: #15284f;
-  border-color: #3558a8;
+  background: color-mix(in srgb, var(--chip-bg-active) 22%, var(--bg-surface-alt));
+  border-color: color-mix(in srgb, var(--chip-bg-active) 60%, var(--border-subtle));
 }
 
 .folder-name {
@@ -130,9 +130,9 @@
 .folder-count {
   margin-left: auto;
   font-size: 11px;
-  color: #a9b4cc;
-  background: #0d1527;
-  border: 1px solid #263551;
+  color: var(--text-muted);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
   border-radius: 999px;
   min-width: 20px;
   height: 20px;
@@ -155,23 +155,23 @@
 
 .report-leaf {
   font-size: 12px;
-  color: #ced9ee;
+  color: var(--text-primary);
   padding: 0 10px;
   min-height: 28px;
   border-left: 3px solid transparent;
-  background: #0d1527;
-  border: 1px solid #1b2841;
+  background: var(--bg-surface-alt);
+  border: 1px solid var(--border-subtle);
 }
 
 .report-leaf.active {
-  background: #4d66f2;
+  background: color-mix(in srgb, var(--chip-bg-active) 75%, #ffffff);
   color: #fff;
-  border-left-color: #a5b4fc;
-  border-color: #627eff;
+  border-left-color: color-mix(in srgb, #ffffff 70%, var(--chip-bg-active));
+  border-color: var(--chip-bg-active);
 }
 
 .tree-empty {
-  color: #7f8ba5;
+  color: var(--text-muted);
   font-size: 11px;
   padding: 4px 10px;
 }
@@ -288,6 +288,76 @@
   resize: vertical;
 }
 
+.var-mat-select {
+  display: block;
+  width: 100%;
+  margin: 0;
+  --mat-form-field-container-height: 34px;
+  --mat-form-field-container-vertical-padding: 0px;
+  font-size: 14px;
+}
+
+:host ::ng-deep .var-mat-select .mat-mdc-text-field-wrapper {
+  height: 34px !important;
+  min-height: 34px !important;
+  border-radius: 6px;
+  background: var(--bg-surface-alt);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+}
+
+:host ::ng-deep .var-mat-select .mdc-notched-outline__leading,
+:host ::ng-deep .var-mat-select .mdc-notched-outline__notch,
+:host ::ng-deep .var-mat-select .mdc-notched-outline__trailing {
+  border-color: var(--border-subtle) !important;
+}
+
+:host ::ng-deep .var-mat-select .mat-mdc-form-field-infix {
+  min-height: 34px !important;
+  height: 34px !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+:host ::ng-deep .var-mat-select input.mat-mdc-input-element {
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 34px;
+  padding: 0 8px !important;
+  margin: 0 !important;
+}
+
+:host ::ng-deep .var-mat-select .mat-mdc-form-field-subscript-wrapper {
+  display: none;
+}
+
+:host ::ng-deep .report-var-options-panel.mat-mdc-select-panel,
+:host ::ng-deep .cdk-overlay-pane .report-var-options-panel.mat-mdc-select-panel {
+  max-height: 280px !important;
+  background: var(--bg-surface-alt) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-subtle);
+}
+
+:host ::ng-deep .report-var-options-panel .mat-mdc-option,
+:host ::ng-deep .cdk-overlay-pane .report-var-options-panel .mat-mdc-option {
+  font-size: 13px;
+  min-height: 34px;
+  color: var(--text-primary) !important;
+}
+
+:host ::ng-deep .report-var-options-panel .mat-mdc-option:hover,
+:host ::ng-deep .report-var-options-panel .mat-mdc-option.mdc-list-item--selected,
+:host ::ng-deep .cdk-overlay-pane .report-var-options-panel .mat-mdc-option:hover,
+:host ::ng-deep .cdk-overlay-pane .report-var-options-panel .mat-mdc-option.mdc-list-item--selected {
+  background: color-mix(in srgb, var(--chip-bg-active) 30%, var(--bg-surface-alt)) !important;
+}
+
+:host ::ng-deep .report-var-options-panel .mdc-list-item__primary-text,
+:host ::ng-deep .cdk-overlay-pane .report-var-options-panel .mdc-list-item__primary-text {
+  color: var(--text-primary) !important;
+}
+
 .params-error {
   margin: 8px 0 0;
   color: #f87171;
@@ -363,9 +433,9 @@
 }
 
 .btn--neutral {
-  background: #243145;
-  color: #e5e7eb;
-  border-color: #334155;
+  background: var(--bg-surface-alt);
+  color: var(--text-primary);
+  border-color: var(--border-subtle);
 }
 
 .btn--edit {
@@ -393,15 +463,15 @@
 }
 
 .btn--archive {
-  background: #3f3f46;
-  color: #f4f4f5;
-  border-color: #52525b;
+  background: color-mix(in srgb, var(--bg-surface-alt) 85%, #6b7280);
+  color: var(--text-primary);
+  border-color: var(--border-subtle);
 }
 
 .folder-plus {
   opacity: 0.9;
-  background: #1b2943;
-  color: #c9d4e9;
+  background: var(--bg-surface-alt);
+  color: var(--text-primary);
 }
 
 .folder-plus:hover {

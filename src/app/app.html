@@ -1,6 +1,6 @@
 <div class="app-shell" [class.dark-theme]="theme === 'dark'">
   <mat-toolbar class="app-toolbar">
-    <span class="title">DB Inspector UI</span>
+    <span class="title">AgroReport</span>
     @if (activeNameValue) {
     <span class="env">Ambiente: {{ activeNameValue }}</span>
     }
@@ -54,6 +54,7 @@
 
   <footer class="app-footer">
     <span>Versão {{ appVersion }}</span>
+    <span class="footer-center">Developed by PowerRov</span>
   </footer>
 
   <app-modal #envModal (saved)="onSaved($event)"></app-modal>
