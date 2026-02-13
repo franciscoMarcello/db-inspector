@@ -21,9 +21,11 @@
 }
 
 .tree-panel {
-  min-height: 620px;
+  min-height: 520px;
+  height: min(760px, calc(100vh - 172px));
+  max-height: calc(100vh - 172px);
   display: grid;
-  grid-template-rows: auto auto 1fr;
+  grid-template-rows: auto auto auto 1fr;
 }
 
 .tree-header {
@@ -70,6 +72,37 @@
 .tree-list {
   padding: 10px 8px 12px;
   overflow: auto;
+  min-height: 0;
+}
+
+.tree-filter {
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid var(--border-subtle);
+  display: grid;
+  gap: 8px;
+}
+
+.tree-filter input {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  display: block;
+  min-height: 34px;
+  border-radius: 6px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface-alt);
+  color: var(--text-primary);
+  padding: 0 8px;
+}
+
+.tree-toggle-all {
+  width: 100%;
+  justify-content: center;
+}
+
+.tree-clear-filter {
+  width: 100%;
+  justify-content: center;
 }
 
 .tree-folder + .tree-folder {
@@ -281,8 +314,26 @@
 
 .vars-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(4, minmax(180px, 1fr));
   gap: 10px;
+}
+
+@media (max-width: 1700px) {
+  .vars-grid {
+    grid-template-columns: repeat(3, minmax(180px, 1fr));
+  }
+}
+
+@media (max-width: 1300px) {
+  .vars-grid {
+    grid-template-columns: repeat(2, minmax(180px, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .vars-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .var-field {
@@ -316,6 +367,64 @@
 :host ::ng-deep .var-field input.var-autocomplete.mat-mdc-input-element {
   color: var(--text-primary);
   font-size: 14px;
+}
+
+.var-autocomplete-wrap {
+  position: relative;
+  width: 100%;
+  display: block;
+}
+
+.var-autocomplete-wrap .var-autocomplete {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding-right: 34px;
+}
+
+.var-input-clear {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid var(--border-subtle);
+  background: color-mix(in srgb, #7f1d1d 20%, var(--bg-surface-alt));
+  color: #fca5a5;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  line-height: 1;
+  font-size: 14px;
+  padding: 0;
+}
+
+.var-input-clear:hover {
+  color: #fecaca;
+  border-color: #ef4444;
+}
+
+.var-input-loading {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--text-muted) 40%, transparent);
+  border-top-color: #60a5fa;
+  animation: var-input-spin 0.8s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes var-input-spin {
+  to {
+    transform: translateY(-50%) rotate(360deg);
+  }
 }
 
 :host-context(.dark-theme) ::ng-deep .var-field input.var-autocomplete.mat-mdc-input-element::placeholder {
@@ -712,6 +821,11 @@ th {
   grid-template-rows: auto 1fr auto;
 }
 
+.report-modal__panel--wide {
+  width: min(1460px, 96vw);
+  max-height: 84vh;
+}
+
 .report-modal__panel--small {
   width: min(620px, 96vw);
 }
@@ -743,9 +857,14 @@ th {
 
 .report-modal__body {
   overflow: auto;
-  padding: 12px;
+  padding: 12px 16px;
   display: grid;
   gap: 10px;
+}
+
+:host ::ng-deep .report-modal__body .var-field textarea {
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .draft-vars-empty {
@@ -755,9 +874,30 @@ th {
 
 .draft-vars-grid {
   display: grid;
-  grid-template-columns: 60px 1fr 1fr 140px 90px 1fr minmax(260px, 2fr);
   gap: 8px;
+}
+
+.draft-vars-head-row,
+.draft-vars-row {
+  display: grid;
+  grid-template-columns: 100px 0.85fr 0.95fr 120px 72px 0.9fr minmax(420px, 3.2fr);
+  gap: 10px;
   align-items: center;
+}
+
+.draft-order-controls {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  border-radius: 6px;
+  border: 1px dashed var(--border-subtle);
+  background: var(--bg-surface-alt);
+  color: var(--text-muted);
+  cursor: move;
+  user-select: none;
+  font-size: 16px;
+  letter-spacing: 1px;
 }
 
 .draft-vars-head {
@@ -766,9 +906,11 @@ th {
   font-weight: 700;
 }
 
-.draft-vars-grid input,
-.draft-vars-grid select,
-.draft-vars-grid textarea {
+.draft-vars-row input:not([type='checkbox']),
+.draft-vars-row select,
+.draft-vars-row textarea {
+  width: 100%;
+  box-sizing: border-box;
   min-height: 32px;
   border-radius: 6px;
   border: 1px solid var(--border-subtle);
@@ -777,10 +919,32 @@ th {
   padding: 0 8px;
 }
 
-.draft-vars-grid textarea {
+.draft-vars-row textarea {
   padding: 6px 8px;
   resize: vertical;
   min-height: 52px;
+}
+
+.draft-vars-row input[type='checkbox'] {
+  width: 16px;
+  height: 16px;
+  margin: 0 auto;
+  display: block;
+}
+
+.draft-vars-row {
+  padding: 6px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bg-surface-alt) 85%, transparent);
+}
+
+.cdk-drag-preview.draft-vars-row {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.cdk-drag-placeholder {
+  opacity: 0.35;
 }
 
 @media (max-width: 1100px) {

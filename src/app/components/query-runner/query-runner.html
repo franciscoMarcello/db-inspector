@@ -100,9 +100,8 @@
       mat-stroked-button
       (click)="copyResultsForExcel()"
       [disabled]="rows.length === 0"
-      [class.pulse]="copied"
     >
-      {{ copied ? 'Copiado!' : 'Copiar p/ Excel' }}
+      Exportar Excel
     </button>
     <button mat-stroked-button (click)="saveQueryAsSql()">Salvar .sql</button>
     <button mat-stroked-button (click)="saveAsReport()">Salvar como relatório</button>
