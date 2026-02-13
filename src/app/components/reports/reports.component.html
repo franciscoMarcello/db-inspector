@@ -11,31 +11,11 @@
     </div>
 
     <div class="folder-create" *ngIf="manageMode">
-      <input
-        type="text"
-        [(ngModel)]="newFolderName"
-        placeholder="Nova pasta"
-        (keydown.enter)="createFolder()"
-      />
-      <button type="button" class="btn btn--primary" (click)="createFolder()">Criar</button>
-      <button
-        type="button"
-        class="btn btn--secondary"
-        (click)="renameSelectedFolder()"
-        [disabled]="!selectedFolder"
-      >
-        Renomear
-      </button>
-      <button
-        type="button"
-        class="btn btn--archive"
-        (click)="archiveSelectedFolder()"
-        [disabled]="!selectedFolder"
-      >
-        Arquivar pasta
+      <button type="button" class="btn btn--primary" (click)="openFolderManager()">
+        Gerenciar pastas
       </button>
       <button type="button" class="btn btn--neutral" (click)="openTemplateManager()">
-        Templates PDF
+        Gerenciar templates PDF
       </button>
     </div>
 
@@ -45,6 +25,7 @@
           <button
             type="button"
             class="folder-btn"
+            [class.archived]="folder.archived"
             [class.active]="selectedFolderId === folder.id"
             (click)="selectFolder(folder)"
           >
@@ -52,6 +33,7 @@
               {{ folder.expanded ? '▾' : '▸' }}
             </span>
             <span class="folder-name">{{ folder.name }}</span>
+            <span class="archived-badge" *ngIf="folder.archived">Arquivado</span>
             <span class="folder-count">{{ reportCountByFolder(folder) }}</span>
           </button>
           <button
@@ -71,10 +53,12 @@
             type="button"
             class="report-leaf"
             *ngFor="let report of reportsByFolder(folder)"
+            [class.archived]="report.archived"
             [class.active]="selectedReportId === report.id"
             (click)="selectReport(report.id)"
           >
-            {{ report.name }}
+            <span>{{ report.name }}</span>
+            <span class="archived-badge archived-badge--leaf" *ngIf="report.archived">Arquivado</span>
           </button>
           <div class="tree-empty" *ngIf="reportsByFolder(folder).length === 0">Sem relatórios</div>
         </div>
@@ -199,9 +183,17 @@
           type="button"
           class="btn btn--archive"
           (click)="archiveSelectedReport()"
-          [disabled]="!selectedReport"
+          [disabled]="!selectedReport || !!selectedReport.archived"
         >
           <span class="btn-icon">🗂</span> Arquivar
+        </button>
+        <button
+          type="button"
+          class="btn btn--neutral"
+          (click)="unarchiveSelectedReport()"
+          [disabled]="!selectedReport || !selectedReport.archived"
+        >
+          <span class="btn-icon">↺</span> Desarquivar
         </button>
         <button
           type="button"
@@ -416,6 +408,86 @@
 
     <div class="report-modal__footer">
       <button type="button" class="btn btn--primary" (click)="saveReportFromModal()">Salvar</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog class="report-modal" [open]="folderManagerOpen">
+  <div class="report-modal__panel report-modal__panel--small">
+    <div class="report-modal__header">
+      <h3>Gerenciar pastas</h3>
+      <button type="button" class="btn btn--secondary" (click)="closeFolderManager()">Fechar</button>
+    </div>
+
+    <div class="report-modal__body folder-manager">
+      <div class="folder-manager__section">
+        <label class="var-field">
+          <span>Nova pasta</span>
+          <input
+            type="text"
+            [(ngModel)]="newFolderName"
+            [ngModelOptions]="{ standalone: true }"
+            placeholder="Nome da pasta"
+            (keydown.enter)="createFolder()"
+          />
+        </label>
+        <button type="button" class="btn btn--primary" (click)="createFolder()">Criar pasta</button>
+      </div>
+
+      <div class="folder-manager__section">
+        <label class="var-field">
+          <span>Pasta para gerenciar</span>
+          <select
+            [ngModel]="selectedFolderId || ''"
+            [ngModelOptions]="{ standalone: true }"
+            (ngModelChange)="onFolderManagerSelectionChange($event)"
+          >
+            <option value="">Selecione uma pasta</option>
+            <option *ngFor="let folder of folders" [value]="folder.id">
+              {{ folder.name }}{{ folder.archived ? ' (arquivada)' : '' }}
+            </option>
+          </select>
+        </label>
+
+        <label class="var-field">
+          <span>Novo nome da pasta</span>
+          <input
+            type="text"
+            [(ngModel)]="renameFolderName"
+            [ngModelOptions]="{ standalone: true }"
+            [disabled]="!selectedFolder"
+            placeholder="Novo nome"
+            (keydown.enter)="renameSelectedFolder()"
+          />
+        </label>
+
+        <div class="actions">
+          <button
+            type="button"
+            class="btn btn--secondary"
+            (click)="renameSelectedFolder()"
+            [disabled]="!selectedFolder"
+          >
+            Renomear
+          </button>
+          <button
+            type="button"
+            class="btn btn--archive"
+            (click)="archiveSelectedFolder()"
+            [disabled]="!selectedFolder || !!selectedFolder.archived"
+          >
+            Arquivar
+          </button>
+          <button
+            type="button"
+            class="btn btn--neutral"
+            (click)="unarchiveSelectedFolder()"
+            [disabled]="!selectedFolder || !selectedFolder.archived"
+          >
+            Desarquivar
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 </dialog>

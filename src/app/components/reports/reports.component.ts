@@ -71,6 +71,7 @@ export class ReportsComponent implements OnInit {
   selectedFolderId: string | null = null;
   selectedReportId: string | null = null;
   newFolderName = '';
+  renameFolderName = '';
   statusMessage = '';
   paramsError = '';
   loadingList = false;
@@ -94,6 +95,7 @@ export class ReportsComponent implements OnInit {
   };
   reportDraftVariables: DraftVariable[] = [];
   reportDraftError = '';
+  folderManagerOpen = false;
   templateManagerOpen = false;
   selectedTemplateId: string | null = null;
   templateDraft: TemplateDraft = {
@@ -204,6 +206,7 @@ export class ReportsComponent implements OnInit {
 
   selectFolder(folder: FolderNode) {
     this.selectedFolderId = folder.id;
+    this.renameFolderName = folder.name;
     const first = this.reportsByFolder(folder)[0];
     this.selectedReportId = first?.id ?? null;
     this.runResult = null;
@@ -234,6 +237,24 @@ export class ReportsComponent implements OnInit {
     this.router.navigate(['/reports/manage']);
   }
 
+  openFolderManager() {
+    this.folderManagerOpen = true;
+    if (!this.selectedFolderId && this.folders.length) {
+      this.selectedFolderId = this.folders[0].id;
+    }
+    this.renameFolderName = this.selectedFolder?.name ?? '';
+  }
+
+  closeFolderManager() {
+    this.folderManagerOpen = false;
+  }
+
+  onFolderManagerSelectionChange(folderId: string) {
+    const normalized = String(folderId || '').trim();
+    this.selectedFolderId = normalized || null;
+    this.renameFolderName = this.selectedFolder?.name ?? '';
+  }
+
   createFolder() {
     const name = this.newFolderName.trim();
     if (!name) {
@@ -258,6 +279,7 @@ export class ReportsComponent implements OnInit {
       next: (folder) => {
         this.statusMessage = `Pasta "${folder.name}" criada.`;
         this.newFolderName = '';
+        this.renameFolderName = folder.name;
         this.loadData(undefined, folder.id);
       },
       error: (err: HttpErrorResponse) => {
@@ -315,11 +337,16 @@ export class ReportsComponent implements OnInit {
       return;
     }
 
-    const name = (prompt('Novo nome da pasta:', folder.name) || '').trim();
-    if (!name || name === folder.name) return;
+    const name = this.renameFolderName.trim();
+    if (!name) {
+      this.statusMessage = 'Informe o novo nome da pasta.';
+      return;
+    }
+    if (name === folder.name) return;
 
     this.reportService.updateFolder(folder.id, { name, description: folder.description }).subscribe({
       next: (updated) => {
+        this.renameFolderName = updated.name;
         this.statusMessage = `Pasta renomeada para "${updated.name}".`;
         this.loadData(undefined, updated.id);
       },
@@ -371,6 +398,29 @@ export class ReportsComponent implements OnInit {
         },
         error: () => {
           this.statusMessage = 'Falha ao arquivar pasta.';
+        },
+      });
+  }
+
+  unarchiveSelectedFolder() {
+    const folder = this.selectedFolder;
+    if (!folder) {
+      this.statusMessage = 'Selecione uma pasta para desarquivar.';
+      return;
+    }
+    this.reportService
+      .updateFolder(folder.id, {
+        name: folder.name,
+        description: folder.description,
+        archived: false,
+      })
+      .subscribe({
+        next: () => {
+          this.statusMessage = `Pasta "${folder.name}" desarquivada.`;
+          this.loadData(undefined, folder.id);
+        },
+        error: () => {
+          this.statusMessage = 'Falha ao desarquivar pasta.';
         },
       });
   }
@@ -786,6 +836,54 @@ export class ReportsComponent implements OnInit {
     });
   }
 
+  unarchiveSelectedReport() {
+    const current = this.selectedReport;
+    if (!current) {
+      this.statusMessage = 'Selecione um relatório para desarquivar.';
+      return;
+    }
+    const folder = this.selectedFolder;
+    const folderId =
+      current.folderId ??
+      folder?.id ??
+      this.folders.find((f) => f.name === current.folderName || f.name === current.templateName)?.id;
+
+    if (!folderId) {
+      this.statusMessage = 'Não foi possível identificar a pasta do relatório para desarquivar.';
+      return;
+    }
+
+    const payload: ReportCreateInput = {
+      name: current.name,
+      folderId,
+      templateName: folder?.name ?? current.folderName ?? current.templateName,
+      jasperTemplateId: current.jasperTemplateId ?? undefined,
+      sql: current.sql,
+      description: current.description,
+      variables: (current.variables || []).map((v, idx) => ({
+        id: v.id,
+        key: v.key,
+        label: v.label,
+        type: v.type,
+        required: v.required,
+        defaultValue: v.defaultValue,
+        orderIndex: Number.isFinite(v.orderIndex) ? v.orderIndex : idx,
+        optionsSql: v.optionsSql?.trim() ? String(v.optionsSql).trim() : null,
+      })),
+      archived: false,
+    };
+
+    this.reportService.updateReport(current.id, payload).subscribe({
+      next: () => {
+        this.statusMessage = `Relatório "${current.name}" desarquivado.`;
+        this.loadData(current.id, folderId);
+      },
+      error: () => {
+        this.statusMessage = 'Falha ao desarquivar relatório.';
+      },
+    });
+  }
+
   exportExcel() {
     const result = this.runResult;
     if (!result) return;
@@ -832,9 +930,11 @@ export class ReportsComponent implements OnInit {
     }).subscribe({
       next: ({ folders, reports, templates }) => {
         this.allFolders = folders || [];
-        this.reports = (reports || []).filter((r) => !r.archived);
+        this.reports = this.manageMode ? reports || [] : (reports || []).filter((r) => !r.archived);
         this.templates = (templates || []).filter((t) => !t.archived);
-        this.rebuildFolders((folders || []).filter((f) => !f.archived));
+        this.rebuildFolders(
+          this.manageMode ? folders || [] : (folders || []).filter((f) => !f.archived)
+        );
         this.reconcileSelection(preferredReportId, preferredFolderId);
         if (this.manageMode && this.pendingCreateSql) {
           const sql = this.pendingCreateSql;
