@@ -9,6 +9,7 @@ export const routes: Routes = [
   { path: 'schemas', component: SchemaListComponent },
   { path: 'query', component: QueryRunnerComponent },
   { path: 'schedules', component: EmailSchedulesComponent },
-  { path: 'reports', component: ReportsComponent },
+  { path: 'reports/manage', component: ReportsComponent, data: { manage: true } },
+  { path: 'reports', component: ReportsComponent, data: { manage: false } },
   { path: '**', redirectTo: 'schemas' },
 ];

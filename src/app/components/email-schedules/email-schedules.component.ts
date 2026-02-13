@@ -139,7 +139,7 @@ export class EmailSchedulesComponent implements OnInit {
         to: to.trim(),
         cc: cc.trim(),
         subject: 'Teste de e-mail',
-        message: 'Oi! Este é um e-mail de teste do DB Inspector.',
+        message: 'Oi! Este é um e-mail de teste do AgroReport.',
       })
       .subscribe({
         next: () => this.snack('Teste enviado.'),

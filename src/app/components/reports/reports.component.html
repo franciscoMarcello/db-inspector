@@ -1,38 +1,21 @@
-<div class="reports-shell">
-  <aside class="tree-panel">
+<div class="reports-shell" [class.sidebar-collapsed]="sidebarCollapsed">
+  <aside class="tree-panel" *ngIf="!sidebarCollapsed">
     <div class="tree-header">
       <div class="tree-header__row">
         <h3>Visualizador de Relatorios</h3>
-        <button type="button" class="btn btn--neutral btn--icon" (click)="openCreateReportModal()">
-          ＋
+        <button type="button" class="btn btn--neutral btn--icon" (click)="toggleSidebar()">
+          ◀
         </button>
       </div>
-      <p>Pastas e consultas</p>
+      <p>{{ manageMode ? 'Gestão de pastas e consultas' : 'Pastas e consultas' }}</p>
     </div>
 
-    <div class="folder-create">
-      <input
-        type="text"
-        [(ngModel)]="newFolderName"
-        placeholder="Nova pasta"
-        (keydown.enter)="createFolder()"
-      />
-      <button type="button" class="btn btn--primary" (click)="createFolder()">Criar</button>
-      <button
-        type="button"
-        class="btn btn--secondary"
-        (click)="renameSelectedFolder()"
-        [disabled]="!selectedFolder"
-      >
-        Renomear
+    <div class="folder-create" *ngIf="manageMode">
+      <button type="button" class="btn btn--primary" (click)="openFolderManager()">
+        Gerenciar pastas
       </button>
-      <button
-        type="button"
-        class="btn btn--archive"
-        (click)="archiveSelectedFolder()"
-        [disabled]="!selectedFolder"
-      >
-        Arquivar pasta
+      <button type="button" class="btn btn--neutral" (click)="openTemplateManager()">
+        Gerenciar templates PDF
       </button>
     </div>
 
@@ -42,6 +25,7 @@
           <button
             type="button"
             class="folder-btn"
+            [class.archived]="folder.archived"
             [class.active]="selectedFolderId === folder.id"
             (click)="selectFolder(folder)"
           >
@@ -49,9 +33,11 @@
               {{ folder.expanded ? '▾' : '▸' }}
             </span>
             <span class="folder-name">{{ folder.name }}</span>
+            <span class="archived-badge" *ngIf="folder.archived">Arquivado</span>
             <span class="folder-count">{{ reportCountByFolder(folder) }}</span>
           </button>
           <button
+            *ngIf="manageMode"
             type="button"
             class="btn btn--neutral btn--icon folder-plus"
             (click)="openCreateReportForFolder(folder, $event)"
@@ -67,10 +53,12 @@
             type="button"
             class="report-leaf"
             *ngFor="let report of reportsByFolder(folder)"
+            [class.archived]="report.archived"
             [class.active]="selectedReportId === report.id"
             (click)="selectReport(report.id)"
           >
-            {{ report.name }}
+            <span>{{ report.name }}</span>
+            <span class="archived-badge archived-badge--leaf" *ngIf="report.archived">Arquivado</span>
           </button>
           <div class="tree-empty" *ngIf="reportsByFolder(folder).length === 0">Sem relatórios</div>
         </div>
@@ -81,7 +69,19 @@
   <main class="content-panel">
     <section class="card filters">
       <div class="title">
-        <h2>{{ runResult?.name || selectedReport?.name || 'Relatorio' }}</h2>
+        <div class="title-row">
+          <h2>{{ runResult?.name || selectedReport?.name || 'Relatorio' }}</h2>
+          <div class="title-actions">
+            <button
+              *ngIf="sidebarCollapsed"
+              type="button"
+              class="btn btn--show-sidebar btn--sm"
+              (click)="toggleSidebar()"
+            >
+              ▶ Mostrar pastas
+            </button>
+          </div>
+        </div>
         <p>{{ selectedReport?.description || 'Selecione um relatorio na arvore.' }}</p>
       </div>
 
@@ -90,48 +90,81 @@
         <div class="vars-grid">
           <label class="var-field" *ngFor="let v of selectedReportVariables">
             <span>{{ v.label || v.key }} <em *ngIf="v.required">*</em></span>
-            <ng-container [ngSwitch]="v.type">
+            <ng-container *ngIf="hasVariableOptions(v); else freeInput">
               <input
-                *ngSwitchCase="'date'"
-                type="date"
-                [(ngModel)]="variableInputs[v.key]"
-                [ngModelOptions]="{ standalone: true }"
-              />
-              <input
-                *ngSwitchCase="'datetime'"
-                type="datetime-local"
-                [(ngModel)]="variableInputs[v.key]"
-                [ngModelOptions]="{ standalone: true }"
-              />
-              <input
-                *ngSwitchCase="'number'"
-                type="number"
-                [(ngModel)]="variableInputs[v.key]"
-                [ngModelOptions]="{ standalone: true }"
-              />
-              <select
-                *ngSwitchCase="'boolean'"
-                [(ngModel)]="variableInputs[v.key]"
-                [ngModelOptions]="{ standalone: true }"
-              >
-                <option value="">(padrão)</option>
-                <option value="true">true</option>
-                <option value="false">false</option>
-              </select>
-              <input
-                *ngSwitchDefault
+                matInput
+                class="var-autocomplete"
                 type="text"
-                [(ngModel)]="variableInputs[v.key]"
+                placeholder="Selecione ou digite para filtrar"
+                [matAutocomplete]="varAuto"
+                [ngModel]="variableOptionSearchText[v.key] || ''"
                 [ngModelOptions]="{ standalone: true }"
+                (ngModelChange)="onVariableOptionSearchChange(v, $event)"
               />
+              <mat-autocomplete
+                #varAuto="matAutocomplete"
+                class="report-var-options-panel"
+                [displayWith]="displayVariableOption"
+                (optionSelected)="onVariableOptionSelected(v, $event.option.value)"
+              >
+                <mat-option *ngFor="let opt of filteredVariableOptionItems(v)" [value]="opt">
+                  {{ opt.descricao }}
+                </mat-option>
+                <mat-option *ngIf="!filteredVariableOptionItems(v).length" disabled>
+                  Sem opções
+                </mat-option>
+              </mat-autocomplete>
+              <small class="muted" *ngIf="variableOptionsLoading(v)">Carregando opções...</small>
             </ng-container>
+            <ng-template #freeInput>
+              <ng-container [ngSwitch]="v.type">
+                <input
+                  *ngSwitchCase="'date'"
+                  type="date"
+                  [(ngModel)]="variableInputs[v.key]"
+                  [ngModelOptions]="{ standalone: true }"
+                  (ngModelChange)="onVariableInputChanged()"
+                />
+                <input
+                  *ngSwitchCase="'datetime'"
+                  type="datetime-local"
+                  [(ngModel)]="variableInputs[v.key]"
+                  [ngModelOptions]="{ standalone: true }"
+                  (ngModelChange)="onVariableInputChanged()"
+                />
+                <input
+                  *ngSwitchCase="'number'"
+                  type="number"
+                  [(ngModel)]="variableInputs[v.key]"
+                  [ngModelOptions]="{ standalone: true }"
+                  (ngModelChange)="onVariableInputChanged()"
+                />
+                <select
+                  *ngSwitchCase="'boolean'"
+                  [(ngModel)]="variableInputs[v.key]"
+                  [ngModelOptions]="{ standalone: true }"
+                  (ngModelChange)="onVariableInputChanged()"
+                >
+                  <option value="">(padrão)</option>
+                  <option value="true">true</option>
+                  <option value="false">false</option>
+                </select>
+                <input
+                  *ngSwitchDefault
+                  type="text"
+                  [(ngModel)]="variableInputs[v.key]"
+                  [ngModelOptions]="{ standalone: true }"
+                  (ngModelChange)="onVariableInputChanged()"
+                />
+              </ng-container>
+            </ng-template>
           </label>
         </div>
       </div>
 
       <p class="params-error" *ngIf="paramsError">{{ paramsError }}</p>
 
-      <div class="actions">
+      <div class="actions" *ngIf="manageMode">
         <button type="button" class="btn btn--primary" (click)="applyFilters()">
           <span class="btn-icon">▶</span> Executar
         </button>
@@ -150,9 +183,17 @@
           type="button"
           class="btn btn--archive"
           (click)="archiveSelectedReport()"
-          [disabled]="!selectedReport"
+          [disabled]="!selectedReport || !!selectedReport.archived"
         >
           <span class="btn-icon">🗂</span> Arquivar
+        </button>
+        <button
+          type="button"
+          class="btn btn--neutral"
+          (click)="unarchiveSelectedReport()"
+          [disabled]="!selectedReport || !selectedReport.archived"
+        >
+          <span class="btn-icon">↺</span> Desarquivar
         </button>
         <button
           type="button"
@@ -161,6 +202,40 @@
           [disabled]="!hasResultRows"
         >
           <span class="btn-icon">⤓</span> Exportar Excel
+        </button>
+        <button
+          *ngIf="canExportPdf"
+          type="button"
+          class="btn btn--pdf"
+          (click)="exportPdf()"
+          [disabled]="loadingPdf || !hasRequiredParamsForRun"
+        >
+          <mat-icon class="btn-icon btn-icon--pdf" aria-hidden="true">picture_as_pdf</mat-icon>
+          {{ loadingPdf ? 'Gerando PDF...' : 'Exportar PDF' }}
+        </button>
+      </div>
+
+      <div class="actions" *ngIf="!manageMode">
+        <button type="button" class="btn btn--primary" (click)="applyFilters()">
+          <span class="btn-icon">▶</span> Executar
+        </button>
+        <button
+          type="button"
+          class="btn btn--excel"
+          (click)="exportExcel()"
+          [disabled]="!hasResultRows"
+        >
+          <span class="btn-icon">⤓</span> Exportar Excel
+        </button>
+        <button
+          *ngIf="canExportPdf"
+          type="button"
+          class="btn btn--pdf"
+          (click)="exportPdf()"
+          [disabled]="loadingPdf || !hasRequiredParamsForRun"
+        >
+          <mat-icon class="btn-icon btn-icon--pdf" aria-hidden="true">picture_as_pdf</mat-icon>
+          {{ loadingPdf ? 'Gerando PDF...' : 'Exportar PDF' }}
         </button>
       </div>
     </section>
@@ -196,8 +271,8 @@
   </section>
 </ng-template>
 
-<section class="card status-card" *ngIf="statusMessage">
-  <div class="status-line" [ngClass]="statusToneClass">
+<section class="card status-card" *ngIf="statusMessage || runResult?.meta">
+  <div class="status-line" [ngClass]="statusToneClass" *ngIf="statusMessage">
     <strong>{{ statusTitle }}</strong>
     <span>{{ statusMessage }}</span>
   </div>
@@ -230,9 +305,27 @@
 
       <label class="var-field">
         <span>Pasta</span>
-        <select [(ngModel)]="reportDraft.folderId" [ngModelOptions]="{ standalone: true }">
-          <option *ngFor="let folder of folders" [value]="folder.id">{{ folder.name }}</option>
-        </select>
+        <div class="folder-picker">
+          <select [(ngModel)]="reportDraft.folderId" [ngModelOptions]="{ standalone: true }">
+            <option *ngFor="let folder of folders" [value]="folder.id">{{ folder.name }}</option>
+          </select>
+          <button type="button" class="btn btn--neutral" (click)="createFolderFromReportModal()">
+            + Pasta
+          </button>
+        </div>
+      </label>
+
+      <label class="var-field">
+        <span>Template PDF (Jasper)</span>
+        <div class="template-picker">
+          <select [(ngModel)]="reportDraft.jasperTemplateId" [ngModelOptions]="{ standalone: true }">
+            <option value="">Sem template</option>
+            <option *ngFor="let template of templates" [value]="template.id">{{ template.name }}</option>
+          </select>
+          <button type="button" class="btn btn--neutral" (click)="openTemplateManager()">
+            Gerenciar templates
+          </button>
+        </div>
       </label>
 
       <label class="var-field">
@@ -268,6 +361,7 @@
           <div class="draft-vars-head">Tipo</div>
           <div class="draft-vars-head">Obrigatória</div>
           <div class="draft-vars-head">Padrão</div>
+          <div class="draft-vars-head">SQL opções</div>
 
           <ng-container *ngFor="let v of reportDraftVariables">
             <div>
@@ -297,6 +391,14 @@
                 placeholder="opcional"
               />
             </div>
+            <div>
+              <textarea
+                rows="2"
+                [(ngModel)]="v.optionsSql"
+                [ngModelOptions]="{ standalone: true }"
+                placeholder="SELECT id AS valor, nome AS descricao FROM ... WHERE ..."
+              ></textarea>
+            </div>
           </ng-container>
         </div>
       </div>
@@ -306,6 +408,187 @@
 
     <div class="report-modal__footer">
       <button type="button" class="btn btn--primary" (click)="saveReportFromModal()">Salvar</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog class="report-modal" [open]="folderManagerOpen">
+  <div class="report-modal__panel report-modal__panel--small">
+    <div class="report-modal__header">
+      <h3>Gerenciar pastas</h3>
+      <button type="button" class="btn btn--secondary" (click)="closeFolderManager()">Fechar</button>
+    </div>
+
+    <div class="report-modal__body folder-manager">
+      <div class="folder-manager__section">
+        <label class="var-field">
+          <span>Nova pasta</span>
+          <input
+            type="text"
+            [(ngModel)]="newFolderName"
+            [ngModelOptions]="{ standalone: true }"
+            placeholder="Nome da pasta"
+            (keydown.enter)="createFolder()"
+          />
+        </label>
+        <button type="button" class="btn btn--primary" (click)="createFolder()">Criar pasta</button>
+      </div>
+
+      <div class="folder-manager__section">
+        <label class="var-field">
+          <span>Pasta para gerenciar</span>
+          <select
+            [ngModel]="selectedFolderId || ''"
+            [ngModelOptions]="{ standalone: true }"
+            (ngModelChange)="onFolderManagerSelectionChange($event)"
+          >
+            <option value="">Selecione uma pasta</option>
+            <option *ngFor="let folder of folders" [value]="folder.id">
+              {{ folder.name }}{{ folder.archived ? ' (arquivada)' : '' }}
+            </option>
+          </select>
+        </label>
+
+        <label class="var-field">
+          <span>Novo nome da pasta</span>
+          <input
+            type="text"
+            [(ngModel)]="renameFolderName"
+            [ngModelOptions]="{ standalone: true }"
+            [disabled]="!selectedFolder"
+            placeholder="Novo nome"
+            (keydown.enter)="renameSelectedFolder()"
+          />
+        </label>
+
+        <div class="actions">
+          <button
+            type="button"
+            class="btn btn--secondary"
+            (click)="renameSelectedFolder()"
+            [disabled]="!selectedFolder"
+          >
+            Renomear
+          </button>
+          <button
+            type="button"
+            class="btn btn--archive"
+            (click)="archiveSelectedFolder()"
+            [disabled]="!selectedFolder || !!selectedFolder.archived"
+          >
+            Arquivar
+          </button>
+          <button
+            type="button"
+            class="btn btn--neutral"
+            (click)="unarchiveSelectedFolder()"
+            [disabled]="!selectedFolder || !selectedFolder.archived"
+          >
+            Desarquivar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</dialog>
+
+<dialog class="report-modal" [open]="templateManagerOpen">
+  <div class="report-modal__panel">
+    <div class="report-modal__header">
+      <h3>Gerenciar templates PDF</h3>
+      <button type="button" class="btn btn--secondary" (click)="closeTemplateManager()">Fechar</button>
+    </div>
+
+    <div class="report-modal__body template-manager">
+      <div class="template-manager__list">
+        <div class="template-manager__top">
+          <button type="button" class="btn btn--neutral" (click)="startNewTemplate()">Novo</button>
+        </div>
+        <button
+          type="button"
+          class="template-item"
+          *ngFor="let template of templates"
+          [class.active]="template.id === selectedTemplateId"
+          (click)="selectTemplate(template.id)"
+        >
+          {{ template.name }}
+        </button>
+        <p class="muted" *ngIf="!templates.length">Nenhum template cadastrado.</p>
+      </div>
+
+      <div class="template-manager__form">
+        <label class="var-field">
+          <span>Nome</span>
+          <input
+            type="text"
+            [(ngModel)]="templateDraft.name"
+            [ngModelOptions]="{ standalone: true }"
+            placeholder="Ex.: Curral PDF"
+          />
+        </label>
+
+        <label class="var-field">
+          <span>Descrição</span>
+          <input
+            type="text"
+            [(ngModel)]="templateDraft.description"
+            [ngModelOptions]="{ standalone: true }"
+            placeholder="Opcional"
+          />
+        </label>
+
+        <label class="var-field">
+          <span>Arquivo JRXML</span>
+          <div class="file-picker">
+            <label class="btn btn--secondary file-picker__btn" for="template-jrxml-file">Escolher arquivo</label>
+            <input
+              id="template-jrxml-file"
+              type="file"
+              accept=".jrxml,application/xml,text/xml"
+              (change)="onTemplateManagerFileSelected($event)"
+            />
+            <span class="file-picker__name">
+              {{ templateFileName || 'Nenhum arquivo selecionado' }}
+            </span>
+          </div>
+        </label>
+
+        <label class="var-field">
+          <span>Conteúdo JRXML</span>
+          <textarea
+            rows="12"
+            [(ngModel)]="templateDraft.jrxml"
+            [ngModelOptions]="{ standalone: true }"
+            placeholder="<jasperReport ...>...</jasperReport>"
+          ></textarea>
+        </label>
+
+        <p class="muted" *ngIf="loadingTemplate">Carregando template...</p>
+        <p class="params-error" *ngIf="templateDraftError">{{ templateDraftError }}</p>
+        <p class="muted" *ngIf="templateDraftStatus">{{ templateDraftStatus }}</p>
+      </div>
+    </div>
+
+    <div class="report-modal__footer report-modal__footer--spaced">
+      <button
+        type="button"
+        class="btn btn--danger"
+        (click)="deleteTemplateFromManager()"
+        [disabled]="creatingTemplate || !templateDraft.id"
+      >
+        Excluir
+      </button>
+      <button
+        type="button"
+        class="btn btn--neutral"
+        (click)="applyTemplateToReport()"
+        [disabled]="!templateDraft.id"
+      >
+        Vincular ao relatório
+      </button>
+      <button type="button" class="btn btn--primary" (click)="saveTemplateFromModal()" [disabled]="creatingTemplate">
+        {{ creatingTemplate ? 'Salvando...' : templateDraft.id ? 'Atualizar template' : 'Criar template' }}
+      </button>
     </div>
   </div>
 </dialog>

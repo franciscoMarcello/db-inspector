@@ -2,7 +2,7 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-top: 24px;
+  margin-top: 12px;
   color: var(--text-primary);
 }
 .td-header-row h3 {
@@ -32,6 +32,12 @@
 .td-error {
   font-size: 13px;
   color: #b91c1c;
+}
+
+.td-main-layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
 }
 
 .td-cols-wrapper {
@@ -149,6 +155,14 @@
   background: var(--bg-surface);
 }
 
+.relations-scroll .mat-mdc-header-row,
+.relations-scroll .mat-header-row {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bg-surface-alt);
+}
+
 .rel-action {
   text-align: right;
   white-space: nowrap;
@@ -180,4 +194,35 @@
   margin-top: 4px;
   font-size: 12px;
   color: var(--text-muted);
+}
+
+@media (min-width: 1900px) {
+  .td-main-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .td-cols-wrapper,
+  .relations-scroll {
+    max-height: min(52vh, 620px);
+  }
+
+  .relations-block {
+    margin-top: 0;
+  }
+}
+
+@media (max-height: 820px) {
+  .table-details-root {
+    margin-top: 12px;
+    gap: 6px;
+  }
+
+  .td-cols-wrapper {
+    max-height: 30vh;
+  }
+
+  .relations-scroll {
+    max-height: 16vh;
+  }
 }

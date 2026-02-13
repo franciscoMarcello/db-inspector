@@ -1,6 +1,6 @@
 <div class="app-shell" [class.dark-theme]="theme === 'dark'">
   <mat-toolbar class="app-toolbar">
-    <span class="title">DB Inspector UI</span>
+    <span class="title">AgroReport</span>
     @if (activeNameValue) {
     <span class="env">Ambiente: {{ activeNameValue }}</span>
     }
@@ -19,8 +19,24 @@
       Agendamentos
     </button>
 
-    <button mat-button class="nav-btn" routerLink="/reports" routerLinkActive="active">
+    <button
+      mat-button
+      class="nav-btn"
+      routerLink="/reports"
+      routerLinkActive="active"
+      [routerLinkActiveOptions]="{ exact: true }"
+    >
       Relatorios
+    </button>
+
+    <button
+      mat-button
+      class="nav-btn"
+      routerLink="/reports/manage"
+      routerLinkActive="active"
+      [routerLinkActiveOptions]="{ exact: true }"
+    >
+      Gerenciar Relatorios
     </button>
 
     <button mat-button class="nav-btn" (click)="openEnv()">Ambientes</button>
@@ -38,6 +54,7 @@
 
   <footer class="app-footer">
     <span>Versão {{ appVersion }}</span>
+    <span class="footer-center">Developed by PowerRov</span>
   </footer>
 
   <app-modal #envModal (saved)="onSaved($event)"></app-modal>

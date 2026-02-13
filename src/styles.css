@@ -166,3 +166,37 @@ html::-webkit-scrollbar-thumb {
   box-shadow: none !important;
   border-radius: 0 !important;
 }
+
+/* Global style for report variable select panel rendered in CDK overlay */
+.cdk-overlay-container .report-var-options-panel.mat-mdc-autocomplete-panel,
+.cdk-overlay-container .report-var-options-panel.mat-mdc-select-panel {
+  max-height: 280px !important;
+  border: 1px solid var(--border-subtle) !important;
+  background: var(--bg-surface) !important;
+  color: var(--text-primary) !important;
+}
+
+.cdk-overlay-container .report-var-options-panel .mat-mdc-option {
+  min-height: 34px !important;
+  color: var(--text-primary) !important;
+}
+
+.cdk-overlay-container .report-var-options-panel .mdc-list-item__primary-text {
+  color: var(--text-primary) !important;
+  font-size: 13px !important;
+}
+
+.cdk-overlay-container .report-var-options-panel .mat-mdc-option:hover,
+.cdk-overlay-container .report-var-options-panel .mat-mdc-option.mdc-list-item--selected {
+  background: var(--chip-bg) !important;
+}
+
+.dark-theme .cdk-overlay-container .report-var-options-panel.mat-mdc-autocomplete-panel,
+.dark-theme .cdk-overlay-container .report-var-options-panel.mat-mdc-select-panel {
+  background: color-mix(in srgb, var(--bg-surface) 90%, #334155) !important;
+}
+
+.dark-theme .cdk-overlay-container .report-var-options-panel .mat-mdc-option:hover,
+.dark-theme .cdk-overlay-container .report-var-options-panel .mat-mdc-option.mdc-list-item--selected {
+  background: color-mix(in srgb, var(--chip-bg-active) 36%, var(--bg-surface)) !important;
+}

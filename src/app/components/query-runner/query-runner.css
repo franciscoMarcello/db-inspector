@@ -18,9 +18,18 @@ h3 {
 
 .fav-left {
   display: flex;
+  justify-content: space-between;
   gap: 8px;
   align-items: center;
   margin-bottom: 6px;
+}
+
+.fav-left-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .fav-left strong {
@@ -37,6 +46,32 @@ h3 {
   font-size: 13px;
   background: var(--bg-surface-alt);
   color: var(--text-primary);
+}
+
+.snippet-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface-alt);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.snippet-toggle-btn:hover {
+  background: var(--chip-bg);
+}
+
+.snippet-toggle-btn .mat-icon {
+  width: 14px;
+  height: 14px;
+  font-size: 14px;
+  line-height: 14px;
 }
 
 .fav-left input::placeholder {
