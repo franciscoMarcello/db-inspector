@@ -6,6 +6,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
+import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import {
@@ -19,13 +20,13 @@ import {
   ReportVariableOption,
   ReportVariableInput,
 } from '../../services/report.service';
+import { createXlsxBlob } from '../../utils/xlsx-export';
 
 type FolderNode = ReportFolder & {
   expanded: boolean;
 };
 
 type DraftVariable = ReportVariableInput & {
-  enabled: boolean;
 };
 
 type ReportDraft = {
@@ -46,6 +47,8 @@ type TemplateDraft = {
 
 const SQL_VARIABLE_RE = /(^|[^:]):([A-Za-z_][A-Za-z0-9_]*)/g;
 const REPORT_DRAFT_SQL_KEY = 'dbi.reports.pending_sql';
+const REPORTS_SIDEBAR_COLLAPSED_KEY = 'dbi.reports.sidebar_collapsed';
+const REPORTS_FOLDERS_EXPANDED_KEY = 'dbi.reports.folders_expanded';
 
 @Component({
   selector: 'app-reports',
@@ -57,6 +60,7 @@ const REPORT_DRAFT_SQL_KEY = 'dbi.reports.pending_sql';
     MatFormFieldModule,
     MatInputModule,
     MatAutocompleteModule,
+    DragDropModule,
   ],
   templateUrl: './reports.component.html',
   styleUrls: ['./reports.component.css'],
@@ -72,6 +76,7 @@ export class ReportsComponent implements OnInit {
   selectedReportId: string | null = null;
   newFolderName = '';
   renameFolderName = '';
+  treeFilter = '';
   statusMessage = '';
   paramsError = '';
   loadingList = false;
@@ -109,6 +114,7 @@ export class ReportsComponent implements OnInit {
   templateFileName = '';
   loadingTemplate = false;
   creatingTemplate = false;
+  private persistedFolderExpandedState: Record<string, boolean> = {};
   private pendingCreateSql: string | null = null;
   private optionsReloadTimer: ReturnType<typeof setTimeout> | null = null;
   private optionsParamsSignatureByKey: Record<string, string> = {};
@@ -121,6 +127,7 @@ export class ReportsComponent implements OnInit {
 
   ngOnInit(): void {
     this.manageMode = this.route.snapshot.data['manage'] === true;
+    this.loadPersistedUiState();
     this.pendingCreateSql = this.manageMode ? this.consumePendingSql() : null;
     this.loadData();
   }
@@ -194,6 +201,34 @@ export class ReportsComponent implements OnInit {
     return this.reports.filter((report) => this.belongsToFolder(report, folder));
   }
 
+  get hasTreeFilter(): boolean {
+    return this.treeFilter.trim().length > 0;
+  }
+
+  get allFilteredFoldersExpanded(): boolean {
+    const list = this.filteredFolders;
+    return list.length > 0 && list.every((folder) => folder.expanded);
+  }
+
+  get filteredFolders(): FolderNode[] {
+    const term = this.treeFilter.trim().toLowerCase();
+    if (!term) return this.folders;
+    return this.folders.filter((folder) => {
+      const folderMatch = folder.name.toLowerCase().includes(term);
+      if (folderMatch) return true;
+      return this.reportsByFolder(folder).some((report) => report.name.toLowerCase().includes(term));
+    });
+  }
+
+  filteredReportsByFolder(folder: FolderNode): ReportDefinition[] {
+    const term = this.treeFilter.trim().toLowerCase();
+    const reports = this.reportsByFolder(folder);
+    if (!term) return reports;
+    const folderMatch = folder.name.toLowerCase().includes(term);
+    if (folderMatch) return reports;
+    return reports.filter((report) => report.name.toLowerCase().includes(term));
+  }
+
   reportCountByFolder(folder: FolderNode): number {
     return this.reportsByFolder(folder).length;
   }
@@ -202,6 +237,20 @@ export class ReportsComponent implements OnInit {
     this.folders = this.folders.map((folder) =>
       folder.id === folderId ? { ...folder, expanded: !folder.expanded } : folder
     );
+    this.persistFolderExpandedState();
+  }
+
+  toggleAllFoldersExpanded() {
+    const shouldExpand = !this.allFilteredFoldersExpanded;
+    const targetIds = new Set(this.filteredFolders.map((folder) => folder.id));
+    this.folders = this.folders.map((folder) =>
+      targetIds.has(folder.id) ? { ...folder, expanded: shouldExpand } : folder
+    );
+    this.persistFolderExpandedState();
+  }
+
+  clearTreeFilter() {
+    this.treeFilter = '';
   }
 
   selectFolder(folder: FolderNode) {
@@ -231,6 +280,7 @@ export class ReportsComponent implements OnInit {
 
   toggleSidebar() {
     this.sidebarCollapsed = !this.sidebarCollapsed;
+    this.persistSidebarCollapsedState();
   }
 
   goToManagement() {
@@ -430,6 +480,22 @@ export class ReportsComponent implements OnInit {
     this.runSelectedReport();
   }
 
+  clearAllFilters() {
+    const next: Record<string, string> = {};
+    const nextSearch: Record<string, string> = { ...this.variableOptionSearchText };
+    for (const v of this.selectedReportVariables) {
+      next[v.key] = v.defaultValue ?? '';
+      if (this.hasVariableOptions(v)) {
+        nextSearch[v.key] = '';
+      }
+    }
+    this.variableInputs = next;
+    this.variableOptionSearchText = nextSearch;
+    this.paramsError = '';
+    this.statusMessage = 'Filtros limpos.';
+    this.onVariableInputChanged();
+  }
+
   openCreateReportModal(presetSql?: string) {
     const folder = this.selectedFolder;
     if (!folder) {
@@ -483,6 +549,13 @@ export class ReportsComponent implements OnInit {
 
   onDraftSqlChanged() {
     this.syncDraftVariablesFromSql(this.reportDraftVariables);
+  }
+
+  onDraftVariablesDrop(event: CdkDragDrop<DraftVariable[]>) {
+    if (event.previousIndex === event.currentIndex) return;
+    const next = [...this.reportDraftVariables];
+    moveItemInArray(next, event.previousIndex, event.currentIndex);
+    this.reportDraftVariables = next;
   }
 
   openTemplateManager() {
@@ -717,8 +790,7 @@ export class ReportsComponent implements OnInit {
       return;
     }
 
-    const enabledVars = this.reportDraftVariables.filter((v) => v.enabled);
-    const variables: ReportVariableInput[] = enabledVars.map((v, idx) => ({
+    const variables: ReportVariableInput[] = this.reportDraftVariables.map((v, idx) => ({
       id: v.id,
       key: v.key,
       label: (v.label || v.key).trim(),
@@ -887,9 +959,8 @@ export class ReportsComponent implements OnInit {
   exportExcel() {
     const result = this.runResult;
     if (!result) return;
-    const xls = this.toXlsHtml(result.columns, result.rows);
-    const blob = new Blob(['\uFEFF', xls], { type: 'application/vnd.ms-excel;charset=utf-8' });
-    this.downloadBlob(blob, `${this.fileName(result.name)}.xls`);
+    const blob = createXlsxBlob(result.columns, result.rows || []);
+    this.downloadBlob(blob, `${this.fileName(result.name)}.xlsx`);
     this.statusMessage = `Exportacao Excel concluida para "${result.name}".`;
   }
 
@@ -990,11 +1061,54 @@ export class ReportsComponent implements OnInit {
       .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
       .map((folder) => ({
         ...folder,
-        expanded: expanded.get(folder.id) ?? true,
+        expanded:
+          expanded.get(folder.id) ??
+          this.persistedFolderExpandedState[String(folder.id)] ??
+          true,
       }));
 
     if (this.selectedFolderId && !this.folders.some((folder) => folder.id === this.selectedFolderId)) {
       this.selectedFolderId = null;
+    }
+
+    this.persistFolderExpandedState();
+  }
+
+  private loadPersistedUiState() {
+    try {
+      this.sidebarCollapsed = localStorage.getItem(REPORTS_SIDEBAR_COLLAPSED_KEY) === '1';
+    } catch {
+      this.sidebarCollapsed = false;
+    }
+
+    try {
+      const raw = localStorage.getItem(REPORTS_FOLDERS_EXPANDED_KEY) || '{}';
+      const parsed = JSON.parse(raw);
+      this.persistedFolderExpandedState =
+        parsed && typeof parsed === 'object' ? (parsed as Record<string, boolean>) : {};
+    } catch {
+      this.persistedFolderExpandedState = {};
+    }
+  }
+
+  private persistSidebarCollapsedState() {
+    try {
+      localStorage.setItem(REPORTS_SIDEBAR_COLLAPSED_KEY, this.sidebarCollapsed ? '1' : '0');
+    } catch {
+      // ignore storage failures
+    }
+  }
+
+  private persistFolderExpandedState() {
+    try {
+      const state: Record<string, boolean> = {};
+      for (const folder of this.folders) {
+        state[String(folder.id)] = !!folder.expanded;
+      }
+      this.persistedFolderExpandedState = state;
+      localStorage.setItem(REPORTS_FOLDERS_EXPANDED_KEY, JSON.stringify(state));
+    } catch {
+      // ignore storage failures
     }
   }
 
@@ -1075,39 +1189,6 @@ export class ReportsComponent implements OnInit {
     }
 
     return vars;
-  }
-
-  private toXlsHtml(columns: string[], rows: Record<string, unknown>[]): string {
-    const esc = (value: unknown) =>
-      String(value ?? '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
-
-    const thead = `<tr>${columns.map((col) => `<th>${esc(col)}</th>`).join('')}</tr>`;
-    const tbody = rows
-      .map((row) => `<tr>${columns.map((col) => `<td>${esc(row[col])}</td>`).join('')}</tr>`)
-      .join('');
-
-    return `<!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="UTF-8" />
-    <style>
-      table { border-collapse: collapse; }
-      th, td { border: 1px solid #cbd5e1; padding: 4px 8px; text-align: left; white-space: nowrap; }
-      th { font-weight: 700; background: #f1f5f9; }
-    </style>
-  </head>
-  <body>
-    <table>
-      <thead>${thead}</thead>
-      <tbody>${tbody}</tbody>
-    </table>
-  </body>
-</html>`;
   }
 
   private downloadBlob(blob: Blob, fileName: string) {
@@ -1208,6 +1289,16 @@ export class ReportsComponent implements OnInit {
     this.variableOptionSearchText = {
       ...this.variableOptionSearchText,
       [key]: String(option.descricao ?? ''),
+    };
+    this.onVariableInputChanged();
+  }
+
+  clearVariableOption(variable: ReportVariable) {
+    const key = variable.key;
+    this.variableInputs[key] = '';
+    this.variableOptionSearchText = {
+      ...this.variableOptionSearchText,
+      [key]: '',
     };
     this.onVariableInputChanged();
   }
@@ -1407,12 +1498,31 @@ export class ReportsComponent implements OnInit {
   private syncDraftVariablesFromSql(existing: Array<Partial<DraftVariable>> = []) {
     const existingByKey = new Map(existing.map((v) => [String(v.key || ''), v]));
     const detected = this.variablesFromSql(this.reportDraft.sql, []);
-    this.reportDraftVariables = detected.map((v, idx) => {
-      const current = existingByKey.get(v.key);
+    const detectedKeys = new Set(detected.map((v) => v.key));
+    const orderedExisting = [...existing]
+      .filter((v) => detectedKeys.has(String(v.key || '')))
+      .sort((a, b) => {
+        const ao = Number.isFinite(Number(a.orderIndex)) ? Number(a.orderIndex) : Number.MAX_SAFE_INTEGER;
+        const bo = Number.isFinite(Number(b.orderIndex)) ? Number(b.orderIndex) : Number.MAX_SAFE_INTEGER;
+        if (ao !== bo) return ao - bo;
+        return String(a.key || '').localeCompare(String(b.key || ''), undefined, {
+          sensitivity: 'base',
+        });
+      });
+
+    const orderedDetectedKeys = [
+      ...orderedExisting.map((v) => String(v.key || '')),
+      ...detected
+        .map((v) => v.key)
+        .filter((key) => !orderedExisting.some((v) => String(v.key || '') === key)),
+    ];
+
+    this.reportDraftVariables = orderedDetectedKeys.map((key, idx) => {
+      const current = existingByKey.get(key);
       return {
         id: current?.id ? String(current.id) : undefined,
-        key: v.key,
-        label: String(current?.label ?? v.key),
+        key,
+        label: String(current?.label ?? key),
         type: (current?.type as DraftVariable['type']) || 'string',
         required: Boolean(current?.required ?? false),
         defaultValue:
@@ -1424,7 +1534,6 @@ export class ReportsComponent implements OnInit {
             ? null
             : String(current.optionsSql),
         orderIndex: idx,
-        enabled: Boolean(current?.enabled ?? true),
       };
     });
   }

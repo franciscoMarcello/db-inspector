@@ -19,8 +19,28 @@
       </button>
     </div>
 
+    <div class="tree-filter">
+      <input
+        type="text"
+        [(ngModel)]="treeFilter"
+        [ngModelOptions]="{ standalone: true }"
+        placeholder="Filtrar relatório ou pasta"
+      />
+      <button
+        *ngIf="treeFilter"
+        type="button"
+        class="btn btn--neutral tree-clear-filter"
+        (click)="clearTreeFilter()"
+      >
+        Limpar filtro
+      </button>
+      <button type="button" class="btn btn--secondary tree-toggle-all" (click)="toggleAllFoldersExpanded()">
+        {{ allFilteredFoldersExpanded ? 'Recolher tudo' : 'Expandir tudo' }}
+      </button>
+    </div>
+
     <div class="tree-list">
-      <div class="tree-folder" *ngFor="let folder of folders">
+      <div class="tree-folder" *ngFor="let folder of filteredFolders">
         <div class="folder-row">
           <button
             type="button"
@@ -48,11 +68,11 @@
           </button>
         </div>
 
-        <div class="tree-reports" *ngIf="folder.expanded">
+        <div class="tree-reports" *ngIf="folder.expanded || hasTreeFilter">
           <button
             type="button"
             class="report-leaf"
-            *ngFor="let report of reportsByFolder(folder)"
+            *ngFor="let report of filteredReportsByFolder(folder)"
             [class.archived]="report.archived"
             [class.active]="selectedReportId === report.id"
             (click)="selectReport(report.id)"
@@ -60,9 +80,10 @@
             <span>{{ report.name }}</span>
             <span class="archived-badge archived-badge--leaf" *ngIf="report.archived">Arquivado</span>
           </button>
-          <div class="tree-empty" *ngIf="reportsByFolder(folder).length === 0">Sem relatórios</div>
+          <div class="tree-empty" *ngIf="filteredReportsByFolder(folder).length === 0">Sem relatórios</div>
         </div>
       </div>
+      <div class="tree-empty" *ngIf="filteredFolders.length === 0">Nenhum resultado para o filtro.</div>
     </div>
   </aside>
 
@@ -91,16 +112,38 @@
           <label class="var-field" *ngFor="let v of selectedReportVariables">
             <span>{{ v.label || v.key }} <em *ngIf="v.required">*</em></span>
             <ng-container *ngIf="hasVariableOptions(v); else freeInput">
-              <input
-                matInput
-                class="var-autocomplete"
-                type="text"
-                placeholder="Selecione ou digite para filtrar"
-                [matAutocomplete]="varAuto"
-                [ngModel]="variableOptionSearchText[v.key] || ''"
-                [ngModelOptions]="{ standalone: true }"
-                (ngModelChange)="onVariableOptionSearchChange(v, $event)"
-              />
+              <div class="var-autocomplete-wrap">
+                <input
+                  matInput
+                  class="var-autocomplete"
+                  type="text"
+                  placeholder="Selecione ou digite para filtrar"
+                  [matAutocomplete]="varAuto"
+                  [ngModel]="variableOptionSearchText[v.key] || ''"
+                  [ngModelOptions]="{ standalone: true }"
+                  (ngModelChange)="onVariableOptionSearchChange(v, $event)"
+                />
+                <span
+                  *ngIf="variableOptionsLoading(v)"
+                  class="var-input-loading"
+                  aria-hidden="true"
+                  title="Carregando opções"
+                ></span>
+                <button
+                  *ngIf="
+                    !variableOptionsLoading(v) &&
+                    ((variableOptionSearchText[v.key] || '').trim() || (variableInputs[v.key] || '').trim())
+                  "
+                  type="button"
+                  class="var-input-clear"
+                  (mousedown)="$event.preventDefault()"
+                  (click)="clearVariableOption(v)"
+                  title="Limpar seleção"
+                  aria-label="Limpar seleção"
+                >
+                  ×
+                </button>
+              </div>
               <mat-autocomplete
                 #varAuto="matAutocomplete"
                 class="report-var-options-panel"
@@ -114,7 +157,6 @@
                   Sem opções
                 </mat-option>
               </mat-autocomplete>
-              <small class="muted" *ngIf="variableOptionsLoading(v)">Carregando opções...</small>
             </ng-container>
             <ng-template #freeInput>
               <ng-container [ngSwitch]="v.type">
@@ -168,6 +210,9 @@
         <button type="button" class="btn btn--primary" (click)="applyFilters()">
           <span class="btn-icon">▶</span> Executar
         </button>
+        <button type="button" class="btn btn--secondary" (click)="clearAllFilters()">
+          Limpar filtros
+        </button>
         <button type="button" class="btn btn--neutral" (click)="openCreateReportModal()">
           <span class="btn-icon">＋</span> Novo relatorio
         </button>
@@ -218,6 +263,9 @@
       <div class="actions" *ngIf="!manageMode">
         <button type="button" class="btn btn--primary" (click)="applyFilters()">
           <span class="btn-icon">▶</span> Executar
+        </button>
+        <button type="button" class="btn btn--secondary" (click)="clearAllFilters()">
+          Limpar filtros
         </button>
         <button
           type="button"
@@ -286,7 +334,7 @@
 </section>
 
 <dialog class="report-modal" [open]="reportModalOpen">
-  <div class="report-modal__panel">
+  <div class="report-modal__panel report-modal__panel--wide">
     <div class="report-modal__header">
       <h3>{{ reportModalMode === 'create' ? 'Novo relatório' : 'Editar relatório' }}</h3>
       <button type="button" class="btn btn--secondary" (click)="closeReportModal()">Fechar</button>
@@ -355,51 +403,55 @@
           Nenhum placeholder :variavel detectado na SQL.
         </div>
         <div class="draft-vars-grid" *ngIf="reportDraftVariables.length">
-          <div class="draft-vars-head">Usar</div>
-          <div class="draft-vars-head">Key</div>
-          <div class="draft-vars-head">Label</div>
-          <div class="draft-vars-head">Tipo</div>
-          <div class="draft-vars-head">Obrigatória</div>
-          <div class="draft-vars-head">Padrão</div>
-          <div class="draft-vars-head">SQL opções</div>
+          <div class="draft-vars-head-row">
+            <div class="draft-vars-head">Ordem</div>
+            <div class="draft-vars-head">Key</div>
+            <div class="draft-vars-head">Label</div>
+            <div class="draft-vars-head">Tipo</div>
+            <div class="draft-vars-head">Obrigatória</div>
+            <div class="draft-vars-head">Padrão</div>
+            <div class="draft-vars-head">SQL opções</div>
+          </div>
 
-          <ng-container *ngFor="let v of reportDraftVariables">
-            <div>
-              <input type="checkbox" [(ngModel)]="v.enabled" [ngModelOptions]="{ standalone: true }" />
+          <div cdkDropList [cdkDropListData]="reportDraftVariables" (cdkDropListDropped)="onDraftVariablesDrop($event)">
+            <div class="draft-vars-row" *ngFor="let v of reportDraftVariables" cdkDrag>
+              <div class="draft-order-controls" cdkDragHandle title="Arraste para ordenar">
+                ⋮⋮
+              </div>
+              <div>{{ v.key }}</div>
+              <div>
+                <input type="text" [(ngModel)]="v.label" [ngModelOptions]="{ standalone: true }" />
+              </div>
+              <div>
+                <select [(ngModel)]="v.type" [ngModelOptions]="{ standalone: true }">
+                  <option value="string">string</option>
+                  <option value="number">number</option>
+                  <option value="date">date</option>
+                  <option value="datetime">datetime</option>
+                  <option value="boolean">boolean</option>
+                </select>
+              </div>
+              <div>
+                <input type="checkbox" [(ngModel)]="v.required" [ngModelOptions]="{ standalone: true }" />
+              </div>
+              <div>
+                <input
+                  type="text"
+                  [(ngModel)]="v.defaultValue"
+                  [ngModelOptions]="{ standalone: true }"
+                  placeholder="opcional"
+                />
+              </div>
+              <div>
+                <textarea
+                  rows="2"
+                  [(ngModel)]="v.optionsSql"
+                  [ngModelOptions]="{ standalone: true }"
+                  placeholder="SELECT id AS valor, nome AS descricao FROM ... WHERE ..."
+                ></textarea>
+              </div>
             </div>
-            <div>{{ v.key }}</div>
-            <div>
-              <input type="text" [(ngModel)]="v.label" [ngModelOptions]="{ standalone: true }" />
-            </div>
-            <div>
-              <select [(ngModel)]="v.type" [ngModelOptions]="{ standalone: true }">
-                <option value="string">string</option>
-                <option value="number">number</option>
-                <option value="date">date</option>
-                <option value="datetime">datetime</option>
-                <option value="boolean">boolean</option>
-              </select>
-            </div>
-            <div>
-              <input type="checkbox" [(ngModel)]="v.required" [ngModelOptions]="{ standalone: true }" />
-            </div>
-            <div>
-              <input
-                type="text"
-                [(ngModel)]="v.defaultValue"
-                [ngModelOptions]="{ standalone: true }"
-                placeholder="opcional"
-              />
-            </div>
-            <div>
-              <textarea
-                rows="2"
-                [(ngModel)]="v.optionsSql"
-                [ngModelOptions]="{ standalone: true }"
-                placeholder="SELECT id AS valor, nome AS descricao FROM ... WHERE ..."
-              ></textarea>
-            </div>
-          </ng-container>
+          </div>
         </div>
       </div>
 

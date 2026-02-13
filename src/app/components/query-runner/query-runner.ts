@@ -20,6 +20,7 @@ import {
   EmailScheduleResult,
 } from '../email-schedules/email-schedule-dialog';
 import { MatIconModule } from '@angular/material/icon';
+import { createXlsxBlob } from '../../utils/xlsx-export';
 
 const STORAGE_KEY = 'dbi.query.state';
 const SQL_VARIABLE_RE = /(^|[^:]):([A-Za-z_][A-Za-z0-9_]*)/g;
@@ -66,8 +67,6 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
   rowCount = 0;
   elapsedMs = 0;
   raw: any = null;
-
-  copied = false;
 
   constructor(
     private api: DbInspectorService,
@@ -325,39 +324,24 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
 
   async copyResultsForExcel() {
     if (!this.rows?.length || !this.displayedColumns?.length) return;
-
-    const cols = this.displayedColumns;
-    const esc = (v: any) => (v == null ? '' : String(v).replace(/\t/g, ' ').replace(/\r?\n/g, ' '));
-    const header = cols.join('\t');
-    const lines = this.rows.map((r) => cols.map((c) => esc(r[c])).join('\t'));
-    const tsv = [header, ...lines].join('\n');
-
-    try {
-      await navigator.clipboard.writeText(tsv);
-      this.copied = true;
-      setTimeout(() => (this.copied = false), 1200);
-      this.snack('Copiado para a área de transferência.');
-      return;
-    } catch {}
+    const blob = createXlsxBlob(this.displayedColumns, this.rows || []);
 
     try {
       if ('showSaveFilePicker' in window) {
         const handle = await (window as any).showSaveFilePicker({
-          suggestedName: this.makeFileName('resultado', 'tsv'),
+          suggestedName: this.makeFileName('resultado', 'xlsx'),
           types: [
             {
-              description: 'Arquivo TSV',
-              accept: { 'text/tab-separated-values': ['.tsv'] },
+              description: 'Arquivo Excel',
+              accept: {
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+              },
             },
           ],
         });
 
         const writable = await handle.createWritable();
-        await writable.write(
-          new Blob([tsv], {
-            type: 'text/tab-separated-values;charset=utf-8',
-          })
-        );
+        await writable.write(blob);
         await writable.close();
         this.snack(`Arquivo ${handle.name} salvo.`);
         return;
@@ -365,16 +349,12 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
     } catch (e: any) {
       if (e?.name === 'AbortError') return;
     }
-
-    const blob = new Blob([tsv], {
-      type: 'text/tab-separated-values;charset=utf-8',
-    });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = this.makeFileName('resultado', 'tsv');
+    a.download = this.makeFileName('resultado', 'xlsx');
     a.click();
     URL.revokeObjectURL(a.href);
-    this.snack('Download de resultado.tsv concluído.');
+    this.snack('Download de resultado.xlsx concluído.');
   }
 
   async saveQueryAsSql() {
