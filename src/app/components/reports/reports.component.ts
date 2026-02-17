@@ -248,7 +248,7 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
     if (this.selectedReportId) {
       this.initVariableInputs();
       this.reloadVariableOptions();
-      this.runSelectedReport();
+      this.runResult = null;
     }
   }
 
@@ -256,10 +256,10 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
     this.selectedReportId = reportId;
     this.statusMessage = '';
     this.paramsError = '';
+    this.runResult = null;
     this.optionsParamsSignatureByKey = {};
     this.initVariableInputs();
     this.reloadVariableOptions();
-    this.runSelectedReport();
   }
 
   toggleSidebar() {
@@ -564,7 +564,7 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
 
     this.initVariableInputs();
     this.reloadVariableOptions();
-    this.runSelectedReport();
+    this.runResult = null;
   }
 
   private downloadBlob(blob: Blob, fileName: string) {

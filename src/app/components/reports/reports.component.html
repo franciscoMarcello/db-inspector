@@ -295,6 +295,10 @@
         <span *ngIf="result.meta.elapsedMs">Tempo: <strong>{{ result.meta.elapsedMs }} ms</strong></span>
       </div>
       <div class="table-wrap">
+        <div class="result-loading-overlay" *ngIf="loadingRun" aria-live="polite" aria-busy="true">
+          <span class="result-loading-spinner" aria-hidden="true"></span>
+          <span>Executando relatório...</span>
+        </div>
         <div class="no-results" *ngIf="displayedRows.length === 0">Sem resultado.</div>
         <table *ngIf="displayedRows.length > 0">
           <thead>
@@ -315,7 +319,13 @@
 
 <ng-template #emptyState>
   <section class="card table-card">
-    <p class="muted">{{ loadingRun ? 'Executando relatorio...' : 'Nenhum resultado para exibir.' }}</p>
+    <div class="result-loading-empty" *ngIf="loadingRun; else noResultYet">
+      <span class="result-loading-spinner" aria-hidden="true"></span>
+      <span>Executando relatório...</span>
+    </div>
+    <ng-template #noResultYet>
+      <p class="muted">Nenhum resultado para exibir.</p>
+    </ng-template>
   </section>
 </ng-template>
 

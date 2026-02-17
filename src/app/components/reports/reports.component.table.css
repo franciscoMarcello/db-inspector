@@ -29,6 +29,46 @@
   border: 1px solid var(--border-subtle);
   border-radius: 8px;
   padding: 2px;
+  position: relative;
+}
+
+.result-loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: color-mix(in srgb, var(--bg-surface) 82%, transparent);
+  color: var(--text-primary);
+  font-size: 13px;
+  backdrop-filter: blur(1px);
+}
+
+.result-loading-empty {
+  min-height: 210px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.result-loading-spinner {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  border: 2px solid color-mix(in srgb, var(--text-muted) 45%, transparent);
+  border-top-color: #60a5fa;
+  animation: report-loading-spin 0.8s linear infinite;
+}
+
+@keyframes report-loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 table {
@@ -205,4 +245,3 @@ th {
   background: #334155;
   border-radius: 999px;
 }
-
