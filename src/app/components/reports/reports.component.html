@@ -333,314 +333,54 @@
   </div>
 </section>
 
-<dialog class="report-modal" [open]="reportModalOpen">
-  <div class="report-modal__panel report-modal__panel--wide">
-    <div class="report-modal__header">
-      <h3>{{ reportModalMode === 'create' ? 'Novo relatório' : 'Editar relatório' }}</h3>
-      <button type="button" class="btn btn--secondary" (click)="closeReportModal()">Fechar</button>
-    </div>
+<app-reports-report-modal
+  [open]="reportModalOpen"
+  [mode]="reportModalMode"
+  [reportDraft]="reportDraft"
+  [reportDraftVariables]="reportDraftVariables"
+  [reportDraftError]="reportDraftError"
+  [folders]="folders"
+  [templates]="templates"
+  (close)="closeReportModal()"
+  (createFolder)="createFolderFromReportModal()"
+  (openTemplateManager)="openTemplateManager()"
+  (sqlChanged)="onDraftSqlChanged()"
+  (variablesDrop)="onDraftVariablesDrop($event)"
+  (save)="saveReportFromModal()"
+></app-reports-report-modal>
 
-    <div class="report-modal__body">
-      <label class="var-field">
-        <span>Nome</span>
-        <input
-          type="text"
-          [(ngModel)]="reportDraft.name"
-          [ngModelOptions]="{ standalone: true }"
-          placeholder="Nome do relatório"
-        />
-      </label>
+<app-reports-folder-manager-modal
+  [open]="folderManagerOpen"
+  [folders]="folders"
+  [selectedFolderId]="selectedFolderId"
+  [selectedFolder]="selectedFolder"
+  [newFolderName]="newFolderName"
+  [renameFolderName]="renameFolderName"
+  (close)="closeFolderManager()"
+  (selectedFolderIdChange)="onFolderManagerSelectionChange($event)"
+  (newFolderNameChange)="newFolderName = $event"
+  (renameFolderNameChange)="renameFolderName = $event"
+  (createFolder)="createFolder()"
+  (renameSelectedFolder)="renameSelectedFolder()"
+  (archiveSelectedFolder)="archiveSelectedFolder()"
+  (unarchiveSelectedFolder)="unarchiveSelectedFolder()"
+></app-reports-folder-manager-modal>
 
-      <label class="var-field">
-        <span>Pasta</span>
-        <div class="folder-picker">
-          <select [(ngModel)]="reportDraft.folderId" [ngModelOptions]="{ standalone: true }">
-            <option *ngFor="let folder of folders" [value]="folder.id">{{ folder.name }}</option>
-          </select>
-          <button type="button" class="btn btn--neutral" (click)="createFolderFromReportModal()">
-            + Pasta
-          </button>
-        </div>
-      </label>
-
-      <label class="var-field">
-        <span>Template PDF (Jasper)</span>
-        <div class="template-picker">
-          <select [(ngModel)]="reportDraft.jasperTemplateId" [ngModelOptions]="{ standalone: true }">
-            <option value="">Sem template</option>
-            <option *ngFor="let template of templates" [value]="template.id">{{ template.name }}</option>
-          </select>
-          <button type="button" class="btn btn--neutral" (click)="openTemplateManager()">
-            Gerenciar templates
-          </button>
-        </div>
-      </label>
-
-      <label class="var-field">
-        <span>Descrição</span>
-        <input
-          type="text"
-          [(ngModel)]="reportDraft.description"
-          [ngModelOptions]="{ standalone: true }"
-          placeholder="Descrição (opcional)"
-        />
-      </label>
-
-      <label class="var-field">
-        <span>SQL</span>
-        <textarea
-          rows="10"
-          [(ngModel)]="reportDraft.sql"
-          [ngModelOptions]="{ standalone: true }"
-          (input)="onDraftSqlChanged()"
-          placeholder="SELECT * FROM ... WHERE data >= :data_inicio"
-        ></textarea>
-      </label>
-
-      <div class="vars-panel">
-        <div class="vars-title">Variáveis detectadas</div>
-        <div class="draft-vars-empty" *ngIf="!reportDraftVariables.length">
-          Nenhum placeholder :variavel detectado na SQL.
-        </div>
-        <div class="draft-vars-grid" *ngIf="reportDraftVariables.length">
-          <div class="draft-vars-head-row">
-            <div class="draft-vars-head">Ordem</div>
-            <div class="draft-vars-head">Key</div>
-            <div class="draft-vars-head">Label</div>
-            <div class="draft-vars-head">Tipo</div>
-            <div class="draft-vars-head">Obrigatória</div>
-            <div class="draft-vars-head">Padrão</div>
-            <div class="draft-vars-head">SQL opções</div>
-          </div>
-
-          <div cdkDropList [cdkDropListData]="reportDraftVariables" (cdkDropListDropped)="onDraftVariablesDrop($event)">
-            <div class="draft-vars-row" *ngFor="let v of reportDraftVariables" cdkDrag>
-              <div class="draft-order-controls" cdkDragHandle title="Arraste para ordenar">
-                ⋮⋮
-              </div>
-              <div>{{ v.key }}</div>
-              <div>
-                <input type="text" [(ngModel)]="v.label" [ngModelOptions]="{ standalone: true }" />
-              </div>
-              <div>
-                <select [(ngModel)]="v.type" [ngModelOptions]="{ standalone: true }">
-                  <option value="string">string</option>
-                  <option value="number">number</option>
-                  <option value="date">date</option>
-                  <option value="datetime">datetime</option>
-                  <option value="boolean">boolean</option>
-                </select>
-              </div>
-              <div>
-                <input type="checkbox" [(ngModel)]="v.required" [ngModelOptions]="{ standalone: true }" />
-              </div>
-              <div>
-                <input
-                  type="text"
-                  [(ngModel)]="v.defaultValue"
-                  [ngModelOptions]="{ standalone: true }"
-                  placeholder="opcional"
-                />
-              </div>
-              <div>
-                <textarea
-                  rows="2"
-                  [(ngModel)]="v.optionsSql"
-                  [ngModelOptions]="{ standalone: true }"
-                  placeholder="SELECT id AS valor, nome AS descricao FROM ... WHERE ..."
-                ></textarea>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <p class="params-error" *ngIf="reportDraftError">{{ reportDraftError }}</p>
-    </div>
-
-    <div class="report-modal__footer">
-      <button type="button" class="btn btn--primary" (click)="saveReportFromModal()">Salvar</button>
-    </div>
-  </div>
-</dialog>
-
-<dialog class="report-modal" [open]="folderManagerOpen">
-  <div class="report-modal__panel report-modal__panel--small">
-    <div class="report-modal__header">
-      <h3>Gerenciar pastas</h3>
-      <button type="button" class="btn btn--secondary" (click)="closeFolderManager()">Fechar</button>
-    </div>
-
-    <div class="report-modal__body folder-manager">
-      <div class="folder-manager__section">
-        <label class="var-field">
-          <span>Nova pasta</span>
-          <input
-            type="text"
-            [(ngModel)]="newFolderName"
-            [ngModelOptions]="{ standalone: true }"
-            placeholder="Nome da pasta"
-            (keydown.enter)="createFolder()"
-          />
-        </label>
-        <button type="button" class="btn btn--primary" (click)="createFolder()">Criar pasta</button>
-      </div>
-
-      <div class="folder-manager__section">
-        <label class="var-field">
-          <span>Pasta para gerenciar</span>
-          <select
-            [ngModel]="selectedFolderId || ''"
-            [ngModelOptions]="{ standalone: true }"
-            (ngModelChange)="onFolderManagerSelectionChange($event)"
-          >
-            <option value="">Selecione uma pasta</option>
-            <option *ngFor="let folder of folders" [value]="folder.id">
-              {{ folder.name }}{{ folder.archived ? ' (arquivada)' : '' }}
-            </option>
-          </select>
-        </label>
-
-        <label class="var-field">
-          <span>Novo nome da pasta</span>
-          <input
-            type="text"
-            [(ngModel)]="renameFolderName"
-            [ngModelOptions]="{ standalone: true }"
-            [disabled]="!selectedFolder"
-            placeholder="Novo nome"
-            (keydown.enter)="renameSelectedFolder()"
-          />
-        </label>
-
-        <div class="actions">
-          <button
-            type="button"
-            class="btn btn--secondary"
-            (click)="renameSelectedFolder()"
-            [disabled]="!selectedFolder"
-          >
-            Renomear
-          </button>
-          <button
-            type="button"
-            class="btn btn--archive"
-            (click)="archiveSelectedFolder()"
-            [disabled]="!selectedFolder || !!selectedFolder.archived"
-          >
-            Arquivar
-          </button>
-          <button
-            type="button"
-            class="btn btn--neutral"
-            (click)="unarchiveSelectedFolder()"
-            [disabled]="!selectedFolder || !selectedFolder.archived"
-          >
-            Desarquivar
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-</dialog>
-
-<dialog class="report-modal" [open]="templateManagerOpen">
-  <div class="report-modal__panel">
-    <div class="report-modal__header">
-      <h3>Gerenciar templates PDF</h3>
-      <button type="button" class="btn btn--secondary" (click)="closeTemplateManager()">Fechar</button>
-    </div>
-
-    <div class="report-modal__body template-manager">
-      <div class="template-manager__list">
-        <div class="template-manager__top">
-          <button type="button" class="btn btn--neutral" (click)="startNewTemplate()">Novo</button>
-        </div>
-        <button
-          type="button"
-          class="template-item"
-          *ngFor="let template of templates"
-          [class.active]="template.id === selectedTemplateId"
-          (click)="selectTemplate(template.id)"
-        >
-          {{ template.name }}
-        </button>
-        <p class="muted" *ngIf="!templates.length">Nenhum template cadastrado.</p>
-      </div>
-
-      <div class="template-manager__form">
-        <label class="var-field">
-          <span>Nome</span>
-          <input
-            type="text"
-            [(ngModel)]="templateDraft.name"
-            [ngModelOptions]="{ standalone: true }"
-            placeholder="Ex.: Curral PDF"
-          />
-        </label>
-
-        <label class="var-field">
-          <span>Descrição</span>
-          <input
-            type="text"
-            [(ngModel)]="templateDraft.description"
-            [ngModelOptions]="{ standalone: true }"
-            placeholder="Opcional"
-          />
-        </label>
-
-        <label class="var-field">
-          <span>Arquivo JRXML</span>
-          <div class="file-picker">
-            <label class="btn btn--secondary file-picker__btn" for="template-jrxml-file">Escolher arquivo</label>
-            <input
-              id="template-jrxml-file"
-              type="file"
-              accept=".jrxml,application/xml,text/xml"
-              (change)="onTemplateManagerFileSelected($event)"
-            />
-            <span class="file-picker__name">
-              {{ templateFileName || 'Nenhum arquivo selecionado' }}
-            </span>
-          </div>
-        </label>
-
-        <label class="var-field">
-          <span>Conteúdo JRXML</span>
-          <textarea
-            rows="12"
-            [(ngModel)]="templateDraft.jrxml"
-            [ngModelOptions]="{ standalone: true }"
-            placeholder="<jasperReport ...>...</jasperReport>"
-          ></textarea>
-        </label>
-
-        <p class="muted" *ngIf="loadingTemplate">Carregando template...</p>
-        <p class="params-error" *ngIf="templateDraftError">{{ templateDraftError }}</p>
-        <p class="muted" *ngIf="templateDraftStatus">{{ templateDraftStatus }}</p>
-      </div>
-    </div>
-
-    <div class="report-modal__footer report-modal__footer--spaced">
-      <button
-        type="button"
-        class="btn btn--danger"
-        (click)="deleteTemplateFromManager()"
-        [disabled]="creatingTemplate || !templateDraft.id"
-      >
-        Excluir
-      </button>
-      <button
-        type="button"
-        class="btn btn--neutral"
-        (click)="applyTemplateToReport()"
-        [disabled]="!templateDraft.id"
-      >
-        Vincular ao relatório
-      </button>
-      <button type="button" class="btn btn--primary" (click)="saveTemplateFromModal()" [disabled]="creatingTemplate">
-        {{ creatingTemplate ? 'Salvando...' : templateDraft.id ? 'Atualizar template' : 'Criar template' }}
-      </button>
-    </div>
-  </div>
-</dialog>
+<app-reports-template-manager-modal
+  [open]="templateManagerOpen"
+  [templates]="templates"
+  [selectedTemplateId]="selectedTemplateId"
+  [templateDraft]="templateDraft"
+  [templateFileName]="templateFileName"
+  [loadingTemplate]="loadingTemplate"
+  [templateDraftError]="templateDraftError"
+  [templateDraftStatus]="templateDraftStatus"
+  [creatingTemplate]="creatingTemplate"
+  (close)="closeTemplateManager()"
+  (startNew)="startNewTemplate()"
+  (selectTemplate)="selectTemplate($event)"
+  (fileSelected)="onTemplateManagerFileSelected($event)"
+  (deleteTemplate)="deleteTemplateFromManager()"
+  (applyTemplate)="applyTemplateToReport()"
+  (saveTemplate)="saveTemplateFromModal()"
+></app-reports-template-manager-modal>

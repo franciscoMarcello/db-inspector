@@ -1,4 +1,3 @@
-import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -6,7 +5,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
-import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
+import { CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 import { ActivatedRoute } from '@angular/router';
 import { forkJoin } from 'rxjs';
 import {
@@ -27,6 +26,10 @@ import {
   REPORTS_FOLDERS_EXPANDED_KEY,
   REPORTS_SIDEBAR_COLLAPSED_KEY,
 } from './reports.component.constants';
+import { ReportsFolderTemplateHost, ReportsFolderTemplateLogic } from './reports.component.folder-template';
+import { ReportsFolderManagerModalComponent } from './reports-folder-manager-modal.component';
+import { ReportsReportModalComponent } from './reports-report-modal.component';
+import { ReportsTemplateManagerModalComponent } from './reports-template-manager-modal.component';
 import {
   buildArchivePayload,
   buildClearedFilterState,
@@ -53,9 +56,7 @@ import {
   syncOptionSearchText,
   toReportCreatePayload,
   toReportVariablesPayload,
-  toTemplatePayload,
   validateReportDraft,
-  validateTemplateDraft,
 } from './reports.component.utils';
 
 @Component({
@@ -68,12 +69,19 @@ import {
     MatFormFieldModule,
     MatInputModule,
     MatAutocompleteModule,
-    DragDropModule,
+    ReportsReportModalComponent,
+    ReportsFolderManagerModalComponent,
+    ReportsTemplateManagerModalComponent,
   ],
   templateUrl: './reports.component.html',
-  styleUrls: ['./reports.component.css'],
+  styleUrls: [
+    './reports.component.css',
+    './reports.component.table.css',
+    './reports.component.modals.css',
+    './reports.component.responsive.css',
+  ],
 })
-export class ReportsComponent implements OnInit {
+export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
   folders: FolderNode[] = [];
   allFolders: ReportFolder[] = [];
   reports: ReportDefinition[] = [];
@@ -114,11 +122,14 @@ export class ReportsComponent implements OnInit {
   private pendingCreateSql: string | null = null;
   private optionsReloadTimer: ReturnType<typeof setTimeout> | null = null;
   private optionsParamsSignatureByKey: Record<string, string> = {};
+  private readonly folderTemplateLogic: ReportsFolderTemplateLogic;
 
   constructor(
     private reportService: ReportService,
     private route: ActivatedRoute
-  ) {}
+  ) {
+    this.folderTemplateLogic = new ReportsFolderTemplateLogic(this, reportService);
+  }
 
   ngOnInit(): void {
     this.manageMode = this.route.snapshot.data['manage'] === true;
@@ -256,68 +267,31 @@ export class ReportsComponent implements OnInit {
     this.persistSidebarCollapsedState();
   }
 
-  openFolderManager() {
-    this.folderManagerOpen = true;
-    if (!this.selectedFolderId && this.folders.length) {
-      this.selectedFolderId = this.folders[0].id;
-    }
-    this.renameFolderName = this.selectedFolder?.name ?? '';
+  loadDataFromAdmin(preferredReportId?: string, preferredFolderId?: string) {
+    this.loadData(preferredReportId, preferredFolderId);
   }
 
-  closeFolderManager() { this.folderManagerOpen = false; }
+  rebuildVisibleFolders(apiFolders: ReportFolder[]) {
+    this.rebuildFolders(apiFolders);
+  }
+
+  openFolderManager() { this.folderTemplateLogic.openFolderManager(); }
+
+  closeFolderManager() { this.folderTemplateLogic.closeFolderManager(); }
 
   onFolderManagerSelectionChange(folderId: string) {
-    const normalized = String(folderId || '').trim();
-    this.selectedFolderId = normalized || null;
-    this.renameFolderName = this.selectedFolder?.name ?? '';
+    this.folderTemplateLogic.onFolderManagerSelectionChange(folderId);
   }
 
-  createFolder() {
-    const name = this.newFolderName.trim();
-    if (!name) {
-      this.statusMessage = 'Informe um nome para a pasta.';
-      return;
-    }
-    if (!this.ensureFolderNameAvailable(name, false)) return;
-    this.createFolderByName(name, false);
-  }
+  createFolder() { this.folderTemplateLogic.createFolder(); }
 
-  createFolderFromReportModal() {
-    const name = (prompt('Nome da nova pasta:', '') || '').trim();
-    if (!name) return;
-    if (!this.ensureFolderNameAvailable(name, true)) return;
-    this.createFolderByName(name, true);
-  }
+  createFolderFromReportModal() { this.folderTemplateLogic.createFolderFromReportModal(); }
 
-  renameSelectedFolder() {
-    const folder = this.selectedFolder;
-    if (!folder) {
-      this.statusMessage = 'Selecione uma pasta para renomear.';
-      return;
-    }
+  renameSelectedFolder() { this.folderTemplateLogic.renameSelectedFolder(); }
 
-    const name = this.renameFolderName.trim();
-    if (!name) {
-      this.statusMessage = 'Informe o novo nome da pasta.';
-      return;
-    }
-    if (name === folder.name) return;
+  archiveSelectedFolder() { this.folderTemplateLogic.archiveSelectedFolder(); }
 
-    this.reportService.updateFolder(folder.id, { name, description: folder.description }).subscribe({
-      next: (updated) => {
-        this.renameFolderName = updated.name;
-        this.statusMessage = `Pasta renomeada para "${updated.name}".`;
-        this.loadData(undefined, updated.id);
-      },
-      error: () => {
-        this.statusMessage = 'Falha ao renomear pasta.';
-      },
-    });
-  }
-
-  archiveSelectedFolder() { this.updateSelectedFolderArchived(true); }
-
-  unarchiveSelectedFolder() { this.updateSelectedFolderArchived(false); }
+  unarchiveSelectedFolder() { this.folderTemplateLogic.unarchiveSelectedFolder(); }
 
   applyFilters() {
     this.statusMessage = 'Consulta executada.';
@@ -376,171 +350,23 @@ export class ReportsComponent implements OnInit {
     this.reportDraftVariables = next;
   }
 
-  openTemplateManager() {
-    this.templateManagerOpen = true;
-    this.resetTemplateManagerState();
-    this.refreshTemplates(this.reportDraft.jasperTemplateId || undefined);
-  }
+  openTemplateManager() { this.folderTemplateLogic.openTemplateManager(); }
 
-  closeTemplateManager() {
-    this.templateManagerOpen = false;
-    this.resetTemplateManagerState(false);
-  }
+  closeTemplateManager() { this.folderTemplateLogic.closeTemplateManager(); }
 
-  startNewTemplate() {
-    this.selectedTemplateId = null;
-    this.templateDraftError = '';
-    this.templateDraftStatus = '';
-    this.templateDraft = createEmptyTemplateDraft();
-    this.templateFileName = '';
-  }
+  startNewTemplate() { this.folderTemplateLogic.startNewTemplate(); }
 
-  selectTemplate(templateId: string) {
-    this.selectedTemplateId = templateId;
-    this.templateDraftError = '';
-    this.templateDraftStatus = '';
-    this.loadingTemplate = true;
-    this.reportService.getTemplate(templateId).subscribe({
-      next: (template) => {
-        this.loadingTemplate = false;
-        this.templateDraft = {
-          id: template.id,
-          name: template.name,
-          description: template.description || '',
-          jrxml: template.jrxml,
-        };
-        this.templateFileName = '';
-      },
-      error: () => {
-        this.loadingTemplate = false;
-        this.templateDraftError = 'Falha ao carregar template.';
-      },
-    });
-  }
+  selectTemplate(templateId: string) { this.folderTemplateLogic.selectTemplate(templateId); }
 
   async onTemplateManagerFileSelected(event: Event) {
-    const input = event.target as HTMLInputElement | null;
-    const file = input?.files?.[0];
-    if (!file) return;
-
-    const fileName = file.name || '';
-    if (!fileName.toLowerCase().endsWith('.jrxml')) {
-      this.templateDraftError = 'Selecione um arquivo .jrxml válido.';
-      if (input) input.value = '';
-      return;
-    }
-
-    try {
-      const jrxml = (await file.text()).trim();
-      if (!jrxml) {
-        this.templateDraftError = 'Arquivo JRXML vazio.';
-        return;
-      }
-      this.templateDraft.jrxml = jrxml;
-      this.templateFileName = fileName;
-      if (!this.templateDraft.name.trim()) {
-        this.templateDraft.name = fileName.replace(/\.jrxml$/i, '').trim();
-      }
-    } catch {
-      this.templateDraftError = 'Falha ao ler arquivo JRXML.';
-    } finally {
-      if (input) input.value = '';
-    }
+    await this.folderTemplateLogic.onTemplateManagerFileSelected(event);
   }
 
-  saveTemplateFromModal() {
-    const templateValidation = validateTemplateDraft(this.templateDraft);
-    if (templateValidation.error) {
-      this.templateDraftError = templateValidation.error;
-      return;
-    }
+  saveTemplateFromModal() { this.folderTemplateLogic.saveTemplateFromModal(); }
 
-    const payload = toTemplatePayload(this.templateDraft);
-    this.creatingTemplate = true;
-    this.templateDraftError = '';
-    const onSuccess = (savedId: string, action: 'criado' | 'atualizado') => {
-      this.creatingTemplate = false;
-      this.reportDraft.jasperTemplateId = savedId;
-      this.templateDraftStatus = `Template ${action} e vinculado ao relatório.`;
-      this.refreshTemplates(savedId);
-    };
+  deleteTemplateFromManager() { this.folderTemplateLogic.deleteTemplateFromManager(); }
 
-    const onError = (action: 'criar' | 'atualizar') => {
-      this.creatingTemplate = false;
-      this.templateDraftError = `Falha ao ${action} template PDF.`;
-    };
-
-    if (this.templateDraft.id) {
-      this.reportService.updateTemplate(this.templateDraft.id, payload).subscribe({
-        next: (updated) => onSuccess(updated.id, 'atualizado'),
-        error: () => onError('atualizar'),
-      });
-      return;
-    }
-
-    this.reportService.createTemplate(payload).subscribe({
-      next: (created) => onSuccess(created.id, 'criado'),
-      error: () => onError('criar'),
-    });
-  }
-
-  deleteTemplateFromManager() {
-    if (!this.templateDraft.id) {
-      this.templateDraftError = 'Selecione um template para excluir.';
-      return;
-    }
-    if (!confirm(`Excluir template "${this.templateDraft.name}"?`)) return;
-
-    this.creatingTemplate = true;
-    this.templateDraftError = '';
-    this.templateDraftStatus = '';
-    this.reportService.deleteTemplate(this.templateDraft.id).subscribe({
-      next: () => {
-        const deletedId = this.templateDraft.id;
-        this.creatingTemplate = false;
-        if (this.reportDraft.jasperTemplateId === deletedId) {
-          this.reportDraft.jasperTemplateId = '';
-        }
-        this.startNewTemplate();
-        this.templateDraftStatus = 'Template excluído.';
-        this.refreshTemplates();
-      },
-      error: (err: HttpErrorResponse) => {
-        this.creatingTemplate = false;
-        if (err.status === 409) {
-          this.templateDraftError = 'Não foi possível excluir: template vinculado a relatório.';
-          return;
-        }
-        this.templateDraftError = 'Falha ao excluir template.';
-      },
-    });
-  }
-
-  applyTemplateToReport() {
-    if (!this.templateDraft.id) {
-      this.templateDraftError = 'Selecione um template para vincular.';
-      return;
-    }
-    this.reportDraft.jasperTemplateId = this.templateDraft.id;
-    this.templateDraftStatus = `Template "${this.templateDraft.name}" vinculado ao relatório.`;
-  }
-
-  private refreshTemplates(preferredId?: string) {
-    this.reportService.listTemplates().subscribe({
-      next: (templates) => {
-        this.templates = (templates || [])
-          .filter((t) => !t.archived)
-          .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
-        const has = (id: string | null | undefined) => !!id && this.templates.some((t) => t.id === id);
-        const nextId = has(preferredId) ? preferredId! : has(this.selectedTemplateId) ? this.selectedTemplateId! : null;
-        if (nextId) this.selectTemplate(nextId);
-        else this.selectedTemplateId = null;
-      },
-      error: () => {
-        this.templateDraftError = 'Falha ao listar templates.';
-      },
-    });
-  }
+  applyTemplateToReport() { this.folderTemplateLogic.applyTemplateToReport(); }
 
   saveReportFromModal() {
     const folder = this.folders.find((item) => item.id === this.reportDraft.folderId);
@@ -894,78 +720,6 @@ export class ReportsComponent implements OnInit {
       ...this.loadingVariableOptions,
       [key]: false,
     };
-  }
-
-  private ensureFolderNameAvailable(name: string, fromModal: boolean): boolean {
-    const lower = name.toLowerCase();
-    if (this.folders.some((folder) => folder.name.toLowerCase() === lower)) {
-      if (fromModal) this.reportDraftError = 'Ja existe uma pasta com esse nome.';
-      else this.statusMessage = 'Ja existe uma pasta com esse nome.';
-      return false;
-    }
-    if (this.allFolders.some((folder) => folder.archived && folder.name.toLowerCase() === lower)) {
-      const msg = 'Ja existe uma pasta arquivada com esse nome. Desarquive-a para reutilizar.';
-      if (fromModal) this.reportDraftError = msg;
-      else this.statusMessage = msg;
-      return false;
-    }
-    return true;
-  }
-
-  private createFolderByName(name: string, fromModal: boolean) {
-    this.reportService.createFolder({ name, description: null }).subscribe({
-      next: (folder) => {
-        this.statusMessage = `Pasta "${folder.name}" criada.`;
-        if (fromModal) {
-          this.allFolders = [...this.allFolders, folder];
-          this.rebuildFolders(this.allFolders.filter((f) => !f.archived));
-          this.selectedFolderId = folder.id;
-          this.reportDraft.folderId = folder.id;
-          this.reportDraftError = '';
-          return;
-        }
-        this.newFolderName = '';
-        this.renameFolderName = folder.name;
-        this.loadData(undefined, folder.id);
-      },
-      error: (err: HttpErrorResponse) => {
-        const msg =
-          err.status === 409
-            ? 'Nao foi possivel criar: ja existe uma pasta com esse nome (ativa ou arquivada).'
-            : 'Falha ao criar pasta.';
-        if (fromModal) this.reportDraftError = msg;
-        else this.statusMessage = msg;
-      },
-    });
-  }
-
-  private resetTemplateManagerState(resetDraft = true) {
-    this.templateDraftError = '';
-    this.templateDraftStatus = '';
-    this.creatingTemplate = false;
-    this.loadingTemplate = false;
-    if (resetDraft) this.startNewTemplate();
-  }
-
-  private updateSelectedFolderArchived(archived: boolean) {
-    const folder = this.selectedFolder;
-    if (!folder) {
-      this.statusMessage = `Selecione uma pasta para ${archived ? 'arquivar' : 'desarquivar'}.`;
-      return;
-    }
-    this.reportService.updateFolder(folder.id, {
-      name: folder.name,
-      description: folder.description,
-      archived,
-    }).subscribe({
-      next: () => {
-        this.statusMessage = `Pasta "${folder.name}" ${archived ? 'arquivada' : 'desarquivada'}.`;
-        this.loadData(undefined, archived ? undefined : folder.id);
-      },
-      error: () => {
-        this.statusMessage = `Falha ao ${archived ? 'arquivar' : 'desarquivar'} pasta.`;
-      },
-    });
   }
 
   private updateSelectedReportArchived(archived: boolean) {
