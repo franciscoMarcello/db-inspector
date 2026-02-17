@@ -89,8 +89,18 @@ export class DbInspectorService {
     );
   }
 
-  runQuery(query: string): Observable<any> {
+  runQuery(query: string, page = 0, size = 200): Observable<any> {
     return this.http.post<any>(`${this.base}/query`, {
+      query,
+      page,
+      size,
+      asDict: true,
+      withDescription: true,
+    });
+  }
+
+  runQueryAll(query: string): Observable<any> {
+    return this.http.post<any>(`${this.base}/query/all`, {
       query,
       asDict: true,
       withDescription: true,

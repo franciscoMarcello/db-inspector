@@ -212,9 +212,21 @@ h3 {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
   padding: 8px 12px;
   margin: 8px 0;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+}
+
+.result-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  margin: 8px 0 0;
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: 8px;
@@ -256,6 +268,19 @@ h3 {
   border-color: var(--border-subtle);
 }
 
+.result-controls .mat-mdc-stroked-button,
+.result-controls .mat-mdc-outlined-button {
+  border-radius: 999px;
+  text-transform: none;
+
+  --mdc-outlined-button-outline-color: var(--border-subtle);
+  --mdc-outlined-button-label-text-color: var(--text-primary);
+
+  background-color: transparent;
+  color: var(--text-primary);
+  border-color: var(--border-subtle);
+}
+
 .dark-theme .toolbar .mat-mdc-stroked-button,
 .dark-theme .toolbar .mat-mdc-outlined-button {
   --mdc-outlined-button-outline-color: var(--border-subtle);
@@ -265,7 +290,19 @@ h3 {
   color: var(--text-primary);
 }
 
+.dark-theme .result-controls .mat-mdc-stroked-button,
+.dark-theme .result-controls .mat-mdc-outlined-button {
+  --mdc-outlined-button-outline-color: var(--border-subtle);
+  --mdc-outlined-button-label-text-color: var(--text-primary);
+
+  background-color: transparent;
+  color: var(--text-primary);
+}
+
 .toolbar .mat-mdc-button-base:hover {
+  filter: brightness(1.05);
+}
+.result-controls .mat-mdc-button-base:hover {
   filter: brightness(1.05);
 }
 
@@ -277,8 +314,35 @@ h3 {
   white-space: nowrap;
 }
 
+.size-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-muted);
+}
+
+.page-size-input {
+  width: 88px;
+  height: 34px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--bg-surface-alt);
+  color: var(--text-primary);
+  padding: 0 10px;
+  font-size: 13px;
+  outline: none;
+}
+
+.page-size-input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px color-mix(in srgb, #2563eb 28%, transparent);
+}
+
 @media (max-width: 900px) {
   .toolbar {
+    flex-wrap: wrap;
+  }
+  .result-controls {
     flex-wrap: wrap;
   }
 

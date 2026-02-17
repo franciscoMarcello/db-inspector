@@ -23,6 +23,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { createXlsxBlob } from '../../utils/xlsx-export';
 
 const STORAGE_KEY = 'dbi.query.state';
+const SNIPPETS_COLLAPSED_KEY = 'dbi.query.snippets_collapsed';
 const SQL_VARIABLE_RE = /(^|[^:]):([A-Za-z_][A-Za-z0-9_]*)/g;
 const REPORT_DRAFT_SQL_KEY = 'dbi.reports.pending_sql';
 
@@ -47,6 +48,8 @@ const REPORT_DRAFT_SQL_KEY = 'dbi.reports.pending_sql';
   styleUrls: ['./query-runner.css'],
 })
 export class QueryRunnerComponent implements OnInit, OnDestroy {
+  readonly defaultPageSize = 200;
+  readonly maxPageSize = 1000;
   editorOptions = {
     language: 'sql',
     theme: 'vs-dark',
@@ -67,6 +70,10 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
   rowCount = 0;
   elapsedMs = 0;
   raw: any = null;
+  page = 0;
+  size = this.defaultPageSize;
+  usingAllMode = false;
+  private lastExecutedSql: string | null = null;
 
   constructor(
     private api: DbInspectorService,
@@ -89,6 +96,7 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
   query = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null')?.query ?? 'SELECT 1 AS ok;';
 
   ngOnInit() {
+    this.restoreSnippetsCollapsedState();
     // Load stored snippets immediately so the favorites bar renders without waiting for Monaco.
     this.refreshSnippets();
   }
@@ -96,7 +104,7 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
   onEditorInit(editor: any) {
     const monaco = (window as any).monaco;
     this.editor = editor;
-    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => this.run());
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => this.runPaged());
 
     const saved = this.loadState();
     if (saved?.viewState) {
@@ -257,7 +265,15 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
     }
   }
 
-  async run() {
+  async runPaged() {
+    await this.runWithMode(false);
+  }
+
+  async runAll() {
+    await this.runWithMode(true);
+  }
+
+  private async runWithMode(all: boolean) {
     const q = (this.query || '').trim();
     if (!q) {
       this.error = 'Informe a SQL.';
@@ -279,6 +295,49 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
       return;
     }
 
+    this.page = 0;
+    this.lastExecutedSql = finalSql;
+    this.usingAllMode = all;
+    this.executeQuery(finalSql, all);
+  }
+
+  nextPage() {
+    if (!this.canGoNext || !this.lastExecutedSql) return;
+    this.page += 1;
+    this.executeQuery(this.lastExecutedSql, false);
+  }
+
+  prevPage() {
+    if (!this.canGoPrev || !this.lastExecutedSql) return;
+    this.page -= 1;
+    this.executeQuery(this.lastExecutedSql, false);
+  }
+
+  onPageSizeChange() {
+    const n = Number(this.size);
+    if (!Number.isFinite(n) || n < 1) this.size = this.defaultPageSize;
+    else this.size = Math.min(this.maxPageSize, Math.trunc(n));
+
+    if (!this.usingAllMode && this.lastExecutedSql) {
+      this.page = 0;
+      this.executeQuery(this.lastExecutedSql, false);
+    }
+  }
+
+  get canGoPrev(): boolean {
+    return !this.loading && !this.usingAllMode && !!this.lastExecutedSql && this.page > 0;
+  }
+
+  get canGoNext(): boolean {
+    return (
+      !this.loading &&
+      !this.usingAllMode &&
+      !!this.lastExecutedSql &&
+      this.rows.length >= this.size
+    );
+  }
+
+  private executeQuery(sql: string, all: boolean) {
     this.loading = true;
     this.error = null;
     this.rows = [];
@@ -288,8 +347,8 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
     this.elapsedMs = 0;
 
     const t0 = performance.now();
-    this.api
-      .runQuery(finalSql)
+    const request$ = all ? this.api.runQueryAll(sql) : this.api.runQuery(sql, this.page, this.size);
+    request$
       .pipe(
         finalize(() => {
           this.loading = false;
@@ -315,9 +374,9 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
             this.rows = data.map((v: any) => ({ value: v }));
           }
         },
-        error: () => {
+        error: (err: any) => {
           this.elapsedMs = Math.round(performance.now() - t0);
-          this.error = 'Falha ao executar a consulta.';
+          this.error = err?.error?.message || 'Falha ao executar a consulta.';
         },
       });
   }
@@ -508,6 +567,21 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
 
   toggleSnippetsPanel() {
     this.snippetsCollapsed = !this.snippetsCollapsed;
+    this.persistSnippetsCollapsedState();
+  }
+
+  private restoreSnippetsCollapsedState() {
+    try {
+      this.snippetsCollapsed = localStorage.getItem(SNIPPETS_COLLAPSED_KEY) === '1';
+    } catch {
+      this.snippetsCollapsed = false;
+    }
+  }
+
+  private persistSnippetsCollapsedState() {
+    try {
+      localStorage.setItem(SNIPPETS_COLLAPSED_KEY, this.snippetsCollapsed ? '1' : '0');
+    } catch {}
   }
 
   shouldShowSnippet(sn: QuerySnippet): boolean {

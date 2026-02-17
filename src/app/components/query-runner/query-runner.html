@@ -92,7 +92,7 @@
 
 <div class="toolbar">
   <div class="btns">
-    <button mat-raised-button color="primary" (click)="run()">Executar (Ctrl+Enter)</button>
+    <button mat-raised-button color="primary" (click)="runPaged()">Executar (Ctrl+Enter)</button>
     <button mat-stroked-button color="primary" (click)="openScheduleDialog()">
       Agendar envio por e-mail
     </button>
@@ -107,9 +107,9 @@
     <button mat-stroked-button (click)="saveAsReport()">Salvar como relatório</button>
     <button mat-stroked-button (click)="saveCurrentAsSnippet()">Salvar favorito (Ctrl+S)</button>
   </div>
-
   <span class="meta">
-    {{ rowCount }} linhas • {{ elapsedMs }} ms •
+    {{ usingAllMode ? 'modo all' : 'página ' + page }} • {{ rowCount }} linhas • {{ elapsedMs }} ms
+    •
     {{ lastRunAt ? (lastRunAt | date : 'dd/MM/yyyy HH:mm:ss') : '—' }}
   </span>
 </div>
@@ -135,3 +135,32 @@
     </div>
   </ng-template>
 </mat-card>
+
+<div class="result-controls" *ngIf="!loading && !error">
+  <div class="btns">
+    <button mat-stroked-button color="primary" (click)="runAll()">Executar tudo (/query/all)</button>
+    <button mat-stroked-button *ngIf="!usingAllMode && canGoPrev" (click)="prevPage()">
+      Página anterior
+    </button>
+    <button mat-stroked-button *ngIf="!usingAllMode && canGoNext" (click)="nextPage()">
+      Próxima página
+    </button>
+    <label class="small size-field" *ngIf="!usingAllMode">
+      size
+      <input
+        class="page-size-input"
+        type="number"
+        min="1"
+        [max]="maxPageSize"
+        [(ngModel)]="size"
+        [ngModelOptions]="{ standalone: true }"
+        (change)="onPageSizeChange()"
+      />
+    </label>
+  </div>
+  <span class="meta">
+    {{ usingAllMode ? 'modo all' : 'página ' + page }} • {{ rowCount }} linhas • {{ elapsedMs }} ms
+    •
+    {{ lastRunAt ? (lastRunAt | date : 'dd/MM/yyyy HH:mm:ss') : '—' }}
+  </span>
+</div>
