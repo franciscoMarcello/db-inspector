@@ -1,7 +1,7 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { Observable, forkJoin } from 'rxjs';
+import { Observable, forkJoin, of } from 'rxjs';
 import { MultiSelectOption, ReportsMultiSelectComponent } from '../reports/controls/multi-select/reports-multi-select.component';
 import {
   AdminRole,
@@ -68,6 +68,26 @@ export class AdminUsersComponent implements OnInit {
   aclRules: AccessControlRule[] = [];
   aclLoading = false;
   aclSaving = false;
+  aclSubjectViewType: AclSubjectType = 'ROLE';
+  aclSubjectView = '';
+  aclSubjectViewLoading = false;
+  aclSubjectRows: Array<{
+    targetType: 'FOLDER' | 'REPORT';
+    targetName: string;
+    folderName: string;
+    rule: AccessControlRule;
+  }> = [];
+  aclSubjectTree: Array<{
+    folderId: string | null;
+    folderName: string;
+    folderRules: AccessControlRule[];
+    reports: Array<{
+      reportId: string;
+      reportName: string;
+      rules: AccessControlRule[];
+    }>;
+  }> = [];
+  aclSubjectTreeExpanded: Record<string, boolean> = {};
   aclFolders: ReportFolder[] = [];
   aclReports: ReportDefinition[] = [];
   aclDraft: AccessControlRuleInput = {
@@ -109,6 +129,12 @@ export class AdminUsersComponent implements OnInit {
             ...this.aclDraft,
             subject: this.roles[0].name,
           };
+        }
+        if (this.aclSubjectViewType === 'ROLE' && !this.aclSubjectView && this.roles.length) {
+          this.aclSubjectView = this.roles[0].name;
+        }
+        if (this.aclSubjectViewType === 'USER' && !this.aclSubjectView && this.users.length) {
+          this.aclSubjectView = this.users[0].id;
         }
         this.permissionsCatalog = [...(permissionsCatalog || [])].sort((a, b) =>
           String(a.label || a.code).localeCompare(String(b.label || b.code), undefined, { sensitivity: 'base' })
@@ -336,6 +362,9 @@ export class AdminUsersComponent implements OnInit {
   trackPermissionCatalog = (_: number, p: PermissionCatalogItem) => p.code;
   trackAclRule = (_: number, rule: AccessControlRule) =>
     `${rule.subjectType}:${rule.subject}:${rule.id || ''}`;
+  trackAclSubjectFolder = (_: number, node: { folderId: string | null; folderName: string }) =>
+    `${node.folderId || 'no-folder'}:${node.folderName}`;
+  trackAclSubjectReport = (_: number, node: { reportId: string }) => node.reportId;
 
   permissionLabel(code: string): string {
     const item = this.permissionCatalogByCode[String(code || '').toUpperCase()];
@@ -495,6 +524,157 @@ export class AdminUsersComponent implements OnInit {
       subjectType: nextType,
       subject: '',
     };
+  }
+
+  onAclSubjectViewTypeChange(value: AclSubjectType) {
+    this.aclSubjectViewType = (value || 'ROLE') as AclSubjectType;
+    if (this.aclSubjectViewType === 'ROLE') {
+      this.aclSubjectView = this.roles[0]?.name || '';
+    } else {
+      this.aclSubjectView = this.users[0]?.id || '';
+    }
+  }
+
+  toggleAclSubjectFolder(folderId: string | null) {
+    const key = folderId || '__no_folder__';
+    this.aclSubjectTreeExpanded[key] = !this.aclSubjectTreeExpanded[key];
+  }
+
+  isAclSubjectFolderExpanded(folderId: string | null): boolean {
+    const key = folderId || '__no_folder__';
+    return this.aclSubjectTreeExpanded[key] ?? true;
+  }
+
+  clearAclSubjectView() {
+    this.aclSubjectViewLoading = false;
+    this.aclSubjectRows = [];
+    this.aclSubjectTree = [];
+  }
+
+  loadAclSubjectView() {
+    const subject = String(this.aclSubjectView || '').trim();
+    if (!subject) {
+      this.error = this.aclSubjectViewType === 'ROLE' ? 'Selecione a role.' : 'Selecione o usuário.';
+      return;
+    }
+
+    const folderRequests = this.aclFolders.map((folder) => this.reportApi.listFolderAcl(folder.id));
+    const reportRequests = this.aclReports.map((report) => this.reportApi.listReportAcl(report.id));
+
+    this.aclSubjectViewLoading = true;
+    this.error = '';
+    forkJoin({
+      folderRulesByTarget: folderRequests.length ? forkJoin(folderRequests) : of<AccessControlRule[][]>([]),
+      reportRulesByTarget: reportRequests.length ? forkJoin(reportRequests) : of<AccessControlRule[][]>([]),
+    }).subscribe({
+      next: ({ folderRulesByTarget, reportRulesByTarget }) => {
+        const normalizedSubject = subject.trim().toUpperCase();
+        const subjectType = this.aclSubjectViewType;
+
+        const matches = (rule: AccessControlRule) =>
+          rule.subjectType === subjectType && String(rule.subject || '').trim().toUpperCase() === normalizedSubject;
+
+        const grouped = new Map<
+          string,
+          {
+            folderId: string | null;
+            folderName: string;
+            folderRules: AccessControlRule[];
+            reports: Array<{ reportId: string; reportName: string; rules: AccessControlRule[] }>;
+          }
+        >();
+        const flatRows: Array<{
+          targetType: 'FOLDER' | 'REPORT';
+          targetName: string;
+          folderName: string;
+          rule: AccessControlRule;
+        }> = [];
+
+        for (const folder of this.aclFolders) {
+          grouped.set(folder.id, {
+            folderId: folder.id,
+            folderName: folder.name,
+            folderRules: [],
+            reports: [],
+          });
+        }
+
+        for (let i = 0; i < this.aclFolders.length; i++) {
+          const folder = this.aclFolders[i];
+          const rules = (folderRulesByTarget[i] || []).filter(matches);
+          const node = grouped.get(folder.id);
+          if (!node) continue;
+          node.folderRules.push(...rules);
+          for (const rule of rules) {
+            flatRows.push({
+              targetType: 'FOLDER',
+              targetName: folder.name,
+              folderName: folder.name,
+              rule,
+            });
+          }
+        }
+
+        for (let i = 0; i < this.aclReports.length; i++) {
+          const report = this.aclReports[i];
+          const rules = (reportRulesByTarget[i] || []).filter(matches);
+          if (!rules.length) continue;
+          const key = report.folderId || '__no_folder__';
+          const folderName =
+            this.aclFolders.find((folder) => folder.id === report.folderId)?.name ||
+            report.folderName ||
+            'Sem pasta';
+          if (!grouped.has(key)) {
+            grouped.set(key, {
+              folderId: report.folderId || null,
+              folderName,
+              folderRules: [],
+              reports: [],
+            });
+          }
+          const node = grouped.get(key);
+          if (!node) continue;
+          node.reports.push({
+            reportId: report.id,
+            reportName: report.name,
+            rules,
+          });
+          for (const rule of rules) {
+            flatRows.push({
+              targetType: 'REPORT',
+              targetName: report.name,
+              folderName,
+              rule,
+            });
+          }
+        }
+
+        this.aclSubjectViewLoading = false;
+        this.aclSubjectRows = flatRows.sort((a, b) => {
+          const folderCmp = a.folderName.localeCompare(b.folderName, undefined, { sensitivity: 'base' });
+          if (folderCmp !== 0) return folderCmp;
+          const typeCmp = a.targetType.localeCompare(b.targetType);
+          if (typeCmp !== 0) return typeCmp;
+          return a.targetName.localeCompare(b.targetName, undefined, { sensitivity: 'base' });
+        });
+        this.aclSubjectTree = Array.from(grouped.values())
+          .sort((a, b) => a.folderName.localeCompare(b.folderName, undefined, { sensitivity: 'base' }))
+          .filter((node) => node.folderRules.length || node.reports.length);
+        for (const folderNode of this.aclSubjectTree) {
+          folderNode.reports.sort((a, b) =>
+            a.reportName.localeCompare(b.reportName, undefined, { sensitivity: 'base' })
+          );
+          this.aclSubjectTreeExpanded[folderNode.folderId || '__no_folder__'] =
+            this.aclSubjectTreeExpanded[folderNode.folderId || '__no_folder__'] ?? true;
+        }
+      },
+      error: (err) => {
+        this.aclSubjectViewLoading = false;
+        this.aclSubjectRows = [];
+        this.aclSubjectTree = [];
+        this.error = this.messageFromError(err, 'Falha ao carregar visão ACL por usuário/role.');
+      },
+    });
   }
 
   saveAclRule() {
