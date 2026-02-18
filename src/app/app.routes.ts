@@ -2,7 +2,7 @@ import { Routes } from '@angular/router';
 import { SchemaListComponent } from './components/schema-list/schema-list';
 import { QueryRunnerComponent } from './components/query-runner/query-runner';
 import { EmailSchedulesComponent } from './components/email-schedules/email-schedules.component';
-import { ReportsComponent } from './components/reports/reports.component';
+import { ReportsComponent } from './components/reports/reports-page/reports.component';
 
 export const routes: Routes = [
   { path: '', redirectTo: 'schemas', pathMatch: 'full' },

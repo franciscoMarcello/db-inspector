@@ -1,0 +1,210 @@
+<dialog class="report-modal" [open]="open">
+  <div class="report-modal__panel report-modal__panel--wide">
+    <div class="report-modal__header">
+      <h3>{{ mode === 'create' ? 'Novo relatório' : 'Editar relatório' }}</h3>
+      <button type="button" class="btn btn--secondary" (click)="close.emit()">Fechar</button>
+    </div>
+
+    <div class="report-modal__body">
+      <label class="var-field">
+        <span>Nome</span>
+        <input
+          type="text"
+          [(ngModel)]="reportDraft.name"
+          [ngModelOptions]="{ standalone: true }"
+          placeholder="Nome do relatório"
+        />
+      </label>
+
+      <label class="var-field">
+        <span>Pasta</span>
+        <div class="folder-picker">
+          <select [(ngModel)]="reportDraft.folderId" [ngModelOptions]="{ standalone: true }">
+            <option *ngFor="let folder of folders" [value]="folder.id">{{ folder.name }}</option>
+          </select>
+          <button type="button" class="btn btn--neutral" (click)="createFolder.emit()">
+            + Pasta
+          </button>
+        </div>
+      </label>
+
+      <label class="var-field">
+        <span>Template PDF (Jasper)</span>
+        <div class="template-picker">
+          <select [(ngModel)]="reportDraft.jasperTemplateId" [ngModelOptions]="{ standalone: true }">
+            <option value="">Sem template</option>
+            <option *ngFor="let template of templates" [value]="template.id">{{ template.name }}</option>
+          </select>
+          <button type="button" class="btn btn--neutral" (click)="openTemplateManager.emit()">
+            Gerenciar templates
+          </button>
+        </div>
+      </label>
+
+      <label class="var-field">
+        <span>Descrição</span>
+        <input
+          type="text"
+          [(ngModel)]="reportDraft.description"
+          [ngModelOptions]="{ standalone: true }"
+          placeholder="Descrição (opcional)"
+        />
+      </label>
+
+      <label class="var-field">
+        <span>SQL</span>
+        <textarea
+          rows="10"
+          [(ngModel)]="reportDraft.sql"
+          [ngModelOptions]="{ standalone: true }"
+          (input)="sqlChanged.emit()"
+          placeholder="SELECT * FROM ... WHERE data >= :data_inicio"
+        ></textarea>
+      </label>
+
+      <div class="vars-panel">
+        <div class="vars-title">Variáveis detectadas</div>
+        <div class="draft-vars-empty" *ngIf="!reportDraftVariables.length">
+          Nenhum placeholder :variavel detectado na SQL.
+        </div>
+        <div class="draft-vars-grid" *ngIf="reportDraftVariables.length">
+          <div class="draft-vars-head-row">
+            <div class="draft-vars-head">Ordem</div>
+            <div class="draft-vars-head">Key</div>
+            <div class="draft-vars-head">Label</div>
+            <div class="draft-vars-head">Tipo</div>
+            <div class="draft-vars-head">Obrigatória</div>
+            <div class="draft-vars-head">Múltipla</div>
+            <div class="draft-vars-head">Padrão</div>
+            <div class="draft-vars-head">SQL opções</div>
+          </div>
+
+          <div cdkDropList [cdkDropListData]="reportDraftVariables" (cdkDropListDropped)="variablesDrop.emit($event)">
+            <div class="draft-vars-row" *ngFor="let v of reportDraftVariables" cdkDrag>
+              <div class="draft-order-controls" cdkDragHandle title="Arraste para ordenar">
+                ⋮⋮
+              </div>
+              <div>{{ v.key }}</div>
+              <div>
+                <input type="text" [(ngModel)]="v.label" [ngModelOptions]="{ standalone: true }" />
+              </div>
+              <div>
+                <select [(ngModel)]="v.type" [ngModelOptions]="{ standalone: true }">
+                  <option value="string">string</option>
+                  <option value="number">number</option>
+                  <option value="date">date</option>
+                  <option value="datetime">datetime</option>
+                  <option value="boolean">boolean</option>
+                </select>
+              </div>
+              <div>
+                <input type="checkbox" [(ngModel)]="v.required" [ngModelOptions]="{ standalone: true }" />
+              </div>
+              <div>
+                <input type="checkbox" [(ngModel)]="v.multiple" [ngModelOptions]="{ standalone: true }" />
+              </div>
+              <div>
+                <input
+                  type="text"
+                  [(ngModel)]="v.defaultValue"
+                  [ngModelOptions]="{ standalone: true }"
+                  placeholder="opcional"
+                />
+              </div>
+              <div>
+                <textarea
+                  rows="2"
+                  [(ngModel)]="v.optionsSql"
+                  [ngModelOptions]="{ standalone: true }"
+                  placeholder="SELECT id AS valor, nome AS descricao FROM ... WHERE ..."
+                ></textarea>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="vars-panel" *ngIf="reportDraftVariables.length">
+        <div class="vars-title">Parâmetros para validação</div>
+        <div class="vars-grid">
+          <label class="var-field" *ngFor="let v of reportDraftVariables">
+            <span>{{ v.label || v.key }} <em *ngIf="v.required">*</em></span>
+            <ng-container *ngIf="v.multiple; else singleValidationInput">
+              <textarea
+                rows="2"
+                [ngModel]="validationInputs[v.key] || ''"
+                [ngModelOptions]="{ standalone: true }"
+                (ngModelChange)="validationInputChange.emit({ key: v.key, value: $event })"
+                placeholder="Valores separados por vírgula"
+              ></textarea>
+            </ng-container>
+            <ng-template #singleValidationInput>
+              <ng-container [ngSwitch]="v.type">
+                <input
+                  *ngSwitchCase="'date'"
+                  type="date"
+                  [ngModel]="validationInputs[v.key] || ''"
+                  [ngModelOptions]="{ standalone: true }"
+                  (ngModelChange)="validationInputChange.emit({ key: v.key, value: $event })"
+                />
+                <input
+                  *ngSwitchCase="'datetime'"
+                  type="datetime-local"
+                  [ngModel]="validationInputs[v.key] || ''"
+                  [ngModelOptions]="{ standalone: true }"
+                  (ngModelChange)="validationInputChange.emit({ key: v.key, value: $event })"
+                />
+                <input
+                  *ngSwitchCase="'number'"
+                  type="number"
+                  [ngModel]="validationInputs[v.key] || ''"
+                  [ngModelOptions]="{ standalone: true }"
+                  (ngModelChange)="validationInputChange.emit({ key: v.key, value: $event })"
+                />
+                <select
+                  *ngSwitchCase="'boolean'"
+                  [ngModel]="validationInputs[v.key] || ''"
+                  [ngModelOptions]="{ standalone: true }"
+                  (ngModelChange)="validationInputChange.emit({ key: v.key, value: $event })"
+                >
+                  <option value="">(vazio)</option>
+                  <option value="true">true</option>
+                  <option value="false">false</option>
+                </select>
+                <input
+                  *ngSwitchDefault
+                  type="text"
+                  [ngModel]="validationInputs[v.key] || ''"
+                  [ngModelOptions]="{ standalone: true }"
+                  (ngModelChange)="validationInputChange.emit({ key: v.key, value: $event })"
+                />
+              </ng-container>
+            </ng-template>
+          </label>
+        </div>
+      </div>
+
+      <p class="params-error" *ngIf="reportDraftError">{{ reportDraftError }}</p>
+      <p class="params-error" *ngIf="validationError">{{ validationError }}</p>
+      <div class="report-validation" *ngIf="validationResult as result">
+        <p class="report-validation__status" [class.report-validation__status--ok]="result.valid">
+          {{ result.valid ? 'Consulta válida' : 'Consulta inválida' }}
+        </p>
+        <ul class="report-validation__errors" *ngIf="result.errors?.length">
+          <li *ngFor="let err of result.errors">{{ err }}</li>
+        </ul>
+        <label class="var-field" *ngIf="result.renderedQuery">
+          <span>SQL renderizada</span>
+          <textarea rows="4" [value]="result.renderedQuery" readonly></textarea>
+        </label>
+      </div>
+    </div>
+
+    <div class="report-modal__footer">
+      <button type="button" class="btn btn--secondary" (click)="validate.emit()" [disabled]="validating">
+        {{ validating ? 'Validando...' : 'Validar SQL' }}
+      </button>
+      <button type="button" class="btn btn--primary" (click)="save.emit()">Salvar</button>
+    </div>
+  </div>
+</dialog>

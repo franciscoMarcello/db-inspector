@@ -1,0 +1,35 @@
+<div class="multi-select" [class.open]="open" [class.disabled]="disabled">
+  <button type="button" class="multi-select__trigger" (click)="toggleOpen()" [disabled]="disabled">
+    <span>{{ summaryLabel }}</span>
+    <span class="multi-select__caret">{{ open ? '▴' : '▾' }}</span>
+  </button>
+
+  <div class="multi-select__panel" *ngIf="open">
+    <div class="multi-select__toolbar">
+      <input
+        type="text"
+        class="multi-select__search"
+        placeholder="Buscar..."
+        [(ngModel)]="searchTerm"
+        [ngModelOptions]="{ standalone: true }"
+      />
+      <button type="button" class="multi-select__action" (click)="selectAllFiltered()">Todos</button>
+      <button type="button" class="multi-select__action" (click)="clearSelection()">Limpar</button>
+    </div>
+
+    <div class="multi-select__list" *ngIf="!loading; else loadingTpl">
+      <label class="multi-select__item" *ngFor="let opt of filteredOptions">
+        <input
+          type="checkbox"
+          [checked]="isChecked(opt.value)"
+          (change)="toggleOption(opt.value, $any($event.target).checked)"
+        />
+        <span>{{ opt.label }}</span>
+      </label>
+      <div class="multi-select__empty" *ngIf="!filteredOptions.length">Sem opções</div>
+    </div>
+    <ng-template #loadingTpl>
+      <div class="multi-select__empty">Carregando opções...</div>
+    </ng-template>
+  </div>
+</div>

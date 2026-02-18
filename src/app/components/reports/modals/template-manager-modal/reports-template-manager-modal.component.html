@@ -1,0 +1,100 @@
+<dialog class="report-modal" [open]="open">
+  <div class="report-modal__panel">
+    <div class="report-modal__header">
+      <h3>Gerenciar templates PDF</h3>
+      <button type="button" class="btn btn--secondary" (click)="close.emit()">Fechar</button>
+    </div>
+
+    <div class="report-modal__body template-manager">
+      <div class="template-manager__list">
+        <div class="template-manager__top">
+          <button type="button" class="btn btn--neutral" (click)="startNew.emit()">Novo</button>
+        </div>
+        <button
+          type="button"
+          class="template-item"
+          *ngFor="let template of templates"
+          [class.active]="template.id === selectedTemplateId"
+          (click)="selectTemplate.emit(template.id)"
+        >
+          {{ template.name }}
+        </button>
+        <p class="muted" *ngIf="!templates.length">Nenhum template cadastrado.</p>
+      </div>
+
+      <div class="template-manager__form">
+        <label class="var-field">
+          <span>Nome</span>
+          <input
+            type="text"
+            [(ngModel)]="templateDraft.name"
+            [ngModelOptions]="{ standalone: true }"
+            placeholder="Ex.: Curral PDF"
+          />
+        </label>
+
+        <label class="var-field">
+          <span>Descrição</span>
+          <input
+            type="text"
+            [(ngModel)]="templateDraft.description"
+            [ngModelOptions]="{ standalone: true }"
+            placeholder="Opcional"
+          />
+        </label>
+
+        <label class="var-field">
+          <span>Arquivo JRXML</span>
+          <div class="file-picker">
+            <label class="btn btn--secondary file-picker__btn" for="template-jrxml-file">Escolher arquivo</label>
+            <input
+              id="template-jrxml-file"
+              type="file"
+              accept=".jrxml,application/xml,text/xml"
+              (change)="fileSelected.emit($event)"
+            />
+            <span class="file-picker__name">
+              {{ templateFileName || 'Nenhum arquivo selecionado' }}
+            </span>
+          </div>
+        </label>
+
+        <label class="var-field">
+          <span>Conteúdo JRXML</span>
+          <textarea
+            rows="12"
+            [(ngModel)]="templateDraft.jrxml"
+            [ngModelOptions]="{ standalone: true }"
+            placeholder="<jasperReport ...>...</jasperReport>"
+          ></textarea>
+        </label>
+
+        <p class="muted" *ngIf="loadingTemplate">Carregando template...</p>
+        <p class="params-error" *ngIf="templateDraftError">{{ templateDraftError }}</p>
+        <p class="muted" *ngIf="templateDraftStatus">{{ templateDraftStatus }}</p>
+      </div>
+    </div>
+
+    <div class="report-modal__footer report-modal__footer--spaced">
+      <button
+        type="button"
+        class="btn btn--danger"
+        (click)="deleteTemplate.emit()"
+        [disabled]="creatingTemplate || !templateDraft.id"
+      >
+        Excluir
+      </button>
+      <button
+        type="button"
+        class="btn btn--neutral"
+        (click)="applyTemplate.emit()"
+        [disabled]="!templateDraft.id"
+      >
+        Vincular ao relatório
+      </button>
+      <button type="button" class="btn btn--primary" (click)="saveTemplate.emit()" [disabled]="creatingTemplate">
+        {{ creatingTemplate ? 'Salvando...' : templateDraft.id ? 'Atualizar template' : 'Criar template' }}
+      </button>
+    </div>
+  </div>
+</dialog>

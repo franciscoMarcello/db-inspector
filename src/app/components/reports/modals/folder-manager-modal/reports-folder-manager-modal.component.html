@@ -1,0 +1,81 @@
+<dialog class="report-modal" [open]="open">
+  <div class="report-modal__panel report-modal__panel--small">
+    <div class="report-modal__header">
+      <h3>Gerenciar pastas</h3>
+      <button type="button" class="btn btn--secondary" (click)="close.emit()">Fechar</button>
+    </div>
+
+    <div class="report-modal__body folder-manager">
+      <div class="folder-manager__section">
+        <label class="var-field">
+          <span>Nova pasta</span>
+          <input
+            type="text"
+            [ngModel]="newFolderName"
+            [ngModelOptions]="{ standalone: true }"
+            (ngModelChange)="newFolderNameChange.emit($event)"
+            placeholder="Nome da pasta"
+            (keydown.enter)="createFolder.emit()"
+          />
+        </label>
+        <button type="button" class="btn btn--primary" (click)="createFolder.emit()">Criar pasta</button>
+      </div>
+
+      <div class="folder-manager__section">
+        <label class="var-field">
+          <span>Pasta para gerenciar</span>
+          <select
+            [ngModel]="selectedFolderId || ''"
+            [ngModelOptions]="{ standalone: true }"
+            (ngModelChange)="selectedFolderIdChange.emit($event)"
+          >
+            <option value="">Selecione uma pasta</option>
+            <option *ngFor="let folder of folders" [value]="folder.id">
+              {{ folder.name }}{{ folder.archived ? ' (arquivada)' : '' }}
+            </option>
+          </select>
+        </label>
+
+        <label class="var-field">
+          <span>Novo nome da pasta</span>
+          <input
+            type="text"
+            [ngModel]="renameFolderName"
+            [ngModelOptions]="{ standalone: true }"
+            (ngModelChange)="renameFolderNameChange.emit($event)"
+            [disabled]="!selectedFolder"
+            placeholder="Novo nome"
+            (keydown.enter)="renameSelectedFolder.emit()"
+          />
+        </label>
+
+        <div class="actions">
+          <button
+            type="button"
+            class="btn btn--secondary"
+            (click)="renameSelectedFolder.emit()"
+            [disabled]="!selectedFolder"
+          >
+            Renomear
+          </button>
+          <button
+            type="button"
+            class="btn btn--archive"
+            (click)="archiveSelectedFolder.emit()"
+            [disabled]="!selectedFolder || !!selectedFolder.archived"
+          >
+            Arquivar
+          </button>
+          <button
+            type="button"
+            class="btn btn--neutral"
+            (click)="unarchiveSelectedFolder.emit()"
+            [disabled]="!selectedFolder || !selectedFolder.archived"
+          >
+            Desarquivar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</dialog>
