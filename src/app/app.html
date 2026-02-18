@@ -1,75 +1,104 @@
-<div class="app-shell" [class.dark-theme]="theme === 'dark'">
-  <mat-toolbar class="app-toolbar">
-    <span class="title">AgroReport</span>
-    @if (activeNameValue && isLoggedIn) {
-    <span class="env">Ambiente: {{ activeNameValue }}</span>
-    }
+<div class="app-shell" [class.dark-theme]="theme === 'dark'" [class.side-collapsed]="sideMenuCollapsed">
+  @if (isLoggedIn) {
+    <aside class="side-nav">
+      <div class="side-header">
+        <div class="side-top">
+          <div class="title">AgroReport</div>
+        </div>
+        <div class="user-welcome" [title]="'Bem-vindo, ' + userDisplayName">
+          Bem-vindo, {{ userDisplayName || 'Usuário' }}
+        </div>
+        <div class="user-email" [title]="userEmail">{{ userEmail }}</div>
+        <button mat-button class="nav-btn side-logout-btn" (click)="logout()">
+          <mat-icon class="nav-icon">logout</mat-icon>
+          <span class="nav-label">Sair</span>
+        </button>
+      </div>
 
-    <span class="spacer"></span>
+      <nav class="side-menu">
+        @if (canViewSchemas) {
+          <button mat-button class="nav-btn" routerLink="/schemas" routerLinkActive="active">
+            <mat-icon class="nav-icon">schema</mat-icon>
+            <span class="nav-label">Esquemas</span>
+          </button>
+        }
+        @if (canExecuteSql) {
+          <button mat-button class="nav-btn" routerLink="/query" routerLinkActive="active">
+            <mat-icon class="nav-icon">terminal</mat-icon>
+            <span class="nav-label">Executar SQL</span>
+          </button>
+        }
+        @if (canViewSchedules) {
+          <button mat-button class="nav-btn" routerLink="/schedules" routerLinkActive="active">
+            <mat-icon class="nav-icon">event</mat-icon>
+            <span class="nav-label">Agendamentos</span>
+          </button>
+        }
+        <button
+          mat-button
+          class="nav-btn"
+          routerLink="/reports"
+          routerLinkActive="active"
+          [routerLinkActiveOptions]="{ exact: true }"
+        >
+          <mat-icon class="nav-icon">description</mat-icon>
+          <span class="nav-label">Relatorios</span>
+        </button>
+        @if (canManageReports) {
+          <button
+            mat-button
+            class="nav-btn"
+            routerLink="/reports/manage"
+            routerLinkActive="active"
+            [routerLinkActiveOptions]="{ exact: true }"
+          >
+            <mat-icon class="nav-icon">settings</mat-icon>
+            <span class="nav-label">Gerenciar Relatorios</span>
+          </button>
+        }
+        @if (isAdmin) {
+          <button mat-button class="nav-btn" routerLink="/admin/users" routerLinkActive="active">
+            <mat-icon class="nav-icon">group</mat-icon>
+            <span class="nav-label">Usuários</span>
+          </button>
+        }
+      </nav>
+    </aside>
+  }
 
-    @if (isLoggedIn) {
-    @if (canViewSchemas) {
-    <button mat-button class="nav-btn" routerLink="/schemas" routerLinkActive="active">
-      Esquemas
-    </button>
-    }
+  <div class="main-area">
+    <div class="top-lite">
+      @if (isLoggedIn) {
+        <div class="top-lite-left">
+          <button mat-icon-button class="collapse-btn collapse-btn-main" (click)="toggleSideMenu()" aria-label="Mostrar menu">
+            <mat-icon>{{ sideMenuCollapsed ? 'menu' : 'menu_open' }}</mat-icon>
+          </button>
+          <div class="top-title">AgroReport</div>
+        </div>
+        <div class="top-lite-actions">
+          <button mat-icon-button class="theme-toggle" (click)="toggleTheme()" aria-label="Alternar tema">
+            <mat-icon>
+              {{ theme === 'dark' ? 'dark_mode' : 'light_mode' }}
+            </mat-icon>
+          </button>
+        </div>
+      } @else {
+        <div class="title">AgroReport</div>
+        <button mat-icon-button class="theme-toggle" (click)="toggleTheme()" aria-label="Alternar tema">
+          <mat-icon>
+            {{ theme === 'dark' ? 'dark_mode' : 'light_mode' }}
+          </mat-icon>
+        </button>
+      }
+    </div>
 
-    @if (canExecuteSql) {
-    <button mat-button class="nav-btn" routerLink="/query" routerLinkActive="active">
-      Executar SQL
-    </button>
-    }
+    <div class="page">
+      <router-outlet></router-outlet>
+    </div>
 
-    @if (canViewSchedules) {
-    <button mat-button class="nav-btn" routerLink="/schedules" routerLinkActive="active">
-      Agendamentos
-    </button>
-    }
-
-    <button
-      mat-button
-      class="nav-btn"
-      routerLink="/reports"
-      routerLinkActive="active"
-      [routerLinkActiveOptions]="{ exact: true }"
-    >
-      Relatorios
-    </button>
-
-    @if (canManageReports) {
-    <button
-      mat-button
-      class="nav-btn"
-      routerLink="/reports/manage"
-      routerLinkActive="active"
-      [routerLinkActiveOptions]="{ exact: true }"
-    >
-      Gerenciar Relatorios
-    </button>
-    }
-
-    @if (isAdmin) {
-    <button mat-button class="nav-btn" routerLink="/admin/users" routerLinkActive="active">
-      Usuários
-    </button>
-    }
-
-    <button mat-button class="nav-btn" (click)="logout()">Sair</button>
-    }
-
-    <button mat-icon-button class="theme-toggle" (click)="toggleTheme()" aria-label="Alternar tema">
-      <mat-icon>
-        {{ theme === 'dark' ? 'dark_mode' : 'light_mode' }}
-      </mat-icon>
-    </button>
-  </mat-toolbar>
-
-  <div class="page">
-    <router-outlet></router-outlet>
+    <footer class="app-footer">
+      <span>Versão {{ appVersion }}</span>
+      <span class="footer-center">Developed by PowerRov</span>
+    </footer>
   </div>
-
-  <footer class="app-footer">
-    <span>Versão {{ appVersion }}</span>
-    <span class="footer-center">Developed by PowerRov</span>
-  </footer>
 </div>

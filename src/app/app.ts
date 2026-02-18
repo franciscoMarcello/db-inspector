@@ -1,8 +1,6 @@
-import { Component, inject, signal, HostBinding } from '@angular/core';
+import { Component, inject, HostBinding } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive, Router } from '@angular/router';
-import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatButtonModule } from '@angular/material/button';
-import { EnvStorageService } from './services/env-storage.service';
 import { MatIconModule } from '@angular/material/icon';
 import { OverlayContainer } from '@angular/cdk/overlay'; // <-- ADICIONA ISSO
 import { AuthService } from './services/auth.service';
@@ -12,37 +10,41 @@ import packageJson from '../../package.json';
   selector: 'app-root',
   standalone: true,
   imports: [
-    MatToolbarModule,
     MatButtonModule,
     RouterOutlet,
     MatIconModule,
     RouterLink,
     RouterLinkActive,
   ],
-  styles: [
-    `
-      .spacer {
-        flex: 1 1 auto;
-      }
-    `,
-  ],
   templateUrl: './app.html',
   styleUrls: ['./app.css'],
 })
 export class App {
-  private storage = inject(EnvStorageService);
   private overlay = inject(OverlayContainer); // <-- INJETADO
   private auth = inject(AuthService);
   private router = inject(Router);
   appVersion = packageJson.version;
-
-  activeName = signal(this.storage.getActive()?.name ?? 'Produção');
-  get activeNameValue() {
-    return this.activeName();
-  }
+  sideMenuCollapsed = localStorage.getItem('layout.side_menu_collapsed') === 'true';
 
   get isLoggedIn() {
     return this.auth.isAuthenticated();
+  }
+
+  get userEmail() {
+    return this.auth.user()?.email || '';
+  }
+
+  get userDisplayName() {
+    const email = this.userEmail;
+    if (!email) return '';
+    const local = email.split('@')[0] || '';
+    const normalized = local.replace(/[._-]+/g, ' ').trim();
+    if (!normalized) return email;
+    return normalized
+      .split(' ')
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
   }
 
   get isAdmin() {
@@ -88,6 +90,11 @@ export class App {
     this.theme = this.theme === 'light' ? 'dark' : 'light';
     localStorage.setItem('theme', this.theme);
     this.applyTheme(this.theme);
+  }
+
+  toggleSideMenu() {
+    this.sideMenuCollapsed = !this.sideMenuCollapsed;
+    localStorage.setItem('layout.side_menu_collapsed', String(this.sideMenuCollapsed));
   }
 
   private applyTheme(theme: 'light' | 'dark') {
