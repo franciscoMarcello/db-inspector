@@ -2,8 +2,8 @@ import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CdkDragDrop, DragDropModule } from '@angular/cdk/drag-drop';
-import { DraftVariable, FolderNode, ReportDraft } from './reports.component.models';
-import { JasperTemplateResponse, ReportValidationResponse } from '../../services/report.service';
+import { DraftVariable, FolderNode, ReportDraft } from '../../core/reports.component.models';
+import { JasperTemplateResponse, ReportValidationResponse } from '../../../../services/report.service';
 
 @Component({
   selector: 'app-reports-report-modal',
@@ -11,10 +11,10 @@ import { JasperTemplateResponse, ReportValidationResponse } from '../../services
   imports: [CommonModule, FormsModule, DragDropModule],
   templateUrl: './reports-report-modal.component.html',
   styleUrls: [
-    './reports.component.css',
-    './reports.component.table.css',
-    './reports.component.modals.css',
-    './reports.component.responsive.css',
+    '../../reports-page/reports.component.css',
+    '../../reports-page/reports.component.table.css',
+    '../../reports-page/reports.component.modals.css',
+    '../../reports-page/reports.component.responsive.css',
   ],
 })
 export class ReportsReportModalComponent {

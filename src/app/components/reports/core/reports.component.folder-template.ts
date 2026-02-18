@@ -1,5 +1,5 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { JasperTemplateResponse, ReportFolder, ReportService } from '../../services/report.service';
+import { JasperTemplateResponse, ReportFolder, ReportService } from '../../../services/report.service';
 import { createEmptyTemplateDraft } from './reports.component.constants';
 import { FolderNode, ReportDraft, TemplateDraft } from './reports.component.models';
 import { toTemplatePayload, validateTemplateDraft } from './reports.component.utils';

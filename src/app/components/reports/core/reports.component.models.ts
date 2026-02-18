@@ -1,4 +1,4 @@
-import { ReportFolder, ReportVariableInput } from '../../services/report.service';
+import { ReportFolder, ReportVariableInput } from '../../../services/report.service';
 
 export type FolderNode = ReportFolder & {
   expanded: boolean;

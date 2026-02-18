@@ -5,7 +5,7 @@ import {
   ReportVariable,
   ReportVariableInput,
   ReportVariableOption,
-} from '../../services/report.service';
+} from '../../../services/report.service';
 import { DraftVariable, FolderNode, ReportDraft, TemplateDraft } from './reports.component.models';
 import { SQL_VARIABLE_RE } from './reports.component.constants';
 

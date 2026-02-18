@@ -1,8 +1,8 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { JasperTemplateResponse } from '../../services/report.service';
-import { TemplateDraft } from './reports.component.models';
+import { JasperTemplateResponse } from '../../../../services/report.service';
+import { TemplateDraft } from '../../core/reports.component.models';
 
 @Component({
   selector: 'app-reports-template-manager-modal',
@@ -10,10 +10,10 @@ import { TemplateDraft } from './reports.component.models';
   imports: [CommonModule, FormsModule],
   templateUrl: './reports-template-manager-modal.component.html',
   styleUrls: [
-    './reports.component.css',
-    './reports.component.table.css',
-    './reports.component.modals.css',
-    './reports.component.responsive.css',
+    '../../reports-page/reports.component.css',
+    '../../reports-page/reports.component.table.css',
+    '../../reports-page/reports.component.modals.css',
+    '../../reports-page/reports.component.responsive.css',
   ],
 })
 export class ReportsTemplateManagerModalComponent {

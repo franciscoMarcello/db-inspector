@@ -17,21 +17,21 @@ import {
   ReportValidationResponse,
   ReportVariable,
   ReportVariableOption,
-} from '../../services/report.service';
-import { createXlsxBlob } from '../../utils/xlsx-export';
-import { DraftVariable, FolderNode, ReportDraft, TemplateDraft } from './reports.component.models';
+} from '../../../services/report.service';
+import { createXlsxBlob } from '../../../utils/xlsx-export';
+import { DraftVariable, FolderNode, ReportDraft, TemplateDraft } from '../core/reports.component.models';
 import {
   createEmptyReportDraft,
   createEmptyTemplateDraft,
   REPORT_DRAFT_SQL_KEY,
   REPORTS_FOLDERS_EXPANDED_KEY,
   REPORTS_SIDEBAR_COLLAPSED_KEY,
-} from './reports.component.constants';
-import { ReportsFolderTemplateHost, ReportsFolderTemplateLogic } from './reports.component.folder-template';
-import { ReportsFolderManagerModalComponent } from './reports-folder-manager-modal.component';
-import { MultiSelectOption, ReportsMultiSelectComponent } from './reports-multi-select.component';
-import { ReportsReportModalComponent } from './reports-report-modal.component';
-import { ReportsTemplateManagerModalComponent } from './reports-template-manager-modal.component';
+} from '../core/reports.component.constants';
+import { ReportsFolderTemplateHost, ReportsFolderTemplateLogic } from '../core/reports.component.folder-template';
+import { ReportsFolderManagerModalComponent } from '../modals/folder-manager-modal/reports-folder-manager-modal.component';
+import { MultiSelectOption, ReportsMultiSelectComponent } from '../controls/multi-select/reports-multi-select.component';
+import { ReportsReportModalComponent } from '../modals/report-modal/reports-report-modal.component';
+import { ReportsTemplateManagerModalComponent } from '../modals/template-manager-modal/reports-template-manager-modal.component';
 import {
   buildArchivePayload,
   buildReportValidationParams,
@@ -61,7 +61,7 @@ import {
   toReportCreatePayload,
   toReportVariablesPayload,
   validateReportDraft,
-} from './reports.component.utils';
+} from '../core/reports.component.utils';
 
 @Component({
   selector: 'app-reports',

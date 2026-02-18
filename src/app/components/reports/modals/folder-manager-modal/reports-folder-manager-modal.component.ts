@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { FolderNode } from './reports.component.models';
+import { FolderNode } from '../../core/reports.component.models';
 
 @Component({
   selector: 'app-reports-folder-manager-modal',
@@ -9,10 +9,10 @@ import { FolderNode } from './reports.component.models';
   imports: [CommonModule, FormsModule],
   templateUrl: './reports-folder-manager-modal.component.html',
   styleUrls: [
-    './reports.component.css',
-    './reports.component.table.css',
-    './reports.component.modals.css',
-    './reports.component.responsive.css',
+    '../../reports-page/reports.component.css',
+    '../../reports-page/reports.component.table.css',
+    '../../reports-page/reports.component.modals.css',
+    '../../reports-page/reports.component.responsive.css',
   ],
 })
 export class ReportsFolderManagerModalComponent {
