@@ -25,6 +25,12 @@ export type AuthState = {
   user: AuthUser | null;
 };
 
+export type PermissionCatalogItem = {
+  code: string;
+  label: string;
+  description: string;
+};
+
 const ACCESS_TOKEN_KEY = 'auth.access_token';
 const REFRESH_TOKEN_KEY = 'auth.refresh_token';
 const TOKEN_TYPE_KEY = 'auth.token_type';
@@ -41,8 +47,14 @@ export class AuthService {
   private tokenTypeSig = signal<string>('Bearer');
   private expiresAtSig = signal<number>(0);
   private userSig = signal<AuthUser | null>(null);
+  private permissionCatalogSig = signal<PermissionCatalogItem[]>([]);
 
   readonly user = computed(() => this.userSig());
+  readonly permissionCatalog = computed(() => this.permissionCatalogSig());
+  readonly visiblePermissionCatalog = computed(() => {
+    const allowed = new Set(this.permissions());
+    return this.permissionCatalogSig().filter((item) => allowed.has(item.code));
+  });
   readonly isAuthenticatedSignal = computed(() => this.hasValidAccessToken());
   readonly state = computed<AuthState>(() => ({
     accessToken: this.accessTokenSig(),
@@ -122,7 +134,15 @@ export class AuthService {
   login(email: string, password: string): Observable<AuthLoginResponse> {
     return this.http
       .post<AuthLoginResponse>(`${this.authBase()}/login`, { email, password })
-      .pipe(tap((res) => this.setSession(res)));
+      .pipe(
+        tap((res) => this.setSession(res)),
+        switchMap((res) =>
+          this.loadPermissionCatalog().pipe(
+            map(() => res),
+            catchError(() => of(res))
+          )
+        )
+      );
   }
 
   me(): Observable<AuthUser> {
@@ -136,6 +156,7 @@ export class AuthService {
 
     if (this.hasValidAccessToken()) {
       return this.me().pipe(
+        switchMap(() => this.loadPermissionCatalog()),
         map(() => void 0),
         catchError((err) => this.tryRefreshAndMe(err))
       );
@@ -148,6 +169,7 @@ export class AuthService {
 
     return this.refreshAccessToken().pipe(
       switchMap(() => this.me()),
+      switchMap(() => this.loadPermissionCatalog()),
       map(() => void 0),
       catchError(() => {
         this.clearSession();
@@ -160,6 +182,7 @@ export class AuthService {
     if (this.hasValidAccessToken() && !!this.userSig()) return of(true);
     if (this.hasValidAccessToken()) {
       return this.me().pipe(
+        switchMap(() => this.loadPermissionCatalog()),
         map(() => true),
         catchError((err) => this.refreshAndReturnBool(err))
       );
@@ -167,6 +190,7 @@ export class AuthService {
     if (!this.getRefreshToken()) return of(false);
     return this.refreshAccessToken().pipe(
       switchMap(() => this.me()),
+      switchMap(() => this.loadPermissionCatalog()),
       map(() => true),
       catchError(() => of(false))
     );
@@ -210,6 +234,7 @@ export class AuthService {
     this.tokenTypeSig.set('Bearer');
     this.expiresAtSig.set(0);
     this.userSig.set(null);
+    this.permissionCatalogSig.set([]);
     this.clearStorage();
   }
 
@@ -325,6 +350,27 @@ export class AuthService {
   private authBase(): string {
     const backend = this.env.getActive()?.backend?.trim() || '/api/db';
     return backend.replace(/\/api\/db\/?$/i, '/api/auth');
+  }
+
+  loadPermissionCatalog(): Observable<PermissionCatalogItem[]> {
+    return this.http
+      .get<PermissionCatalogItem[]>(`${this.authBase()}/permissions/catalog`)
+      .pipe(
+        map((items) =>
+          [...(items || [])]
+            .map((item) => ({
+              code: String(item?.code || '').trim().toUpperCase(),
+              label: String(item?.label || '').trim(),
+              description: String(item?.description || '').trim(),
+            }))
+            .filter((item) => item.code)
+        ),
+        tap((items) => this.permissionCatalogSig.set(items)),
+        catchError(() => {
+          this.permissionCatalogSig.set([]);
+          return of([]);
+        })
+      );
   }
 
   private jwtExp(token: string): number | null {
@@ -452,6 +498,7 @@ export class AuthService {
     }
     return this.refreshAccessToken().pipe(
       switchMap(() => this.me()),
+      switchMap(() => this.loadPermissionCatalog()),
       map(() => void 0),
       catchError(() => {
         this.clearSession();
@@ -465,6 +512,7 @@ export class AuthService {
     if (err?.status !== 401 || !this.getRefreshToken()) return of(false);
     return this.refreshAccessToken().pipe(
       switchMap(() => this.me()),
+      switchMap(() => this.loadPermissionCatalog()),
       map(() => true),
       catchError(() => of(false))
     );

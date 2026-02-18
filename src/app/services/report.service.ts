@@ -5,6 +5,26 @@ import { map } from 'rxjs/operators';
 import { EnvStorageService } from './env-storage.service';
 
 export type ReportVariableType = 'string' | 'number' | 'date' | 'datetime' | 'boolean';
+export type AclSubjectType = 'USER' | 'ROLE';
+
+export type AccessControlRule = {
+  id: string;
+  subjectType: AclSubjectType;
+  subject: string;
+  canView: boolean;
+  canRun: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
+};
+
+export type AccessControlRuleInput = {
+  subjectType: AclSubjectType;
+  subject: string;
+  canView: boolean;
+  canRun: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
+};
 export type JasperTemplateInput = {
   name: string;
   description: string | null;
@@ -129,6 +149,11 @@ export class ReportService {
 
   private get base(): string {
     return this.env.getActive()?.backend || '/api/db';
+  }
+
+  private get adminBase(): string {
+    const backend = this.env.getActive()?.backend || '/api/db';
+    return backend.replace(/\/api\/db\/?$/i, '/api/admin');
   }
 
   listFolders(): Observable<ReportFolder[]> {
@@ -258,6 +283,54 @@ export class ReportService {
     return this.http.post<ReportValidationResponse>(`${this.base}/reports/validate`, payload);
   }
 
+  listFolderAcl(folderId: string): Observable<AccessControlRule[]> {
+    return this.http
+      .get<any>(`${this.adminBase}/report-folders/${encodeURIComponent(folderId)}/acl`)
+      .pipe(map((res) => this.normalizeAclRules(res)));
+  }
+
+  upsertFolderAcl(folderId: string, payload: AccessControlRuleInput): Observable<AccessControlRule> {
+    return this.http
+      .put<any>(`${this.adminBase}/report-folders/${encodeURIComponent(folderId)}/acl`, payload)
+      .pipe(map((res) => this.normalizeAclRule(res)));
+  }
+
+  deleteFolderAcl(folderId: string, subjectType: AclSubjectType, subject: string): Observable<void> {
+    return this.http.delete<void>(
+      `${this.adminBase}/report-folders/${encodeURIComponent(folderId)}/acl`,
+      {
+        params: {
+          subjectType,
+          subject,
+        },
+      }
+    );
+  }
+
+  listReportAcl(reportId: string): Observable<AccessControlRule[]> {
+    return this.http
+      .get<any>(`${this.adminBase}/reports/${encodeURIComponent(reportId)}/acl`)
+      .pipe(map((res) => this.normalizeAclRules(res)));
+  }
+
+  upsertReportAcl(reportId: string, payload: AccessControlRuleInput): Observable<AccessControlRule> {
+    return this.http
+      .put<any>(`${this.adminBase}/reports/${encodeURIComponent(reportId)}/acl`, payload)
+      .pipe(map((res) => this.normalizeAclRule(res)));
+  }
+
+  deleteReportAcl(reportId: string, subjectType: AclSubjectType, subject: string): Observable<void> {
+    return this.http.delete<void>(
+      `${this.adminBase}/reports/${encodeURIComponent(reportId)}/acl`,
+      {
+        params: {
+          subjectType,
+          subject,
+        },
+      }
+    );
+  }
+
   private normalizeFolders(res: any): ReportFolder[] {
     const data = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
     return data
@@ -343,6 +416,25 @@ export class ReportService {
       id,
       name: String(item?.name ?? ''),
       archived: Boolean(item?.archived),
+    };
+  }
+
+  private normalizeAclRules(res: any): AccessControlRule[] {
+    const data = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
+    return data
+      .map((item: any) => this.normalizeAclRule(item))
+      .filter((item: AccessControlRule | null): item is AccessControlRule => !!item);
+  }
+
+  private normalizeAclRule(item: any): AccessControlRule {
+    return {
+      id: String(item?.id ?? ''),
+      subjectType: String(item?.subjectType ?? item?.subject_type ?? 'ROLE').toUpperCase() as AclSubjectType,
+      subject: String(item?.subject ?? ''),
+      canView: Boolean(item?.canView ?? item?.can_view),
+      canRun: Boolean(item?.canRun ?? item?.can_run),
+      canEdit: Boolean(item?.canEdit ?? item?.can_edit),
+      canDelete: Boolean(item?.canDelete ?? item?.can_delete),
     };
   }
 

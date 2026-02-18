@@ -300,9 +300,13 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
     this.rebuildFolders(apiFolders);
   }
 
-  openFolderManager() { this.folderTemplateLogic.openFolderManager(); }
+  openFolderManager() {
+    this.folderTemplateLogic.openFolderManager();
+  }
 
-  closeFolderManager() { this.folderTemplateLogic.closeFolderManager(); }
+  closeFolderManager() {
+    this.folderTemplateLogic.closeFolderManager();
+  }
 
   onFolderManagerSelectionChange(folderId: string) {
     this.folderTemplateLogic.onFolderManagerSelectionChange(folderId);

@@ -54,7 +54,6 @@
     </button>
     }
 
-    <button mat-button class="nav-btn" (click)="openEnv()">Ambientes</button>
     <button mat-button class="nav-btn" (click)="logout()">Sair</button>
     }
 
@@ -73,6 +72,4 @@
     <span>Versão {{ appVersion }}</span>
     <span class="footer-center">Developed by PowerRov</span>
   </footer>
-
-  <app-modal #envModal (saved)="onSaved($event)"></app-modal>
 </div>

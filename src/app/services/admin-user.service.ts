@@ -29,6 +29,12 @@ export type UpsertAdminRoleInput = {
   permissions?: string[];
 };
 
+export type PermissionCatalogItem = {
+  code: string;
+  label: string;
+  description: string;
+};
+
 @Injectable({ providedIn: 'root' })
 export class AdminUserService {
   private http = inject(HttpClient);
@@ -81,6 +87,10 @@ export class AdminUserService {
 
   listPermissions(): Observable<string[]> {
     return this.http.get<string[]>(`${this.base}/permissions`);
+  }
+
+  listPermissionsCatalog(): Observable<PermissionCatalogItem[]> {
+    return this.http.get<PermissionCatalogItem[]>(`${this.base}/permissions/catalog`);
   }
 
   revokeRefreshTokens(id: string): Observable<void> {

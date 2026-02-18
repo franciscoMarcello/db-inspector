@@ -105,7 +105,7 @@
       </div>
     </div>
 
-    <div class="card card-catalog">
+    <div class="card card-roles">
       <div class="card-head">
         <h3>Roles</h3>
         <button type="button" class="btn primary" (click)="startCreateRole()">Nova role</button>
@@ -130,13 +130,20 @@
         <div class="roles-picker">
           <span class="roles-label">Permissões</span>
           <div class="roles-pick-list">
-            <label class="check inline" *ngFor="let permission of permissions">
+            <label
+              class="check inline permission-option"
+              *ngFor="let permission of permissionsCatalog; trackBy: trackPermissionCatalog"
+              [title]="permission.description || permission.code"
+            >
               <input
                 type="checkbox"
-                [checked]="roleForm.permissions.has(permission)"
-                (change)="toggleRolePermission(permission, $any($event.target).checked)"
+                [checked]="roleForm.permissions.has(permission.code)"
+                (change)="toggleRolePermission(permission.code, $any($event.target).checked)"
               />
-              {{ permission }}
+              <span class="permission-option__text">
+                <span class="permission-option__label">{{ permission.label || permission.code }}</span>
+                <span class="permission-option__code">{{ permission.code }}</span>
+              </span>
             </label>
           </div>
         </div>
@@ -163,16 +170,179 @@
             </div>
           </div>
           <div class="perm-list">
-            <span class="perm-chip" *ngFor="let perm of role.permissions">{{ perm }}</span>
+            <span
+              class="perm-chip"
+              *ngFor="let perm of role.permissions"
+              [title]="permissionDescription(perm) || perm"
+            >
+              {{ permissionLabel(perm) }}
+            </span>
           </div>
         </div>
       </div>
     </div>
 
-    <div class="card card-catalog">
+    <div class="card card-permissions">
       <h3>Todas as permissões</h3>
       <div class="perm-list">
-        <span class="perm-chip" *ngFor="let perm of permissions; trackBy: trackPermission">{{ perm }}</span>
+        <span
+          class="perm-chip"
+          *ngFor="let perm of permissionsCatalog; trackBy: trackPermissionCatalog"
+          [title]="perm.description || perm.code"
+        >
+          {{ perm.label || perm.code }}
+        </span>
+      </div>
+    </div>
+
+    <div class="card card-acl">
+      <div class="card-head">
+        <h3>ACL de pastas e relatórios</h3>
+        <button type="button" class="btn" (click)="refreshAclRules()" [disabled]="aclLoading">
+          {{ aclLoading ? 'Carregando...' : 'Atualizar ACL' }}
+        </button>
+      </div>
+
+      <div class="acl-grid">
+        <label class="field">
+          <span>Tipo de alvo</span>
+          <select
+            [ngModel]="aclEntityType"
+            [ngModelOptions]="{ standalone: true }"
+            (ngModelChange)="onAclEntityTypeChange($event)"
+          >
+            <option value="FOLDER">Pasta</option>
+            <option value="REPORT">Relatório</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Alvo</span>
+          <select
+            [ngModel]="aclTargetId"
+            [ngModelOptions]="{ standalone: true }"
+            (ngModelChange)="onAclTargetChange($event)"
+          >
+            <option value="">Selecione</option>
+            <ng-container *ngIf="aclEntityType === 'FOLDER'; else reportAclTargets">
+              <option *ngFor="let folder of aclFolders" [value]="folder.id">
+                {{ folder.name }}
+              </option>
+            </ng-container>
+            <ng-template #reportAclTargets>
+              <option *ngFor="let report of aclReports" [value]="report.id">
+                {{ report.name }}
+              </option>
+            </ng-template>
+          </select>
+        </label>
+      </div>
+
+      <div class="acl-editor">
+        <label class="field">
+          <span>Subject Type</span>
+          <select
+            [ngModel]="aclDraft.subjectType"
+            [ngModelOptions]="{ standalone: true }"
+            (ngModelChange)="onAclSubjectTypeChange($event)"
+          >
+            <option value="ROLE">ROLE</option>
+            <option value="USER">USER</option>
+          </select>
+        </label>
+
+        <ng-container *ngIf="aclDraft.subjectType === 'ROLE'; else aclUserSubject">
+          <label class="field">
+            <span>Role</span>
+            <select
+              [ngModel]="aclDraft.subject"
+              [ngModelOptions]="{ standalone: true }"
+              (ngModelChange)="onAclDraftFieldChange('subject', $event)"
+            >
+              <option value="">Selecione uma role</option>
+              <option *ngFor="let role of roles; trackBy: trackRole" [value]="role.name">
+                {{ role.name }}
+              </option>
+            </select>
+          </label>
+        </ng-container>
+        <ng-template #aclUserSubject>
+          <label class="field">
+            <span>Usuário (UUID)</span>
+            <input
+              type="text"
+              [ngModel]="aclDraft.subject"
+              [ngModelOptions]="{ standalone: true }"
+              (ngModelChange)="onAclDraftFieldChange('subject', $event)"
+              placeholder="uuid do usuário"
+            />
+          </label>
+        </ng-template>
+
+        <div class="acl-flags">
+          <label class="check acl-flag">
+            <input
+              type="checkbox"
+              [ngModel]="aclDraft.canView"
+              [ngModelOptions]="{ standalone: true }"
+              (ngModelChange)="onAclDraftFieldChange('canView', $event)"
+            />
+            Pode visualizar
+          </label>
+          <label class="check acl-flag">
+            <input
+              type="checkbox"
+              [ngModel]="aclDraft.canRun"
+              [ngModelOptions]="{ standalone: true }"
+              (ngModelChange)="onAclDraftFieldChange('canRun', $event)"
+            />
+            Pode executar
+          </label>
+          <label class="check acl-flag">
+            <input
+              type="checkbox"
+              [ngModel]="aclDraft.canEdit"
+              [ngModelOptions]="{ standalone: true }"
+              (ngModelChange)="onAclDraftFieldChange('canEdit', $event)"
+            />
+            Pode editar
+          </label>
+          <label class="check acl-flag">
+            <input
+              type="checkbox"
+              [ngModel]="aclDraft.canDelete"
+              [ngModelOptions]="{ standalone: true }"
+              (ngModelChange)="onAclDraftFieldChange('canDelete', $event)"
+            />
+            Pode excluir
+          </label>
+        </div>
+
+        <button type="button" class="btn primary" (click)="saveAclRule()" [disabled]="aclSaving || !aclTargetId">
+          {{ aclSaving ? 'Salvando...' : 'Salvar regra ACL' }}
+        </button>
+      </div>
+
+      <div class="acl-list">
+        <div class="muted" *ngIf="!aclTargetId">Selecione um alvo para visualizar ACL.</div>
+        <div class="muted" *ngIf="aclTargetId && aclLoading">Carregando regras ACL...</div>
+        <div class="muted" *ngIf="aclTargetId && !aclLoading && !aclRules.length">Sem regras ACL cadastradas.</div>
+
+        <div class="acl-row" *ngFor="let rule of aclRules; trackBy: trackAclRule">
+          <div class="acl-row__main">
+            <strong class="acl-subject-type">{{ rule.subjectType }}</strong>
+            <span>{{ rule.subject }}</span>
+          </div>
+          <div class="acl-row__flags">
+            <span class="perm-chip">view: {{ rule.canView ? 'sim' : 'não' }}</span>
+            <span class="perm-chip">run: {{ rule.canRun ? 'sim' : 'não' }}</span>
+            <span class="perm-chip">edit: {{ rule.canEdit ? 'sim' : 'não' }}</span>
+            <span class="perm-chip">delete: {{ rule.canDelete ? 'sim' : 'não' }}</span>
+          </div>
+          <button type="button" class="btn btn-sm danger" (click)="removeAclRule(rule)">
+            Remover
+          </button>
+        </div>
       </div>
     </div>
   </div>

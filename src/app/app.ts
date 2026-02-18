@@ -1,9 +1,8 @@
-import { Component, ViewChild, AfterViewInit, inject, signal, HostBinding } from '@angular/core';
+import { Component, inject, signal, HostBinding } from '@angular/core';
 import { RouterOutlet, RouterLink, RouterLinkActive, Router } from '@angular/router';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatButtonModule } from '@angular/material/button';
-import { ModalComponent } from './components/modal/modal.component';
-import { EnvStorageService, EnvConfig } from './services/env-storage.service';
+import { EnvStorageService } from './services/env-storage.service';
 import { MatIconModule } from '@angular/material/icon';
 import { OverlayContainer } from '@angular/cdk/overlay'; // <-- ADICIONA ISSO
 import { AuthService } from './services/auth.service';
@@ -19,7 +18,6 @@ import packageJson from '../../package.json';
     MatIconModule,
     RouterLink,
     RouterLinkActive,
-    ModalComponent,
   ],
   styles: [
     `
@@ -31,16 +29,14 @@ import packageJson from '../../package.json';
   templateUrl: './app.html',
   styleUrls: ['./app.css'],
 })
-export class App implements AfterViewInit {
-  @ViewChild('envModal') envModal!: ModalComponent;
-
+export class App {
   private storage = inject(EnvStorageService);
   private overlay = inject(OverlayContainer); // <-- INJETADO
   private auth = inject(AuthService);
   private router = inject(Router);
   appVersion = packageJson.version;
 
-  activeName = signal(this.storage.getActive()?.name ?? '');
+  activeName = signal(this.storage.getActive()?.name ?? 'Produção');
   get activeNameValue() {
     return this.activeName();
   }
@@ -105,20 +101,6 @@ export class App implements AfterViewInit {
       bodyClasses.remove('dark-theme');
       overlayClasses.remove('dark-theme');
     }
-  }
-
-  ngAfterViewInit(): void {
-    if (this.isLoggedIn && !this.storage.getActive()) {
-      queueMicrotask(() => this.envModal.open());
-    }
-  }
-
-  openEnv() {
-    this.envModal.open();
-  }
-
-  onSaved(cfg: EnvConfig) {
-    this.activeName.set(cfg.name);
   }
 
   logout() {
