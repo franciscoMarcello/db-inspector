@@ -24,6 +24,10 @@ export type CreateAdminUserInput = {
   roles?: string[];
 };
 
+export type UpdateAdminUserPasswordInput = {
+  password: string;
+};
+
 export type UpsertAdminRoleInput = {
   name?: string;
   permissions?: string[];
@@ -95,5 +99,9 @@ export class AdminUserService {
 
   revokeRefreshTokens(id: string): Observable<void> {
     return this.http.post<void>(`${this.base}/users/${encodeURIComponent(id)}/revoke-refresh-tokens`, {});
+  }
+
+  updateUserPassword(id: string, payload: UpdateAdminUserPasswordInput): Observable<void> {
+    return this.http.patch<void>(`${this.base}/users/${encodeURIComponent(id)}/password`, payload);
   }
 }

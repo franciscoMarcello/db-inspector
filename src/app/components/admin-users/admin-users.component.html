@@ -1,52 +1,16 @@
 <section class="admin-shell">
   <div class="admin-grid">
     <div class="card card-header">
-      <h2>Usuários</h2>
-      <p class="muted">Gerencie criação, ativação e permissões de acesso.</p>
+      <div class="card-head">
+        <div>
+          <h2>Usuários</h2>
+          <p class="muted">Gerencie criação, ativação e permissões de acesso.</p>
+        </div>
+        <button type="button" class="btn primary" (click)="openCreateUserModal()">Criar usuário</button>
+      </div>
       <div class="status-row">
         <div class="status error" *ngIf="error">{{ error }}</div>
         <div class="status ok" *ngIf="status">{{ status }}</div>
-      </div>
-    </div>
-
-    <div class="card card-create">
-      <div class="card-head">
-        <h3>Criar usuário</h3>
-      </div>
-
-      <div class="create-form">
-        <label class="field">
-          <span>E-mail</span>
-          <input type="email" [(ngModel)]="createForm.email" [ngModelOptions]="{ standalone: true }" placeholder="usuario@empresa.com" />
-        </label>
-
-        <label class="field">
-          <span>Senha</span>
-          <input type="password" [(ngModel)]="createForm.password" [ngModelOptions]="{ standalone: true }" placeholder="Mínimo 6 caracteres" />
-        </label>
-
-        <label class="check">
-          <input type="checkbox" [(ngModel)]="createForm.active" [ngModelOptions]="{ standalone: true }" />
-          Ativo
-        </label>
-
-        <div class="roles-picker">
-          <span class="roles-label">Roles iniciais</span>
-          <div class="roles-pick-list">
-            <label class="check inline" *ngFor="let role of availableRoleNames()">
-              <input
-                type="checkbox"
-                [checked]="createForm.roles.has(role)"
-                (change)="toggleCreateRole(role, $any($event.target).checked)"
-              />
-              {{ role }}
-            </label>
-          </div>
-        </div>
-
-        <button type="button" class="btn primary" (click)="createUser()" [disabled]="saving">
-          {{ saving ? 'Criando...' : 'Criar usuário' }}
-        </button>
       </div>
     </div>
 
@@ -58,50 +22,48 @@
         </button>
       </div>
 
-      <div class="users-list">
-        <div class="user-row" *ngFor="let user of users; trackBy: trackUser">
-          <div class="user-row-head">
-            <div class="user-main">
-              <div class="email">{{ user.email }}</div>
-              <div class="meta">ID: {{ user.id }}</div>
-              <div class="meta">
-                Criado: {{ user.createdAt | date : 'dd/MM/yyyy HH:mm' }} • Atualizado:
-                {{ user.updatedAt | date : 'dd/MM/yyyy HH:mm' }}
-              </div>
-            </div>
-
-            <div class="user-actions">
-              <label class="check inline">
-                <input
-                  type="checkbox"
-                  [checked]="user.active"
-                  (change)="setUserActive(user, $any($event.target).checked)"
-                />
-                {{ user.active ? 'Ativo' : 'Inativo' }}
-              </label>
-
-              <button type="button" class="btn" (click)="revokeRefreshTokens(user)">
-                Revogar refresh tokens
-              </button>
-            </div>
-          </div>
-
-          <div class="roles-row">
-            <span class="roles-title">Roles:</span>
-            <span class="role-chip" *ngFor="let role of user.roles">
-              {{ role }}
-              <button type="button" class="chip-remove" (click)="removeRole(user, role)">×</button>
-            </span>
-          </div>
-
-          <div class="add-role-row">
-            <select [(ngModel)]="roleToAddByUser[user.id]" [ngModelOptions]="{ standalone: true }">
-              <option value="">Selecionar role</option>
-              <option *ngFor="let role of availableRoleNames()" [value]="role">{{ role }}</option>
-            </select>
-            <button type="button" class="btn" (click)="addRole(user)">Adicionar role</button>
-          </div>
-        </div>
+      <div class="users-table-wrap">
+        <table class="users-table">
+          <thead>
+            <tr>
+              <th>E-mail</th>
+              <th>Status</th>
+              <th>Roles</th>
+              <th>Criado</th>
+              <th>Atualizado</th>
+              <th class="actions-col">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let user of users; trackBy: trackUser">
+              <td>
+                <div class="user-email">{{ user.email }}</div>
+                <div class="meta">ID: {{ user.id }}</div>
+              </td>
+              <td>
+                <span class="status-chip" [class.inactive]="!user.active">
+                  {{ user.active ? 'Ativo' : 'Inativo' }}
+                </span>
+              </td>
+              <td>
+                <div class="roles-inline">
+                  <span class="role-chip" *ngFor="let role of user.roles">{{ role }}</span>
+                </div>
+              </td>
+              <td>{{ user.createdAt | date : 'dd/MM/yyyy HH:mm' }}</td>
+              <td>{{ user.updatedAt | date : 'dd/MM/yyyy HH:mm' }}</td>
+              <td class="actions-col">
+                <div class="table-actions">
+                  <button type="button" class="btn btn-sm" (click)="openEditUserModal(user)">Editar</button>
+                  <button type="button" class="btn btn-sm" (click)="openPasswordModal(user)">Redefinir senha</button>
+                  <button type="button" class="btn btn-sm" (click)="revokeRefreshTokens(user)">
+                    Revogar refresh
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
 
@@ -129,10 +91,23 @@
 
         <div class="roles-picker">
           <span class="roles-label">Permissões</span>
+          <div class="roles-picker-actions">
+            <input
+              type="text"
+              [(ngModel)]="rolePermissionFilter"
+              [ngModelOptions]="{ standalone: true }"
+              placeholder="Filtrar permissões"
+            />
+            <button type="button" class="btn btn-sm" (click)="selectAllVisibleRolePermissions()">Marcar visíveis</button>
+            <button type="button" class="btn btn-sm" (click)="clearAllRolePermissions()">Limpar</button>
+          </div>
+          <small class="roles-picker-meta">
+            {{ roleForm.permissions.size }} selecionada(s) de {{ permissionsCatalog.length }}
+          </small>
           <div class="roles-pick-list">
             <label
               class="check inline permission-option"
-              *ngFor="let permission of permissionsCatalog; trackBy: trackPermissionCatalog"
+              *ngFor="let permission of filteredPermissionsCatalog(); trackBy: trackPermissionCatalog"
               [title]="permission.description || permission.code"
             >
               <input
@@ -179,19 +154,6 @@
             </span>
           </div>
         </div>
-      </div>
-    </div>
-
-    <div class="card card-permissions">
-      <h3>Todas as permissões</h3>
-      <div class="perm-list">
-        <span
-          class="perm-chip"
-          *ngFor="let perm of permissionsCatalog; trackBy: trackPermissionCatalog"
-          [title]="perm.description || perm.code"
-        >
-          {{ perm.label || perm.code }}
-        </span>
       </div>
     </div>
 
@@ -344,6 +306,103 @@
           </button>
         </div>
       </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" *ngIf="createUserModalOpen" (click)="closeCreateUserModal()"></div>
+  <div class="modal-card" *ngIf="createUserModalOpen">
+    <div class="card-head">
+      <h3>Criar usuário</h3>
+      <button type="button" class="btn" (click)="closeCreateUserModal()">Fechar</button>
+    </div>
+
+    <div class="create-form">
+      <label class="field">
+        <span>E-mail</span>
+        <input type="email" [(ngModel)]="createForm.email" [ngModelOptions]="{ standalone: true }" placeholder="usuario@empresa.com" />
+      </label>
+
+      <label class="field">
+        <span>Senha</span>
+        <input type="password" [(ngModel)]="createForm.password" [ngModelOptions]="{ standalone: true }" placeholder="Mínimo 6 caracteres" />
+      </label>
+
+      <label class="check">
+        <input type="checkbox" [(ngModel)]="createForm.active" [ngModelOptions]="{ standalone: true }" />
+        Ativo
+      </label>
+
+      <div class="roles-picker">
+        <span class="roles-label">Roles iniciais</span>
+        <app-reports-multi-select
+          [options]="createUserRoleOptions()"
+          [selectedValues]="createUserSelectedRoles()"
+          [placeholder]="'Selecione as roles'"
+          (selectedValuesChange)="onCreateUserRolesChange($event)"
+        ></app-reports-multi-select>
+      </div>
+
+      <button type="button" class="btn primary" (click)="createUser()" [disabled]="saving">
+        {{ saving ? 'Criando...' : 'Criar usuário' }}
+      </button>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" *ngIf="editUserModalOpen" (click)="closeEditUserModal()"></div>
+  <div class="modal-card" *ngIf="editUserModalOpen && editUserDraft">
+    <div class="card-head">
+      <h3>Editar usuário</h3>
+      <button type="button" class="btn" (click)="closeEditUserModal()">Fechar</button>
+    </div>
+
+    <div class="create-form">
+      <label class="field">
+        <span>E-mail</span>
+        <input type="text" [value]="editUserDraft.email" disabled />
+      </label>
+
+      <label class="check">
+        <input type="checkbox" [(ngModel)]="editUserDraft.active" [ngModelOptions]="{ standalone: true }" />
+        Ativo
+      </label>
+
+      <div class="roles-picker">
+        <span class="roles-label">Roles</span>
+        <app-reports-multi-select
+          [options]="createUserRoleOptions()"
+          [selectedValues]="editUserSelectedRoles()"
+          [placeholder]="'Selecione as roles'"
+          (selectedValuesChange)="onEditUserRolesChange($event)"
+        ></app-reports-multi-select>
+      </div>
+
+      <button type="button" class="btn primary" (click)="saveEditUser()" [disabled]="editUserSaving">
+        {{ editUserSaving ? 'Salvando...' : 'Salvar alterações' }}
+      </button>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" *ngIf="passwordModalOpen" (click)="closePasswordModal()"></div>
+  <div class="modal-card modal-card--sm" *ngIf="passwordModalOpen && passwordModalUser">
+    <div class="card-head">
+      <h3>Redefinir senha</h3>
+      <button type="button" class="btn" (click)="closePasswordModal()">Fechar</button>
+    </div>
+    <div class="create-form">
+      <div class="meta">{{ passwordModalUser.email }}</div>
+      <label class="field">
+        <span>Nova senha</span>
+        <input
+          type="password"
+          [(ngModel)]="passwordModalValue"
+          [ngModelOptions]="{ standalone: true }"
+          placeholder="Mínimo 6 caracteres"
+          autocomplete="new-password"
+        />
+      </label>
+      <button type="button" class="btn primary" (click)="submitPasswordReset()" [disabled]="passwordModalSaving">
+        {{ passwordModalSaving ? 'Salvando...' : 'Redefinir senha' }}
+      </button>
     </div>
   </div>
 </section>

@@ -1,7 +1,8 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { forkJoin } from 'rxjs';
+import { Observable, forkJoin } from 'rxjs';
+import { MultiSelectOption, ReportsMultiSelectComponent } from '../reports/controls/multi-select/reports-multi-select.component';
 import {
   AdminRole,
   AdminUser,
@@ -20,7 +21,7 @@ import {
 @Component({
   selector: 'app-admin-users',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ReportsMultiSelectComponent],
   templateUrl: './admin-users.component.html',
   styleUrls: ['./admin-users.component.css'],
 })
@@ -38,10 +39,25 @@ export class AdminUsersComponent implements OnInit {
   permissions: string[] = [];
   permissionsCatalog: PermissionCatalogItem[] = [];
   permissionCatalogByCode: Record<string, PermissionCatalogItem> = {};
-  roleToAddByUser: Record<string, string> = {};
   roleSaving = false;
   roleEditorOpen = false;
   roleEditorMode: 'create' | 'edit' = 'create';
+  rolePermissionFilter = '';
+  createUserModalOpen = false;
+  editUserModalOpen = false;
+  editUserSaving = false;
+  editUserDraft: {
+    id: string;
+    email: string;
+    active: boolean;
+    originalActive: boolean;
+    roles: Set<string>;
+    originalRoles: Set<string>;
+  } | null = null;
+  passwordModalOpen = false;
+  passwordModalSaving = false;
+  passwordModalValue = '';
+  passwordModalUser: AdminUser | null = null;
   roleForm = {
     originalName: '',
     name: '',
@@ -129,11 +145,6 @@ export class AdminUsersComponent implements OnInit {
     return value === 'ADMIN' || value === 'USER';
   }
 
-  toggleCreateRole(role: string, checked: boolean) {
-    if (checked) this.createForm.roles.add(role);
-    else this.createForm.roles.delete(role);
-  }
-
   createUser() {
     const email = this.createForm.email.trim();
     const password = this.createForm.password;
@@ -160,6 +171,7 @@ export class AdminUsersComponent implements OnInit {
           this.createForm.password = '';
           this.createForm.active = true;
           this.createForm.roles = new Set<string>(['USER']);
+          this.createUserModalOpen = false;
           this.loadUsers();
         },
         error: (err) => {
@@ -169,41 +181,97 @@ export class AdminUsersComponent implements OnInit {
       });
   }
 
-  setUserActive(user: AdminUser, active: boolean) {
-    this.api.setUserActive(user.id, active).subscribe({
-      next: (updated) => {
-        this.patchUser(updated);
-        this.status = `Usuário "${updated.email}" ${updated.active ? 'ativado' : 'desativado'}.`;
-      },
-      error: (err) => {
-        this.error = this.messageFromError(err, 'Falha ao alterar status do usuário.');
-      },
-    });
+  openCreateUserModal() {
+    this.error = '';
+    this.status = '';
+    this.createUserModalOpen = true;
   }
 
-  addRole(user: AdminUser) {
-    const role = (this.roleToAddByUser[user.id] || '').trim();
-    if (!role) return;
-    this.api.addUserRole(user.id, role).subscribe({
-      next: (updated) => {
-        this.patchUser(updated);
-        this.roleToAddByUser[user.id] = '';
-        this.status = `Role "${role}" adicionada para ${updated.email}.`;
-      },
-      error: (err) => {
-        this.error = this.messageFromError(err, 'Falha ao adicionar role.');
-      },
-    });
+  closeCreateUserModal() {
+    this.createUserModalOpen = false;
   }
 
-  removeRole(user: AdminUser, role: string) {
-    this.api.removeUserRole(user.id, role).subscribe({
-      next: (updated) => {
-        this.patchUser(updated);
-        this.status = `Role "${role}" removida de ${updated.email}.`;
+  createUserRoleOptions(): MultiSelectOption[] {
+    return this.roles.map((role) => ({
+      value: role.name,
+      label: role.name,
+    }));
+  }
+
+  createUserSelectedRoles(): string[] {
+    return Array.from(this.createForm.roles);
+  }
+
+  onCreateUserRolesChange(values: string[]) {
+    const normalized = (values || []).map((value) => String(value).trim()).filter(Boolean);
+    this.createForm.roles = new Set<string>(normalized);
+  }
+
+  openEditUserModal(user: AdminUser) {
+    this.error = '';
+    this.status = '';
+    this.editUserDraft = {
+      id: user.id,
+      email: user.email,
+      active: user.active,
+      originalActive: user.active,
+      roles: new Set<string>(user.roles || []),
+      originalRoles: new Set<string>(user.roles || []),
+    };
+    this.editUserModalOpen = true;
+  }
+
+  closeEditUserModal() {
+    this.editUserModalOpen = false;
+    this.editUserDraft = null;
+  }
+
+  editUserSelectedRoles(): string[] {
+    return this.editUserDraft ? Array.from(this.editUserDraft.roles) : [];
+  }
+
+  onEditUserRolesChange(values: string[]) {
+    if (!this.editUserDraft) return;
+    const normalized = (values || []).map((value) => String(value).trim()).filter(Boolean);
+    this.editUserDraft.roles = new Set<string>(normalized);
+  }
+
+  saveEditUser() {
+    const draft = this.editUserDraft;
+    if (!draft) return;
+
+    const actions: Observable<unknown>[] = [];
+    if (draft.active !== draft.originalActive) {
+      actions.push(this.api.setUserActive(draft.id, draft.active));
+    }
+
+    const nextRoles = draft.roles;
+    const currentRoles = draft.originalRoles;
+    for (const role of nextRoles) {
+      if (!currentRoles.has(role)) actions.push(this.api.addUserRole(draft.id, role));
+    }
+    for (const role of currentRoles) {
+      if (!nextRoles.has(role)) actions.push(this.api.removeUserRole(draft.id, role));
+    }
+
+    if (!actions.length) {
+      this.closeEditUserModal();
+      return;
+    }
+
+    this.editUserSaving = true;
+    this.error = '';
+    this.status = '';
+    forkJoin(actions).subscribe({
+      next: () => {
+        this.editUserSaving = false;
+        this.status = `Usuário "${draft.email}" atualizado.`;
+        this.closeEditUserModal();
+        this.loadUsers();
       },
       error: (err) => {
-        this.error = this.messageFromError(err, 'Falha ao remover role.');
+        this.editUserSaving = false;
+        this.error = this.messageFromError(err, 'Falha ao salvar alterações do usuário.');
       },
     });
   }
@@ -215,6 +283,49 @@ export class AdminUsersComponent implements OnInit {
       },
       error: (err) => {
         this.error = this.messageFromError(err, 'Falha ao revogar refresh tokens.');
+      },
+    });
+  }
+
+  openPasswordModal(user: AdminUser) {
+    this.error = '';
+    this.status = '';
+    this.passwordModalUser = user;
+    this.passwordModalValue = '';
+    this.passwordModalOpen = true;
+  }
+
+  closePasswordModal() {
+    this.passwordModalOpen = false;
+    this.passwordModalUser = null;
+    this.passwordModalValue = '';
+  }
+
+  submitPasswordReset() {
+    const user = this.passwordModalUser;
+    if (!user) return;
+    const password = String(this.passwordModalValue || '');
+    if (!password.trim()) {
+      this.error = 'Informe a nova senha.';
+      return;
+    }
+    if (password.length < 6) {
+      this.error = 'A nova senha deve ter no mínimo 6 caracteres.';
+      return;
+    }
+
+    this.passwordModalSaving = true;
+    this.error = '';
+    this.status = '';
+    this.api.updateUserPassword(user.id, { password }).subscribe({
+      next: () => {
+        this.passwordModalSaving = false;
+        this.closePasswordModal();
+        this.status = `Senha redefinida para ${user.email}. Tokens de refresh revogados.`;
+      },
+      error: (err) => {
+        this.passwordModalSaving = false;
+        this.error = this.messageFromError(err, 'Falha ao redefinir senha.');
       },
     });
   }
@@ -269,11 +380,31 @@ export class AdminUsersComponent implements OnInit {
 
   cancelRoleEditor() {
     this.roleEditorOpen = false;
+    this.rolePermissionFilter = '';
   }
 
   toggleRolePermission(permission: string, checked: boolean) {
     if (checked) this.roleForm.permissions.add(permission);
     else this.roleForm.permissions.delete(permission);
+  }
+
+  filteredPermissionsCatalog(): PermissionCatalogItem[] {
+    const term = this.rolePermissionFilter.trim().toLowerCase();
+    if (!term) return this.permissionsCatalog;
+    return this.permissionsCatalog.filter((permission) => {
+      const label = String(permission.label || '').toLowerCase();
+      const code = String(permission.code || '').toLowerCase();
+      const description = String(permission.description || '').toLowerCase();
+      return label.includes(term) || code.includes(term) || description.includes(term);
+    });
+  }
+
+  selectAllVisibleRolePermissions() {
+    this.filteredPermissionsCatalog().forEach((permission) => this.roleForm.permissions.add(permission.code));
+  }
+
+  clearAllRolePermissions() {
+    this.roleForm.permissions.clear();
   }
 
   saveRole() {
@@ -301,6 +432,7 @@ export class AdminUsersComponent implements OnInit {
       next: (saved) => {
         this.roleSaving = false;
         this.roleEditorOpen = false;
+        this.rolePermissionFilter = '';
         this.status =
           this.roleEditorMode === 'create'
             ? `Role "${saved.name}" criada.`
@@ -459,10 +591,6 @@ export class AdminUsersComponent implements OnInit {
         this.error = this.messageFromError(err, 'Falha ao carregar ACL.');
       },
     });
-  }
-
-  private patchUser(updated: AdminUser) {
-    this.users = this.users.map((u) => (u.id === updated.id ? updated : u));
   }
 
   private messageFromError(err: any, fallback: string): string {
