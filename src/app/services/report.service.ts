@@ -44,6 +44,7 @@ export type ReportVariable = {
   label: string;
   type: ReportVariableType;
   required: boolean;
+  multiple: boolean;
   defaultValue: string | null;
   orderIndex: number;
   optionsSql?: string | null;
@@ -104,6 +105,21 @@ export type ReportRunResponse = {
 export type ReportVariableOption = {
   valor: string | number | boolean | null;
   descricao: string;
+};
+
+export type ReportValidationRequest = {
+  sql: string;
+  variables: ReportVariableInput[];
+  params?: Record<string, unknown>;
+  validateSyntax?: boolean;
+  enforceRequired?: boolean;
+  enforceReadOnly?: boolean;
+};
+
+export type ReportValidationResponse = {
+  valid: boolean;
+  errors: string[];
+  renderedQuery?: string | null;
 };
 
 @Injectable({ providedIn: 'root' })
@@ -238,6 +254,10 @@ export class ReportService {
     });
   }
 
+  validateReportQuery(payload: ReportValidationRequest): Observable<ReportValidationResponse> {
+    return this.http.post<ReportValidationResponse>(`${this.base}/reports/validate`, payload);
+  }
+
   private normalizeFolders(res: any): ReportFolder[] {
     const data = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
     return data
@@ -342,12 +362,17 @@ export class ReportService {
         ? null
         : String(rawOptionsSql).trim() || null;
 
+    const rawMultiple = item?.multiple ?? item?.isMultiple ?? item?.is_multiple ?? false;
+    const multiple =
+      rawMultiple === true || rawMultiple === 1 || rawMultiple === '1' || String(rawMultiple).toLowerCase() === 'true';
+
     return {
       id: item?.id ? String(item.id) : undefined,
       key: String(item?.key ?? ''),
       label: String(item?.label ?? item?.key ?? ''),
       type: this.normalizeVariableType(item?.type),
       required: Boolean(item?.required),
+      multiple,
       defaultValue:
         item?.defaultValue === null || item?.defaultValue === undefined
           ? null
@@ -419,6 +444,9 @@ export class ReportService {
 
     return {
       ...variable,
+      multiple: Boolean(variable.multiple),
+      isMultiple: Boolean(variable.multiple),
+      is_multiple: Boolean(variable.multiple),
       optionsSql,
       options_sql: optionsSql,
       optionsQuery: optionsSql,

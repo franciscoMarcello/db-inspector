@@ -74,6 +74,7 @@
             <div class="draft-vars-head">Label</div>
             <div class="draft-vars-head">Tipo</div>
             <div class="draft-vars-head">Obrigatória</div>
+            <div class="draft-vars-head">Múltipla</div>
             <div class="draft-vars-head">Padrão</div>
             <div class="draft-vars-head">SQL opções</div>
           </div>
@@ -100,6 +101,9 @@
                 <input type="checkbox" [(ngModel)]="v.required" [ngModelOptions]="{ standalone: true }" />
               </div>
               <div>
+                <input type="checkbox" [(ngModel)]="v.multiple" [ngModelOptions]="{ standalone: true }" />
+              </div>
+              <div>
                 <input
                   type="text"
                   [(ngModel)]="v.defaultValue"
@@ -120,10 +124,86 @@
         </div>
       </div>
 
+      <div class="vars-panel" *ngIf="reportDraftVariables.length">
+        <div class="vars-title">Parâmetros para validação</div>
+        <div class="vars-grid">
+          <label class="var-field" *ngFor="let v of reportDraftVariables">
+            <span>{{ v.label || v.key }} <em *ngIf="v.required">*</em></span>
+            <ng-container *ngIf="v.multiple; else singleValidationInput">
+              <textarea
+                rows="2"
+                [ngModel]="validationInputs[v.key] || ''"
+                [ngModelOptions]="{ standalone: true }"
+                (ngModelChange)="validationInputChange.emit({ key: v.key, value: $event })"
+                placeholder="Valores separados por vírgula"
+              ></textarea>
+            </ng-container>
+            <ng-template #singleValidationInput>
+              <ng-container [ngSwitch]="v.type">
+                <input
+                  *ngSwitchCase="'date'"
+                  type="date"
+                  [ngModel]="validationInputs[v.key] || ''"
+                  [ngModelOptions]="{ standalone: true }"
+                  (ngModelChange)="validationInputChange.emit({ key: v.key, value: $event })"
+                />
+                <input
+                  *ngSwitchCase="'datetime'"
+                  type="datetime-local"
+                  [ngModel]="validationInputs[v.key] || ''"
+                  [ngModelOptions]="{ standalone: true }"
+                  (ngModelChange)="validationInputChange.emit({ key: v.key, value: $event })"
+                />
+                <input
+                  *ngSwitchCase="'number'"
+                  type="number"
+                  [ngModel]="validationInputs[v.key] || ''"
+                  [ngModelOptions]="{ standalone: true }"
+                  (ngModelChange)="validationInputChange.emit({ key: v.key, value: $event })"
+                />
+                <select
+                  *ngSwitchCase="'boolean'"
+                  [ngModel]="validationInputs[v.key] || ''"
+                  [ngModelOptions]="{ standalone: true }"
+                  (ngModelChange)="validationInputChange.emit({ key: v.key, value: $event })"
+                >
+                  <option value="">(vazio)</option>
+                  <option value="true">true</option>
+                  <option value="false">false</option>
+                </select>
+                <input
+                  *ngSwitchDefault
+                  type="text"
+                  [ngModel]="validationInputs[v.key] || ''"
+                  [ngModelOptions]="{ standalone: true }"
+                  (ngModelChange)="validationInputChange.emit({ key: v.key, value: $event })"
+                />
+              </ng-container>
+            </ng-template>
+          </label>
+        </div>
+      </div>
+
       <p class="params-error" *ngIf="reportDraftError">{{ reportDraftError }}</p>
+      <p class="params-error" *ngIf="validationError">{{ validationError }}</p>
+      <div class="report-validation" *ngIf="validationResult as result">
+        <p class="report-validation__status" [class.report-validation__status--ok]="result.valid">
+          {{ result.valid ? 'Consulta válida' : 'Consulta inválida' }}
+        </p>
+        <ul class="report-validation__errors" *ngIf="result.errors?.length">
+          <li *ngFor="let err of result.errors">{{ err }}</li>
+        </ul>
+        <label class="var-field" *ngIf="result.renderedQuery">
+          <span>SQL renderizada</span>
+          <textarea rows="4" [value]="result.renderedQuery" readonly></textarea>
+        </label>
+      </div>
     </div>
 
     <div class="report-modal__footer">
+      <button type="button" class="btn btn--secondary" (click)="validate.emit()" [disabled]="validating">
+        {{ validating ? 'Validando...' : 'Validar SQL' }}
+      </button>
       <button type="button" class="btn btn--primary" (click)="save.emit()">Salvar</button>
     </div>
   </div>

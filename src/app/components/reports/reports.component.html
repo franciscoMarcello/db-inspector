@@ -112,93 +112,117 @@
           <label class="var-field" *ngFor="let v of selectedReportVariables">
             <span>{{ v.label || v.key }} <em *ngIf="v.required">*</em></span>
             <ng-container *ngIf="hasVariableOptions(v); else freeInput">
-              <div class="var-autocomplete-wrap">
-                <input
-                  matInput
-                  class="var-autocomplete"
-                  type="text"
-                  placeholder="Selecione ou digite para filtrar"
-                  [matAutocomplete]="varAuto"
-                  [ngModel]="variableOptionSearchText[v.key] || ''"
-                  [ngModelOptions]="{ standalone: true }"
-                  (ngModelChange)="onVariableOptionSearchChange(v, $event)"
-                />
-                <span
-                  *ngIf="variableOptionsLoading(v)"
-                  class="var-input-loading"
-                  aria-hidden="true"
-                  title="Carregando opções"
-                ></span>
-                <button
-                  *ngIf="
-                    !variableOptionsLoading(v) &&
-                    ((variableOptionSearchText[v.key] || '').trim() || (variableInputs[v.key] || '').trim())
-                  "
-                  type="button"
-                  class="var-input-clear"
-                  (mousedown)="$event.preventDefault()"
-                  (click)="clearVariableOption(v)"
-                  title="Limpar seleção"
-                  aria-label="Limpar seleção"
+              <ng-container *ngIf="!v.multiple; else multipleOptionsSelect">
+                <div class="var-autocomplete-wrap">
+                  <input
+                    matInput
+                    class="var-autocomplete"
+                    type="text"
+                    placeholder="Selecione ou digite para filtrar"
+                    [matAutocomplete]="varAuto"
+                    [ngModel]="variableOptionSearchText[v.key] || ''"
+                    [ngModelOptions]="{ standalone: true }"
+                    (ngModelChange)="onVariableOptionSearchChange(v, $event)"
+                  />
+                  <span
+                    *ngIf="variableOptionsLoading(v)"
+                    class="var-input-loading"
+                    aria-hidden="true"
+                    title="Carregando opções"
+                  ></span>
+                  <button
+                    *ngIf="
+                      !variableOptionsLoading(v) &&
+                      ((variableOptionSearchText[v.key] || '').trim() || (variableInputs[v.key] || '').trim())
+                    "
+                    type="button"
+                    class="var-input-clear"
+                    (mousedown)="$event.preventDefault()"
+                    (click)="clearVariableOption(v)"
+                    title="Limpar seleção"
+                    aria-label="Limpar seleção"
+                  >
+                    ×
+                  </button>
+                </div>
+                <mat-autocomplete
+                  #varAuto="matAutocomplete"
+                  class="report-var-options-panel"
+                  [displayWith]="displayVariableOption"
+                  (optionSelected)="onVariableOptionSelected(v, $event.option.value)"
                 >
-                  ×
-                </button>
-              </div>
-              <mat-autocomplete
-                #varAuto="matAutocomplete"
-                class="report-var-options-panel"
-                [displayWith]="displayVariableOption"
-                (optionSelected)="onVariableOptionSelected(v, $event.option.value)"
-              >
-                <mat-option *ngFor="let opt of filteredVariableOptionItems(v)" [value]="opt">
-                  {{ opt.descricao }}
-                </mat-option>
-                <mat-option *ngIf="!filteredVariableOptionItems(v).length" disabled>
-                  Sem opções
-                </mat-option>
-              </mat-autocomplete>
+                  <mat-option *ngFor="let opt of filteredVariableOptionItems(v)" [value]="opt">
+                    {{ opt.descricao }}
+                  </mat-option>
+                  <mat-option *ngIf="!filteredVariableOptionItems(v).length" disabled>
+                    Sem opções
+                  </mat-option>
+                </mat-autocomplete>
+              </ng-container>
+              <ng-template #multipleOptionsSelect>
+                <app-reports-multi-select
+                  [options]="variableMultiSelectOptions(v)"
+                  [selectedValues]="variableMultiOptionSelections[v.key] || []"
+                  [placeholder]="'Selecione opções'"
+                  [loading]="variableOptionsLoading(v)"
+                  [disabled]="variableOptionsLoading(v)"
+                  (selectedValuesChange)="onVariableMultipleOptionValuesSelected(v, $event)"
+                ></app-reports-multi-select>
+              </ng-template>
             </ng-container>
             <ng-template #freeInput>
-              <ng-container [ngSwitch]="v.type">
-                <input
-                  *ngSwitchCase="'date'"
-                  type="date"
+              <ng-container *ngIf="v.multiple; else singleValueInput">
+                <textarea
+                  class="var-multi-input"
+                  rows="2"
                   [(ngModel)]="variableInputs[v.key]"
                   [ngModelOptions]="{ standalone: true }"
                   (ngModelChange)="onVariableInputChanged()"
-                />
-                <input
-                  *ngSwitchCase="'datetime'"
-                  type="datetime-local"
-                  [(ngModel)]="variableInputs[v.key]"
-                  [ngModelOptions]="{ standalone: true }"
-                  (ngModelChange)="onVariableInputChanged()"
-                />
-                <input
-                  *ngSwitchCase="'number'"
-                  type="number"
-                  [(ngModel)]="variableInputs[v.key]"
-                  [ngModelOptions]="{ standalone: true }"
-                  (ngModelChange)="onVariableInputChanged()"
-                />
-                <select
-                  *ngSwitchCase="'boolean'"
-                  [(ngModel)]="variableInputs[v.key]"
-                  [ngModelOptions]="{ standalone: true }"
-                  (ngModelChange)="onVariableInputChanged()"
-                >
-                  <option value="">(padrão)</option>
-                  <option value="true">true</option>
-                  <option value="false">false</option>
-                </select>
-                <input
-                  *ngSwitchDefault
-                  type="text"
-                  [(ngModel)]="variableInputs[v.key]"
-                  [ngModelOptions]="{ standalone: true }"
-                  (ngModelChange)="onVariableInputChanged()"
-                />
+                  placeholder="Informe múltiplos valores separados por vírgula"
+                ></textarea>
               </ng-container>
+              <ng-template #singleValueInput>
+                <ng-container [ngSwitch]="v.type">
+                  <input
+                    *ngSwitchCase="'date'"
+                    type="date"
+                    [(ngModel)]="variableInputs[v.key]"
+                    [ngModelOptions]="{ standalone: true }"
+                    (ngModelChange)="onVariableInputChanged()"
+                  />
+                  <input
+                    *ngSwitchCase="'datetime'"
+                    type="datetime-local"
+                    [(ngModel)]="variableInputs[v.key]"
+                    [ngModelOptions]="{ standalone: true }"
+                    (ngModelChange)="onVariableInputChanged()"
+                  />
+                  <input
+                    *ngSwitchCase="'number'"
+                    type="number"
+                    [(ngModel)]="variableInputs[v.key]"
+                    [ngModelOptions]="{ standalone: true }"
+                    (ngModelChange)="onVariableInputChanged()"
+                  />
+                  <select
+                    *ngSwitchCase="'boolean'"
+                    [(ngModel)]="variableInputs[v.key]"
+                    [ngModelOptions]="{ standalone: true }"
+                    (ngModelChange)="onVariableInputChanged()"
+                  >
+                    <option value="">(padrão)</option>
+                    <option value="true">true</option>
+                    <option value="false">false</option>
+                  </select>
+                  <input
+                    *ngSwitchDefault
+                    type="text"
+                    [(ngModel)]="variableInputs[v.key]"
+                    [ngModelOptions]="{ standalone: true }"
+                    (ngModelChange)="onVariableInputChanged()"
+                  />
+                </ng-container>
+              </ng-template>
             </ng-template>
           </label>
         </div>
@@ -349,6 +373,10 @@
   [reportDraft]="reportDraft"
   [reportDraftVariables]="reportDraftVariables"
   [reportDraftError]="reportDraftError"
+  [validating]="validatingReportDraft"
+  [validationInputs]="reportValidationInputs"
+  [validationResult]="reportValidationResult"
+  [validationError]="reportValidationError"
   [folders]="folders"
   [templates]="templates"
   (close)="closeReportModal()"
@@ -356,6 +384,8 @@
   (openTemplateManager)="openTemplateManager()"
   (sqlChanged)="onDraftSqlChanged()"
   (variablesDrop)="onDraftVariablesDrop($event)"
+  (validationInputChange)="onReportValidationInputChange($event)"
+  (validate)="validateReportDraftQuery()"
   (save)="saveReportFromModal()"
 ></app-reports-report-modal>
 

@@ -14,6 +14,7 @@ import {
   ReportFolder,
   ReportRunResponse,
   ReportService,
+  ReportValidationResponse,
   ReportVariable,
   ReportVariableOption,
 } from '../../services/report.service';
@@ -28,10 +29,12 @@ import {
 } from './reports.component.constants';
 import { ReportsFolderTemplateHost, ReportsFolderTemplateLogic } from './reports.component.folder-template';
 import { ReportsFolderManagerModalComponent } from './reports-folder-manager-modal.component';
+import { MultiSelectOption, ReportsMultiSelectComponent } from './reports-multi-select.component';
 import { ReportsReportModalComponent } from './reports-report-modal.component';
 import { ReportsTemplateManagerModalComponent } from './reports-template-manager-modal.component';
 import {
   buildArchivePayload,
+  buildReportValidationParams,
   buildClearedFilterState,
   buildParamsForOptions,
   buildRunParams,
@@ -46,6 +49,7 @@ import {
   rebuildFolderNodes,
   readBooleanRecord,
   readFlag,
+  resolveRequestErrorMessage,
   resolveStatusTone,
   resolveSelection,
   StatusTone,
@@ -72,6 +76,7 @@ import {
     ReportsReportModalComponent,
     ReportsFolderManagerModalComponent,
     ReportsTemplateManagerModalComponent,
+    ReportsMultiSelectComponent,
   ],
   templateUrl: './reports.component.html',
   styleUrls: [
@@ -101,6 +106,8 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
   manageMode = false;
   sidebarCollapsed = false;
   variableInputs: Record<string, string> = {};
+  variableMultiOptionSelections: Record<string, string[]> = {};
+  variableMultiSelectOptionsByKey: Record<string, MultiSelectOption[]> = {};
   variableOptions: Record<string, ReportVariableOption[]> = {};
   loadingVariableOptions: Record<string, boolean> = {};
   variableOptionSearchText: Record<string, string> = {};
@@ -109,6 +116,10 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
   reportDraft: ReportDraft = createEmptyReportDraft();
   reportDraftVariables: DraftVariable[] = [];
   reportDraftError = '';
+  reportValidationInputs: Record<string, string> = {};
+  reportValidationResult: ReportValidationResponse | null = null;
+  reportValidationError = '';
+  validatingReportDraft = false;
   folderManagerOpen = false;
   templateManagerOpen = false;
   selectedTemplateId: string | null = null;
@@ -169,7 +180,15 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
       if (!v.required) continue;
       const rawInput = (this.variableInputs[v.key] ?? '').trim();
       const fallback = (v.defaultValue ?? '').trim();
-      if (!rawInput && !fallback) return false;
+      const raw = rawInput || fallback;
+      if (!raw) return false;
+      if (v.multiple) {
+        const items = raw
+          .split(/[\n,]+/)
+          .map((item) => item.trim())
+          .filter(Boolean);
+        if (!items.length) return false;
+      }
     }
     return true;
   }
@@ -317,8 +336,10 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
     this.reportModalMode = 'create';
     this.reportModalOpen = true;
     this.reportDraftError = '';
+    this.resetReportValidationState();
     this.reportDraft = createReportDraftForCreate(folder.id, presetSql);
     this.syncDraftVariablesFromSql();
+    this.syncValidationInputsWithDraftVariables();
   }
 
   openCreateReportForFolder(folder: FolderNode, event?: Event) {
@@ -335,19 +356,39 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
     this.reportModalMode = 'edit';
     this.reportModalOpen = true;
     this.reportDraftError = '';
+    this.resetReportValidationState();
     this.reportDraft = createReportDraftForEdit(current, folder.id);
     this.syncDraftVariablesFromSql(current.variables || []);
+    this.syncValidationInputsWithDraftVariables();
   }
 
-  closeReportModal() { this.reportModalOpen = false; this.reportDraftError = ''; }
+  closeReportModal() {
+    this.reportModalOpen = false;
+    this.reportDraftError = '';
+    this.resetReportValidationState();
+  }
 
-  onDraftSqlChanged() { this.syncDraftVariablesFromSql(this.reportDraftVariables); }
+  onDraftSqlChanged() {
+    this.syncDraftVariablesFromSql(this.reportDraftVariables);
+    this.syncValidationInputsWithDraftVariables();
+    this.resetReportValidationState();
+  }
 
   onDraftVariablesDrop(event: CdkDragDrop<DraftVariable[]>) {
     if (event.previousIndex === event.currentIndex) return;
     const next = [...this.reportDraftVariables];
     moveItemInArray(next, event.previousIndex, event.currentIndex);
     this.reportDraftVariables = next;
+    this.syncValidationInputsWithDraftVariables();
+    this.resetReportValidationState();
+  }
+
+  onReportValidationInputChange(event: { key: string; value: string }) {
+    this.reportValidationInputs = {
+      ...this.reportValidationInputs,
+      [event.key]: event.value ?? '',
+    };
+    this.resetReportValidationState();
   }
 
   openTemplateManager() { this.folderTemplateLogic.openTemplateManager(); }
@@ -387,8 +428,8 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
           this.reportModalOpen = false;
           this.loadData(created.id, folder.id);
         },
-        error: () => {
-          this.reportDraftError = 'Falha ao criar relatorio.';
+        error: (err) => {
+          this.reportDraftError = this.resolveRequestError(err, 'Falha ao criar relatorio.');
         },
       });
       return;
@@ -406,10 +447,53 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
         const nextFolder = updated.folderId ?? this.selectedFolderId;
         this.loadData(updated.id, nextFolder ?? undefined);
       },
-      error: () => {
-        this.reportDraftError = 'Falha ao atualizar relatorio.';
+      error: (err) => {
+        this.reportDraftError = this.resolveRequestError(err, 'Falha ao atualizar relatorio.');
       },
     });
+  }
+
+  validateReportDraftQuery() {
+    const sql = this.reportDraft.sql.trim();
+    if (!sql) {
+      this.reportValidationError = 'Informe a SQL antes de validar.';
+      this.reportValidationResult = null;
+      return;
+    }
+
+    const variables = toReportVariablesPayload(this.reportDraftVariables);
+    const validationParams = buildReportValidationParams(variables, this.reportValidationInputs);
+    if (validationParams.error) {
+      this.reportValidationError = validationParams.error;
+      this.reportValidationResult = null;
+      return;
+    }
+
+    this.validatingReportDraft = true;
+    this.reportValidationError = '';
+    this.reportValidationResult = null;
+    this.reportService
+      .validateReportQuery({
+        sql,
+        variables,
+        params: validationParams.params,
+        validateSyntax: !validationParams.hasMissingRequired,
+        enforceRequired: true,
+        enforceReadOnly: true,
+      })
+      .subscribe({
+        next: (result) => {
+          this.validatingReportDraft = false;
+          this.reportValidationResult = result;
+          if (result?.valid === false && (!result.errors || !result.errors.length)) {
+            this.reportValidationError = 'Consulta inválida.';
+          }
+        },
+        error: (err) => {
+          this.validatingReportDraft = false;
+          this.reportValidationError = this.resolveRequestError(err, 'Falha ao validar consulta.');
+        },
+      });
   }
 
   archiveSelectedReport() { this.updateSelectedReportArchived(true); }
@@ -445,9 +529,9 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
         this.downloadBlob(blob, `${normalizeFileName(report.name)}.pdf`);
         this.statusMessage = `Exportacao PDF concluida para "${report.name}".`;
       },
-      error: () => {
+      error: (err) => {
         this.loadingPdf = false;
-        this.statusMessage = 'Falha ao exportar PDF.';
+        this.statusMessage = this.resolveRequestError(err, 'Falha ao exportar PDF.');
       },
     });
   }
@@ -474,7 +558,7 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
         }
         this.loadingList = false;
       },
-      error: () => {
+      error: (err) => {
         this.reports = [];
         this.templates = [];
         this.folders = [];
@@ -482,7 +566,7 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
         this.selectedFolderId = null;
         this.selectedReportId = null;
         this.loadingList = false;
-        this.statusMessage = 'Falha ao carregar relatorios/pastas.';
+        this.statusMessage = this.resolveRequestError(err, 'Falha ao carregar relatorios/pastas.');
       },
     });
   }
@@ -506,10 +590,10 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
         this.runResult = res;
         this.loadingRun = false;
       },
-      error: () => {
+      error: (err) => {
         this.runResult = null;
         this.loadingRun = false;
-        this.statusMessage = 'Falha ao executar relatorio.';
+        this.statusMessage = this.resolveRequestError(err, 'Falha ao executar relatorio.');
       },
     });
   }
@@ -578,6 +662,15 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
 
   private initVariableInputs() {
     this.variableInputs = computeVariableInputs(this.selectedReportVariables, this.variableInputs);
+    const nextSelections: Record<string, string[]> = {};
+    for (const variable of this.selectedReportVariables) {
+      if (!variable.multiple || !this.hasVariableOptions(variable)) continue;
+      nextSelections[variable.key] = String(this.variableInputs[variable.key] ?? '')
+        .split(/[\n,]+/)
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
+    this.variableMultiOptionSelections = nextSelections;
   }
 
   onVariableInputChanged() {
@@ -623,6 +716,39 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
   onVariableOptionSelected(variable: ReportVariable, option: ReportVariableOption | null) {
     const key = variable.key;
     this.setVariableOptionValue(key, String(option?.valor ?? ''), String(option?.descricao ?? ''));
+  }
+
+  optionValueToString(value: unknown): string {
+    if (value === null || value === undefined) return '';
+    return String(value);
+  }
+
+  selectedOptionValue(variable: ReportVariable): string {
+    return this.optionValueToString(this.variableInputs[variable.key] ?? '');
+  }
+
+  onVariableOptionValueSelected(variable: ReportVariable, rawValue: string) {
+    const value = this.optionValueToString(rawValue);
+    const selected = this.variableOptionItems(variable).find(
+      (opt) => this.optionValueToString(opt.valor) === value
+    );
+    this.setVariableOptionValue(variable.key, value, selected?.descricao ?? '');
+  }
+
+  onVariableMultipleOptionValuesSelected(variable: ReportVariable, rawValues: string[] | string) {
+    const selectedValues = Array.isArray(rawValues) ? rawValues : [String(rawValues ?? '')];
+    const normalized = selectedValues
+      .map((value) => this.optionValueToString(value).trim())
+      .filter(Boolean);
+    this.variableMultiOptionSelections = {
+      ...this.variableMultiOptionSelections,
+      [variable.key]: normalized,
+    };
+    this.setVariableOptionValue(variable.key, normalized.join(','), '');
+  }
+
+  variableMultiSelectOptions(variable: ReportVariable): MultiSelectOption[] {
+    return this.variableMultiSelectOptionsByKey[variable.key] || [];
   }
 
   clearVariableOption(variable: ReportVariable) {
@@ -684,19 +810,45 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
     this.reportDraftVariables = detectDraftVariables(this.reportDraft.sql, existing);
   }
 
+  private syncValidationInputsWithDraftVariables() {
+    const next: Record<string, string> = {};
+    for (const v of this.reportDraftVariables) {
+      const current = this.reportValidationInputs[v.key];
+      if (current !== undefined) next[v.key] = current;
+      else if (v.defaultValue !== null && v.defaultValue !== undefined) next[v.key] = String(v.defaultValue);
+      else next[v.key] = '';
+    }
+    this.reportValidationInputs = next;
+  }
+
+  private resetReportValidationState() {
+    this.validatingReportDraft = false;
+    this.reportValidationError = '';
+    this.reportValidationResult = null;
+  }
+
   private setVariableOptionValue(key: string, inputValue: string, searchValue: string) {
     this.variableInputs[key] = inputValue;
     this.variableOptionSearchText = {
       ...this.variableOptionSearchText,
       [key]: searchValue,
     };
+    this.variableMultiOptionSelections = {
+      ...this.variableMultiOptionSelections,
+      [key]: String(inputValue ?? '')
+        .split(/[\n,]+/)
+        .map((item) => item.trim())
+        .filter(Boolean),
+    };
     this.onVariableInputChanged();
   }
 
   private resetVariableOptionsState() {
     this.variableOptions = {};
+    this.variableMultiSelectOptionsByKey = {};
     this.loadingVariableOptions = {};
     this.optionsParamsSignatureByKey = {};
+    this.variableMultiOptionSelections = {};
   }
 
   private applyVariableOptionFetchResult(
@@ -711,6 +863,13 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
     this.variableOptions = {
       ...this.variableOptions,
       [key]: options,
+    };
+    this.variableMultiSelectOptionsByKey = {
+      ...this.variableMultiSelectOptionsByKey,
+      [key]: options.map((opt) => ({
+        value: this.optionValueToString(opt.valor),
+        label: String(opt.descricao ?? ''),
+      })),
     };
     this.variableOptionSearchText = {
       ...this.variableOptionSearchText,
@@ -738,10 +897,17 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
         this.statusMessage = `Relatório "${current.name}" ${archived ? 'arquivado' : 'desarquivado'}.`;
         this.loadData(archived ? undefined : current.id, archived ? undefined : payload.folderId);
       },
-      error: () => {
-        this.statusMessage = `Falha ao ${archived ? 'arquivar' : 'desarquivar'} relatório.`;
+      error: (err) => {
+        this.statusMessage = this.resolveRequestError(
+          err,
+          `Falha ao ${archived ? 'arquivar' : 'desarquivar'} relatório.`
+        );
       },
     });
+  }
+
+  resolveRequestError(error: unknown, fallback: string): string {
+    return resolveRequestErrorMessage(error, fallback, this.manageMode);
   }
 
   private consumePendingSql(): string | null {

@@ -3,7 +3,7 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CdkDragDrop, DragDropModule } from '@angular/cdk/drag-drop';
 import { DraftVariable, FolderNode, ReportDraft } from './reports.component.models';
-import { JasperTemplateResponse } from '../../services/report.service';
+import { JasperTemplateResponse, ReportValidationResponse } from '../../services/report.service';
 
 @Component({
   selector: 'app-reports-report-modal',
@@ -23,6 +23,10 @@ export class ReportsReportModalComponent {
   @Input() reportDraft!: ReportDraft;
   @Input() reportDraftVariables: DraftVariable[] = [];
   @Input() reportDraftError = '';
+  @Input() validationInputs: Record<string, string> = {};
+  @Input() validating = false;
+  @Input() validationResult: ReportValidationResponse | null = null;
+  @Input() validationError = '';
   @Input() folders: FolderNode[] = [];
   @Input() templates: JasperTemplateResponse[] = [];
 
@@ -31,5 +35,7 @@ export class ReportsReportModalComponent {
   @Output() openTemplateManager = new EventEmitter<void>();
   @Output() sqlChanged = new EventEmitter<void>();
   @Output() variablesDrop = new EventEmitter<CdkDragDrop<DraftVariable[]>>();
+  @Output() validationInputChange = new EventEmitter<{ key: string; value: string }>();
+  @Output() validate = new EventEmitter<void>();
   @Output() save = new EventEmitter<void>();
 }

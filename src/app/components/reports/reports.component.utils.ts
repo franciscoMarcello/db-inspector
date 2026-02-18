@@ -38,6 +38,15 @@ export function statusTitleFromTone(tone: StatusTone): string {
   return 'Info';
 }
 
+export function resolveRequestErrorMessage(
+  error: unknown,
+  fallback: string,
+  preferBackendMessage: boolean
+): string {
+  if (!preferBackendMessage) return fallback;
+  return extractBackendErrorMessage(error) || fallback;
+}
+
 export function belongsToFolder(report: ReportDefinition, folder: FolderNode): boolean {
   if (report.folderId && String(report.folderId) === String(folder.id)) return true;
   if (report.folderName && String(report.folderName) === String(folder.name)) return true;
@@ -132,6 +141,7 @@ export function variablesFromSql(
       label: current?.label ?? key,
       type: current?.type ?? 'string',
       required: current?.required ?? false,
+      multiple: current?.multiple ?? false,
       defaultValue: current?.defaultValue ?? null,
       orderIndex: vars.length,
       optionsSql: current?.optionsSql ?? null,
@@ -193,7 +203,7 @@ export function buildParamsForOptions(
     if (v.key === excludeKey) continue;
     const raw = (inputs[v.key] ?? '').trim();
     if (!raw) continue;
-    const parsed = parseVariableValue(v.type, raw, v.key);
+    const parsed = parseVariableValue(v.type, raw, v.key, v.multiple, v.label || v.key);
     if (!parsed.error && parsed.value !== undefined) params[v.key] = parsed.value;
   }
   return params;
@@ -215,8 +225,12 @@ export function buildRunParams(
       continue;
     }
 
-    const parsed = parseVariableValue(v.type, raw, v.key);
+    const parsed = parseVariableValue(v.type, raw, v.key, v.multiple, v.label || v.key);
     if (parsed.error) return { error: parsed.error };
+    if (v.multiple && Array.isArray(parsed.value) && parsed.value.length === 0) {
+      if (v.required) return { error: `Parametro obrigatório sem valor: ${v.label || v.key}` };
+      continue;
+    }
     params[v.key] = parsed.value;
   }
 
@@ -231,6 +245,93 @@ export function syncOptionSearchText(
   if (!rawValue) return '';
   const match = options.find((opt) => String(opt.valor ?? '') === rawValue);
   return match ? String(match.descricao ?? '') : rawValue;
+}
+
+function extractBackendErrorMessage(error: unknown): string {
+  const err = error as { error?: unknown; message?: unknown } | null;
+  if (!err) return '';
+
+  const fromPayload = extractMessageFromPayload(err.error);
+  if (fromPayload) return fromPayload;
+
+  const msg = String(err.message ?? '').trim();
+  if (msg && msg.toLowerCase() !== 'http failure response for (unknown url): 0 unknown error') {
+    return isGenericBackendError(msg) ? '' : msg;
+  }
+  return '';
+}
+
+function extractMessageFromPayload(payload: unknown): string {
+  if (!payload) return '';
+  if (typeof payload === 'string') {
+    const text = payload.trim();
+    if (!text) return '';
+    if (text.startsWith('{') || text.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(text);
+        const parsedMessage = extractMessageFromPayload(parsed);
+        if (parsedMessage) return parsedMessage;
+      } catch {
+        // ignore parse error and fallback to plain text
+      }
+    }
+    return isGenericBackendError(text) ? '' : text;
+  }
+  if (Array.isArray(payload)) {
+    return payload
+      .map((item) => extractMessageFromPayload(item))
+      .filter(Boolean)
+      .join(' | ');
+  }
+  if (typeof payload === 'object') {
+    const data = payload as Record<string, unknown>;
+    const preferred = [data['detail'], data['message']]
+      .map((v) => String(v ?? '').trim())
+      .find((v) => Boolean(v) && !isGenericBackendError(v));
+    if (preferred) return preferred;
+
+    if (Array.isArray(data['errors'])) {
+      const errorsText = data['errors']
+        .map((item) => extractMessageFromPayload(item))
+        .filter(Boolean)
+        .join(' | ');
+      if (errorsText) return errorsText;
+    }
+
+    const fallbackDirect = [data['detail'], data['message'], data['error'], data['title']]
+      .map((v) => String(v ?? '').trim())
+      .find((v) => Boolean(v) && !isGenericBackendError(v));
+    if (fallbackDirect) return fallbackDirect;
+
+    if (typeof data['text'] === 'string' && data['text'].trim()) {
+      return data['text'].trim();
+    }
+    if (data['error_description']) {
+      const desc = String(data['error_description']).trim();
+      if (desc) return desc;
+    }
+    if (typeof data['defaultMessage'] === 'string' && data['defaultMessage'].trim()) {
+      return data['defaultMessage'].trim();
+    }
+
+    for (const [key, value] of Object.entries(data)) {
+      if (['status', 'timestamp', 'path', 'trace', 'stackTrace'].includes(key)) continue;
+      const nested = extractMessageFromPayload(value);
+      if (nested) return nested;
+    }
+  }
+  return '';
+}
+
+function isGenericBackendError(value: string): boolean {
+  const normalized = value.trim().toLowerCase();
+  return (
+    normalized === 'internal server error' ||
+    normalized === 'bad request' ||
+    normalized === 'forbidden' ||
+    normalized === 'unauthorized' ||
+    normalized === 'not found'
+  );
 }
 
 export function detectDraftVariables(
@@ -266,6 +367,7 @@ export function detectDraftVariables(
       label: String(current?.label ?? key),
       type: (current?.type as DraftVariable['type']) || 'string',
       required: Boolean(current?.required ?? false),
+      multiple: Boolean(current?.multiple ?? false),
       defaultValue:
         current?.defaultValue === undefined || current?.defaultValue === null
           ? null
@@ -304,6 +406,7 @@ export function buildArchivePayload(
       label: v.label,
       type: v.type,
       required: v.required,
+      multiple: Boolean(v.multiple),
       defaultValue: v.defaultValue,
       orderIndex: Number.isFinite(v.orderIndex) ? v.orderIndex : idx,
       optionsSql: v.optionsSql?.trim() ? String(v.optionsSql).trim() : null,
@@ -393,10 +496,49 @@ export function toReportVariablesPayload(draftVars: DraftVariable[]): ReportVari
     label: (v.label || v.key).trim(),
     type: v.type,
     required: v.required,
+    multiple: Boolean(v.multiple),
     defaultValue: v.defaultValue ? String(v.defaultValue) : null,
     orderIndex: idx,
     optionsSql: v.optionsSql?.trim() ? String(v.optionsSql).trim() : null,
   }));
+}
+
+export function buildReportValidationParams(
+  variables: ReportVariableInput[],
+  validationInputs: Record<string, string>
+): { params: Record<string, unknown>; hasMissingRequired: boolean; error?: string } {
+  const params: Record<string, unknown> = {};
+  let hasMissingRequired = false;
+
+  for (const variable of variables) {
+    const typed = String(validationInputs[variable.key] ?? '').trim();
+    const raw = typed || String(variable.defaultValue ?? '').trim();
+    if (!raw) {
+      if (variable.required) hasMissingRequired = true;
+      continue;
+    }
+
+    const parsed = parseVariableValue(
+      variable.type,
+      raw,
+      variable.key,
+      Boolean(variable.multiple),
+      variable.label || variable.key
+    );
+    if (parsed.error) {
+      return {
+        params: {},
+        hasMissingRequired,
+        error: parsed.error,
+      };
+    }
+    if (parsed.value !== undefined) params[variable.key] = parsed.value;
+  }
+
+  return {
+    params,
+    hasMissingRequired,
+  };
 }
 
 export function toReportCreatePayload(
@@ -457,14 +599,39 @@ export function buildClearedFilterState(
 export function parseVariableValue(
   type: ReportVariableInput['type'],
   raw: string,
-  key: string
+  key: string,
+  multiple = false,
+  label = key
+): { value?: unknown; error?: string } {
+  if (multiple) {
+    const items = raw
+      .split(/[\n,]+/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+    if (!items.length) return { value: [] };
+
+    const values: unknown[] = [];
+    for (const item of items) {
+      const parsed = parseSingleVariableValue(type, item, label);
+      if (parsed.error) return parsed;
+      values.push(parsed.value);
+    }
+    return { value: values };
+  }
+  return parseSingleVariableValue(type, raw, label);
+}
+
+function parseSingleVariableValue(
+  type: ReportVariableInput['type'],
+  raw: string,
+  label: string
 ): { value?: unknown; error?: string } {
   if (type === 'string') return { value: raw };
 
   if (type === 'number') {
     const n = Number(raw);
     if (!Number.isFinite(n)) {
-      return { error: `Valor inválido para ${key}: esperado número.` };
+      return { error: `Valor inválido para ${label}: esperado número.` };
     }
     return { value: n };
   }
@@ -473,12 +640,12 @@ export function parseVariableValue(
     const normalized = raw.toLowerCase();
     if (['true', '1', 'sim', 'yes'].includes(normalized)) return { value: true };
     if (['false', '0', 'nao', 'não', 'no'].includes(normalized)) return { value: false };
-    return { error: `Valor inválido para ${key}: esperado booleano.` };
+    return { error: `Valor inválido para ${label}: esperado booleano.` };
   }
 
   if (type === 'date') {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
-      return { error: `Valor inválido para ${key}: esperado yyyy-MM-dd.` };
+      return { error: `Valor inválido para ${label}: esperado yyyy-MM-dd.` };
     }
     return { value: raw };
   }
@@ -489,7 +656,7 @@ export function parseVariableValue(
       ? new Date(`${raw}:00`)
       : new Date(raw);
     if (Number.isNaN(fromLocal.getTime())) {
-      return { error: `Valor inválido para ${key}: esperado datetime ISO.` };
+      return { error: `Valor inválido para ${label}: esperado datetime ISO.` };
     }
     return { value: formatDateTime(fromLocal) };
   }

@@ -24,6 +24,8 @@ export interface ReportsFolderTemplateHost {
   templateFileName: string;
   loadingTemplate: boolean;
   creatingTemplate: boolean;
+  manageMode: boolean;
+  resolveRequestError(error: unknown, fallback: string): string;
   loadDataFromAdmin(preferredReportId?: string, preferredFolderId?: string): void;
   rebuildVisibleFolders(apiFolders: ReportFolder[]): void;
 }
@@ -89,8 +91,8 @@ export class ReportsFolderTemplateLogic {
         this.host.statusMessage = `Pasta renomeada para "${updated.name}".`;
         this.host.loadDataFromAdmin(undefined, updated.id);
       },
-      error: () => {
-        this.host.statusMessage = 'Falha ao renomear pasta.';
+      error: (err) => {
+        this.host.statusMessage = this.host.resolveRequestError(err, 'Falha ao renomear pasta.');
       },
     });
   }
@@ -138,9 +140,9 @@ export class ReportsFolderTemplateLogic {
         };
         this.host.templateFileName = '';
       },
-      error: () => {
+      error: (err) => {
         this.host.loadingTemplate = false;
-        this.host.templateDraftError = 'Falha ao carregar template.';
+        this.host.templateDraftError = this.host.resolveRequestError(err, 'Falha ao carregar template.');
       },
     });
   }
@@ -192,22 +194,25 @@ export class ReportsFolderTemplateLogic {
       this.refreshTemplates(savedId);
     };
 
-    const onError = (action: 'criar' | 'atualizar') => {
+    const onError = (err: unknown, action: 'criar' | 'atualizar') => {
       this.host.creatingTemplate = false;
-      this.host.templateDraftError = `Falha ao ${action} template PDF.`;
+      this.host.templateDraftError = this.host.resolveRequestError(
+        err,
+        `Falha ao ${action} template PDF.`
+      );
     };
 
     if (this.host.templateDraft.id) {
       this.reportService.updateTemplate(this.host.templateDraft.id, payload).subscribe({
         next: (updated) => onSuccess(updated.id, 'atualizado'),
-        error: () => onError('atualizar'),
+        error: (err) => onError(err, 'atualizar'),
       });
       return;
     }
 
     this.reportService.createTemplate(payload).subscribe({
       next: (created) => onSuccess(created.id, 'criado'),
-      error: () => onError('criar'),
+      error: (err) => onError(err, 'criar'),
     });
   }
 
@@ -234,11 +239,11 @@ export class ReportsFolderTemplateLogic {
       },
       error: (err: HttpErrorResponse) => {
         this.host.creatingTemplate = false;
-        if (err.status === 409) {
-          this.host.templateDraftError = 'Não foi possível excluir: template vinculado a relatório.';
-          return;
-        }
-        this.host.templateDraftError = 'Falha ao excluir template.';
+        const fallback =
+          err.status === 409
+            ? 'Não foi possível excluir: template vinculado a relatório.'
+            : 'Falha ao excluir template.';
+        this.host.templateDraftError = this.host.resolveRequestError(err, fallback);
       },
     });
   }
@@ -263,8 +268,8 @@ export class ReportsFolderTemplateLogic {
         if (nextId) this.selectTemplate(nextId);
         else this.host.selectedTemplateId = null;
       },
-      error: () => {
-        this.host.templateDraftError = 'Falha ao listar templates.';
+      error: (err) => {
+        this.host.templateDraftError = this.host.resolveRequestError(err, 'Falha ao listar templates.');
       },
     });
   }
@@ -306,8 +311,9 @@ export class ReportsFolderTemplateLogic {
           err.status === 409
             ? 'Nao foi possivel criar: ja existe uma pasta com esse nome (ativa ou arquivada).'
             : 'Falha ao criar pasta.';
-        if (fromModal) this.host.reportDraftError = msg;
-        else this.host.statusMessage = msg;
+        const resolved = this.host.resolveRequestError(err, msg);
+        if (fromModal) this.host.reportDraftError = resolved;
+        else this.host.statusMessage = resolved;
       },
     });
   }
@@ -335,8 +341,11 @@ export class ReportsFolderTemplateLogic {
         this.host.statusMessage = `Pasta "${folder.name}" ${archived ? 'arquivada' : 'desarquivada'}.`;
         this.host.loadDataFromAdmin(undefined, archived ? undefined : folder.id);
       },
-      error: () => {
-        this.host.statusMessage = `Falha ao ${archived ? 'arquivar' : 'desarquivar'} pasta.`;
+      error: (err) => {
+        this.host.statusMessage = this.host.resolveRequestError(
+          err,
+          `Falha ao ${archived ? 'arquivar' : 'desarquivar'} pasta.`
+        );
       },
     });
   }

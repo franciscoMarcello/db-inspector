@@ -325,10 +325,19 @@
   padding: 0 8px;
 }
 
+.var-field select[multiple] {
+  min-height: 90px;
+  padding: 6px 8px;
+}
+
 .var-field textarea {
   min-height: 180px;
   padding: 8px;
   resize: vertical;
+}
+
+.var-field textarea.var-multi-input {
+  min-height: 64px;
 }
 
 :host ::ng-deep .var-field input.var-autocomplete.mat-mdc-input-element {
@@ -529,4 +538,3 @@
 .btn-icon--pdf {
   color: #fecaca;
 }
-
