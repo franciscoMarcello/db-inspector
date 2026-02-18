@@ -8,17 +8,23 @@
     <span class="spacer"></span>
 
     @if (isLoggedIn) {
+    @if (canViewSchemas) {
     <button mat-button class="nav-btn" routerLink="/schemas" routerLinkActive="active">
       Esquemas
     </button>
+    }
 
+    @if (canExecuteSql) {
     <button mat-button class="nav-btn" routerLink="/query" routerLinkActive="active">
       Executar SQL
     </button>
+    }
 
+    @if (canViewSchedules) {
     <button mat-button class="nav-btn" routerLink="/schedules" routerLinkActive="active">
       Agendamentos
     </button>
+    }
 
     <button
       mat-button
@@ -30,6 +36,7 @@
       Relatorios
     </button>
 
+    @if (canManageReports) {
     <button
       mat-button
       class="nav-btn"
@@ -39,6 +46,13 @@
     >
       Gerenciar Relatorios
     </button>
+    }
+
+    @if (isAdmin) {
+    <button mat-button class="nav-btn" routerLink="/admin/users" routerLinkActive="active">
+      Usuários
+    </button>
+    }
 
     <button mat-button class="nav-btn" (click)="openEnv()">Ambientes</button>
     <button mat-button class="nav-btn" (click)="logout()">Sair</button>

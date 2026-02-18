@@ -49,6 +49,32 @@ export class App implements AfterViewInit {
     return this.auth.isAuthenticated();
   }
 
+  get isAdmin() {
+    return this.auth.isAdmin();
+  }
+
+  get canManageReports() {
+    return this.auth.hasPermission('REPORT_WRITE') || this.auth.isAdmin();
+  }
+
+  get canViewSchemas() {
+    return this.auth.hasPermission('SQL_METADATA_READ') || this.auth.isAdmin();
+  }
+
+  get canExecuteSql() {
+    return this.auth.hasPermission('SQL_QUERY_EXECUTE') || this.auth.isAdmin();
+  }
+
+  get canViewSchedules() {
+    return (
+      this.auth.hasPermission('EMAIL_SEND') ||
+      this.auth.hasPermission('EMAIL_TEST') ||
+      this.auth.hasPermission('EMAIL_SCHEDULE_READ') ||
+      this.auth.hasPermission('EMAIL_SCHEDULE_WRITE') ||
+      this.auth.isAdmin()
+    );
+  }
+
   theme: 'light' | 'dark' = (localStorage.getItem('theme') as 'light' | 'dark') || 'light';
 
   @HostBinding('class.dark-theme')
@@ -59,6 +85,7 @@ export class App implements AfterViewInit {
   constructor() {
     // aplica tema logo na inicialização (body + overlay)
     this.applyTheme(this.theme);
+    this.auth.bootstrapSession().subscribe();
   }
 
   toggleTheme() {

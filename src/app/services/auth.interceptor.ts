@@ -30,6 +30,23 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   return next(withAuth).pipe(
     catchError((error: unknown) => {
       const httpErr = error as HttpErrorResponse;
+      if (httpErr?.status === 403) {
+        const message =
+          httpErr?.error?.message ||
+          httpErr?.error?.error ||
+          (typeof httpErr?.error === 'string' ? httpErr.error : '') ||
+          'Sem permissão.';
+        return throwError(
+          () =>
+            new HttpErrorResponse({
+              headers: httpErr.headers,
+              status: httpErr.status,
+              statusText: httpErr.statusText,
+              url: httpErr.url ?? undefined,
+              error: { ...(typeof httpErr.error === 'object' && httpErr.error ? httpErr.error : {}), message },
+            })
+        );
+      }
       if (
         httpErr?.status !== 401 ||
         retried ||

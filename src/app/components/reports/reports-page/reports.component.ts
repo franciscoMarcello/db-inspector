@@ -18,6 +18,7 @@ import {
   ReportVariable,
   ReportVariableOption,
 } from '../../../services/report.service';
+import { AuthService } from '../../../services/auth.service';
 import { createXlsxBlob } from '../../../utils/xlsx-export';
 import { DraftVariable, FolderNode, ReportDraft, TemplateDraft } from '../core/reports.component.models';
 import {
@@ -137,7 +138,8 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
 
   constructor(
     private reportService: ReportService,
-    private route: ActivatedRoute
+    private route: ActivatedRoute,
+    private auth: AuthService
   ) {
     this.folderTemplateLogic = new ReportsFolderTemplateLogic(this, reportService);
   }
@@ -172,6 +174,10 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
 
   get canExportPdf(): boolean {
     return Boolean(this.selectedReport?.jasperTemplateId);
+  }
+
+  get canWriteReports(): boolean {
+    return this.auth.hasPermission('REPORT_WRITE') || this.auth.isAdmin();
   }
 
   get hasRequiredParamsForRun(): boolean {

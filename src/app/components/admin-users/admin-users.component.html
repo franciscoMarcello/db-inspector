@@ -1,0 +1,179 @@
+<section class="admin-shell">
+  <div class="admin-grid">
+    <div class="card card-header">
+      <h2>Usuários</h2>
+      <p class="muted">Gerencie criação, ativação e permissões de acesso.</p>
+      <div class="status-row">
+        <div class="status error" *ngIf="error">{{ error }}</div>
+        <div class="status ok" *ngIf="status">{{ status }}</div>
+      </div>
+    </div>
+
+    <div class="card card-create">
+      <div class="card-head">
+        <h3>Criar usuário</h3>
+      </div>
+
+      <div class="create-form">
+        <label class="field">
+          <span>E-mail</span>
+          <input type="email" [(ngModel)]="createForm.email" [ngModelOptions]="{ standalone: true }" placeholder="usuario@empresa.com" />
+        </label>
+
+        <label class="field">
+          <span>Senha</span>
+          <input type="password" [(ngModel)]="createForm.password" [ngModelOptions]="{ standalone: true }" placeholder="Mínimo 6 caracteres" />
+        </label>
+
+        <label class="check">
+          <input type="checkbox" [(ngModel)]="createForm.active" [ngModelOptions]="{ standalone: true }" />
+          Ativo
+        </label>
+
+        <div class="roles-picker">
+          <span class="roles-label">Roles iniciais</span>
+          <div class="roles-pick-list">
+            <label class="check inline" *ngFor="let role of availableRoleNames()">
+              <input
+                type="checkbox"
+                [checked]="createForm.roles.has(role)"
+                (change)="toggleCreateRole(role, $any($event.target).checked)"
+              />
+              {{ role }}
+            </label>
+          </div>
+        </div>
+
+        <button type="button" class="btn primary" (click)="createUser()" [disabled]="saving">
+          {{ saving ? 'Criando...' : 'Criar usuário' }}
+        </button>
+      </div>
+    </div>
+
+    <div class="card card-users">
+      <div class="card-head">
+        <h3>Lista de usuários</h3>
+        <button type="button" class="btn" (click)="loadAll()" [disabled]="loading">
+          {{ loading ? 'Atualizando...' : 'Atualizar' }}
+        </button>
+      </div>
+
+      <div class="users-list">
+        <div class="user-row" *ngFor="let user of users; trackBy: trackUser">
+          <div class="user-row-head">
+            <div class="user-main">
+              <div class="email">{{ user.email }}</div>
+              <div class="meta">ID: {{ user.id }}</div>
+              <div class="meta">
+                Criado: {{ user.createdAt | date : 'dd/MM/yyyy HH:mm' }} • Atualizado:
+                {{ user.updatedAt | date : 'dd/MM/yyyy HH:mm' }}
+              </div>
+            </div>
+
+            <div class="user-actions">
+              <label class="check inline">
+                <input
+                  type="checkbox"
+                  [checked]="user.active"
+                  (change)="setUserActive(user, $any($event.target).checked)"
+                />
+                {{ user.active ? 'Ativo' : 'Inativo' }}
+              </label>
+
+              <button type="button" class="btn" (click)="revokeRefreshTokens(user)">
+                Revogar refresh tokens
+              </button>
+            </div>
+          </div>
+
+          <div class="roles-row">
+            <span class="roles-title">Roles:</span>
+            <span class="role-chip" *ngFor="let role of user.roles">
+              {{ role }}
+              <button type="button" class="chip-remove" (click)="removeRole(user, role)">×</button>
+            </span>
+          </div>
+
+          <div class="add-role-row">
+            <select [(ngModel)]="roleToAddByUser[user.id]" [ngModelOptions]="{ standalone: true }">
+              <option value="">Selecionar role</option>
+              <option *ngFor="let role of availableRoleNames()" [value]="role">{{ role }}</option>
+            </select>
+            <button type="button" class="btn" (click)="addRole(user)">Adicionar role</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card card-catalog">
+      <div class="card-head">
+        <h3>Roles</h3>
+        <button type="button" class="btn primary" (click)="startCreateRole()">Nova role</button>
+      </div>
+
+      <div class="role-editor" *ngIf="roleEditorOpen">
+        <div class="role-editor-head">
+          <strong>{{ roleEditorMode === 'create' ? 'Criar role' : 'Editar role' }}</strong>
+          <button type="button" class="btn" (click)="cancelRoleEditor()">Cancelar</button>
+        </div>
+
+        <label class="field">
+          <span>Nome da role</span>
+          <input
+            type="text"
+            [(ngModel)]="roleForm.name"
+            [ngModelOptions]="{ standalone: true }"
+            placeholder="Ex.: ANALISTA"
+          />
+        </label>
+
+        <div class="roles-picker">
+          <span class="roles-label">Permissões</span>
+          <div class="roles-pick-list">
+            <label class="check inline" *ngFor="let permission of permissions">
+              <input
+                type="checkbox"
+                [checked]="roleForm.permissions.has(permission)"
+                (change)="toggleRolePermission(permission, $any($event.target).checked)"
+              />
+              {{ permission }}
+            </label>
+          </div>
+        </div>
+
+        <button type="button" class="btn primary" [disabled]="roleSaving" (click)="saveRole()">
+          {{ roleSaving ? 'Salvando...' : 'Salvar role' }}
+        </button>
+      </div>
+
+      <div class="roles-def-list">
+        <div class="role-def" *ngFor="let role of roles; trackBy: trackRole">
+          <div class="role-def-head">
+            <strong>{{ role.name }}</strong>
+            <div class="role-def-actions">
+              <button type="button" class="btn btn-sm" (click)="startEditRole(role.name)">Editar</button>
+              <button
+                type="button"
+                class="btn btn-sm danger"
+                [disabled]="isSystemRole(role.name)"
+                (click)="deleteRole(role.name)"
+              >
+                Excluir
+              </button>
+            </div>
+          </div>
+          <div class="perm-list">
+            <span class="perm-chip" *ngFor="let perm of role.permissions">{{ perm }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card card-catalog">
+      <h3>Todas as permissões</h3>
+      <div class="perm-list">
+        <span class="perm-chip" *ngFor="let perm of permissions; trackBy: trackPermission">{{ perm }}</span>
+      </div>
+    </div>
+  </div>
+</section>

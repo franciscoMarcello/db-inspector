@@ -1,12 +1,14 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, of, throwError } from 'rxjs';
-import { catchError, finalize, map, shareReplay, tap } from 'rxjs/operators';
+import { catchError, finalize, map, shareReplay, switchMap, tap } from 'rxjs/operators';
 import { EnvStorageService } from './env-storage.service';
 
 export type AuthUser = {
   id: string;
   email: string;
+  roles: string[];
+  permissions: string[];
 };
 
 export type AuthLoginResponse = {
@@ -15,6 +17,12 @@ export type AuthLoginResponse = {
   expiresInSeconds: number;
   refreshToken: string;
   user: AuthUser;
+};
+
+export type AuthState = {
+  accessToken: string | null;
+  refreshToken: string | null;
+  user: AuthUser | null;
 };
 
 const ACCESS_TOKEN_KEY = 'auth.access_token';
@@ -36,6 +44,11 @@ export class AuthService {
 
   readonly user = computed(() => this.userSig());
   readonly isAuthenticatedSignal = computed(() => this.hasValidAccessToken());
+  readonly state = computed<AuthState>(() => ({
+    accessToken: this.accessTokenSig(),
+    refreshToken: this.refreshTokenSig(),
+    user: this.userSig(),
+  }));
 
   private refreshInFlight$: Observable<AuthLoginResponse> | null = null;
 
@@ -59,6 +72,53 @@ export class AuthService {
     return this.hasValidAccessToken();
   }
 
+  roles(): string[] {
+    return this.userSig()?.roles ?? [];
+  }
+
+  permissions(): string[] {
+    return this.userSig()?.permissions ?? [];
+  }
+
+  isAdmin(): boolean {
+    return this.hasRole('ADMIN');
+  }
+
+  hasRole(role: string): boolean {
+    const expected = this.normalizeRoleToken(role);
+    if (!expected) return false;
+    return this.roles().some((r) => this.normalizeRoleToken(r) === expected);
+  }
+
+  hasPermission(permission: string): boolean {
+    const expected = String(permission || '').trim().toUpperCase();
+    if (!expected) return false;
+    return this.permissions().some((p) => String(p || '').trim().toUpperCase() === expected);
+  }
+
+  getDefaultAuthenticatedRoute(): string {
+    if (this.hasPermission('SQL_METADATA_READ') || this.isAdmin()) return '/schemas';
+    if (this.hasPermission('SQL_QUERY_EXECUTE') || this.isAdmin()) return '/query';
+    if (
+      this.hasPermission('EMAIL_SEND') ||
+      this.hasPermission('EMAIL_TEST') ||
+      this.hasPermission('EMAIL_SCHEDULE_READ') ||
+      this.hasPermission('EMAIL_SCHEDULE_WRITE') ||
+      this.isAdmin()
+    ) {
+      return '/schedules';
+    }
+    if (
+      this.hasPermission('REPORT_READ') ||
+      this.hasPermission('REPORT_RUN') ||
+      this.hasPermission('REPORT_WRITE') ||
+      this.isAdmin()
+    ) {
+      return '/reports';
+    }
+    return '/reports';
+  }
+
   login(email: string, password: string): Observable<AuthLoginResponse> {
     return this.http
       .post<AuthLoginResponse>(`${this.authBase()}/login`, { email, password })
@@ -66,15 +126,47 @@ export class AuthService {
   }
 
   me(): Observable<AuthUser> {
-    return this.http.get<AuthUser>(`${this.authBase()}/me`).pipe(
-      tap((u) => this.userSig.set(u))
+    return this.http.get<AuthUser>(`${this.authBase()}/me`).pipe(tap((u) => this.applyUser(u)));
+  }
+
+  bootstrapSession(): Observable<void> {
+    const hasAccess = !!this.getAccessToken();
+    const hasRefresh = !!this.getRefreshToken();
+    if (!hasAccess && !hasRefresh) return of(void 0);
+
+    if (this.hasValidAccessToken()) {
+      return this.me().pipe(
+        map(() => void 0),
+        catchError((err) => this.tryRefreshAndMe(err))
+      );
+    }
+
+    if (!hasRefresh) {
+      this.clearSession();
+      return of(void 0);
+    }
+
+    return this.refreshAccessToken().pipe(
+      switchMap(() => this.me()),
+      map(() => void 0),
+      catchError(() => {
+        this.clearSession();
+        return of(void 0);
+      })
     );
   }
 
   ensureAuthenticated(): Observable<boolean> {
-    if (this.hasValidAccessToken()) return of(true);
+    if (this.hasValidAccessToken() && !!this.userSig()) return of(true);
+    if (this.hasValidAccessToken()) {
+      return this.me().pipe(
+        map(() => true),
+        catchError((err) => this.refreshAndReturnBool(err))
+      );
+    }
     if (!this.getRefreshToken()) return of(false);
     return this.refreshAccessToken().pipe(
+      switchMap(() => this.me()),
       map(() => true),
       catchError(() => of(false))
     );
@@ -141,7 +233,20 @@ export class AuthService {
     const refreshToken = String(res.refreshToken || '').trim();
     const expiresIn = Number(res.expiresInSeconds || 0);
     const expiresAt = Math.floor(Date.now() / 1000) + Math.max(0, expiresIn);
-    const user = res.user ? { id: String(res.user.id), email: String(res.user.email) } : null;
+    const user = res.user
+      ? {
+          id: String(res.user.id),
+          email: String(res.user.email),
+          roles:
+            this.normalizeRoles(res.user.roles).length
+              ? this.normalizeRoles(res.user.roles)
+              : this.extractRolesFromToken(accessToken),
+          permissions:
+            this.normalizePermissions(res.user.permissions).length
+              ? this.normalizePermissions(res.user.permissions)
+              : this.extractPermissionsFromToken(accessToken),
+        }
+      : null;
 
     this.accessTokenSig.set(accessToken || null);
     this.refreshTokenSig.set(refreshToken || null);
@@ -158,7 +263,19 @@ export class AuthService {
       const tokenType = localStorage.getItem(TOKEN_TYPE_KEY) || 'Bearer';
       const expiresAt = Number(localStorage.getItem(EXPIRES_AT_KEY) || 0);
       const userRaw = localStorage.getItem(USER_KEY);
-      const user = userRaw ? (JSON.parse(userRaw) as AuthUser) : null;
+      const rawUser = userRaw ? (JSON.parse(userRaw) as Partial<AuthUser>) : null;
+      const user = rawUser
+        ? {
+            id: String(rawUser.id || ''),
+            email: String(rawUser.email || ''),
+            roles: this.normalizeRoles(rawUser.roles).length
+              ? this.normalizeRoles(rawUser.roles)
+              : this.extractRolesFromToken(accessToken || ''),
+            permissions: this.normalizePermissions(rawUser.permissions).length
+              ? this.normalizePermissions(rawUser.permissions)
+              : this.extractPermissionsFromToken(accessToken || ''),
+          }
+        : null;
 
       this.accessTokenSig.set(accessToken || null);
       this.refreshTokenSig.set(refreshToken || null);
@@ -211,17 +328,145 @@ export class AuthService {
   }
 
   private jwtExp(token: string): number | null {
+    const data = this.jwtPayload(token);
+    const exp = Number(data?.exp);
+    return Number.isFinite(exp) ? exp : null;
+  }
+
+  private jwtPayload(token: string): any | null {
     try {
       const payload = token.split('.')[1];
       if (!payload) return null;
       const b64 = payload.replace(/-/g, '+').replace(/_/g, '/');
       const padded = b64.padEnd(Math.ceil(b64.length / 4) * 4, '=');
       const json = atob(padded);
-      const data = JSON.parse(json);
-      const exp = Number(data?.exp);
-      return Number.isFinite(exp) ? exp : null;
+      return JSON.parse(json);
     } catch {
       return null;
     }
+  }
+
+  private extractRolesFromToken(token: string): string[] {
+    const payload = this.jwtPayload(token);
+    if (!payload || typeof payload !== 'object') return [];
+
+    const direct = this.normalizeRoles(payload['roles']);
+    if (direct.length) return direct;
+
+    const role = this.normalizeRoles(payload['role']);
+    if (role.length) return role;
+
+    const authorities = this.normalizeRoles(payload['authorities']);
+    if (authorities.length) return authorities;
+
+    const realm = payload['realm_access'];
+    if (realm && typeof realm === 'object') {
+      const realmRoles = this.normalizeRoles((realm as Record<string, unknown>)['roles']);
+      if (realmRoles.length) return realmRoles;
+    }
+
+    return [];
+  }
+
+  private extractPermissionsFromToken(token: string): string[] {
+    const payload = this.jwtPayload(token);
+    if (!payload || typeof payload !== 'object') return [];
+
+    const direct = this.normalizePermissions(payload['permissions']);
+    if (direct.length) return direct;
+
+    const scopes = this.normalizePermissions(payload['scope'] ?? payload['scopes']);
+    if (scopes.length) return scopes;
+
+    const authorities = this.normalizePermissions(payload['authorities']);
+    if (authorities.length) return authorities;
+
+    return [];
+  }
+
+  private normalizeRoles(value: unknown): string[] {
+    if (Array.isArray(value)) {
+      return value
+        .map((v) => String(v || '').trim())
+        .filter(Boolean)
+        .map((v) => this.normalizeRoleToken(v));
+    }
+    if (typeof value === 'string') {
+      const parts = value
+        .split(/[,\s]+/)
+        .map((v) => v.trim())
+        .filter(Boolean)
+        .map((v) => this.normalizeRoleToken(v));
+      return parts;
+    }
+    return [];
+  }
+
+  private normalizePermissions(value: unknown): string[] {
+    if (Array.isArray(value)) {
+      return value
+        .map((v) => String(v || '').trim())
+        .filter(Boolean)
+        .map((v) => v.toUpperCase());
+    }
+    if (typeof value === 'string') {
+      return value
+        .split(/[,\s]+/)
+        .map((v) => v.trim())
+        .filter(Boolean)
+        .map((v) => v.toUpperCase());
+    }
+    return [];
+  }
+
+  private normalizeRoleToken(value: string): string {
+    const raw = String(value || '').trim().toUpperCase();
+    if (!raw) return raw;
+    if (raw.startsWith('ROLE_')) return raw.slice(5);
+    return raw;
+  }
+
+  private applyUser(user: AuthUser | null) {
+    if (!user) {
+      this.userSig.set(null);
+      this.persistStorage();
+      return;
+    }
+    const token = this.getAccessToken() || '';
+    const roles = this.normalizeRoles(user.roles);
+    const permissions = this.normalizePermissions(user.permissions);
+    this.userSig.set({
+      id: String(user.id || ''),
+      email: String(user.email || ''),
+      roles: roles.length ? roles : this.extractRolesFromToken(token),
+      permissions: permissions.length ? permissions : this.extractPermissionsFromToken(token),
+    });
+    this.persistStorage();
+  }
+
+  private tryRefreshAndMe(error: unknown): Observable<void> {
+    const err = error as HttpErrorResponse;
+    if (err?.status !== 401 || !this.getRefreshToken()) {
+      this.clearSession();
+      return of(void 0);
+    }
+    return this.refreshAccessToken().pipe(
+      switchMap(() => this.me()),
+      map(() => void 0),
+      catchError(() => {
+        this.clearSession();
+        return of(void 0);
+      })
+    );
+  }
+
+  private refreshAndReturnBool(error: unknown): Observable<boolean> {
+    const err = error as HttpErrorResponse;
+    if (err?.status !== 401 || !this.getRefreshToken()) return of(false);
+    return this.refreshAccessToken().pipe(
+      switchMap(() => this.me()),
+      map(() => true),
+      catchError(() => of(false))
+    );
   }
 }

@@ -237,10 +237,16 @@
         <button type="button" class="btn btn--secondary" (click)="clearAllFilters()">
           Limpar filtros
         </button>
-        <button type="button" class="btn btn--neutral" (click)="openCreateReportModal()">
+        <button
+          *ngIf="canWriteReports"
+          type="button"
+          class="btn btn--neutral"
+          (click)="openCreateReportModal()"
+        >
           <span class="btn-icon">＋</span> Novo relatorio
         </button>
         <button
+          *ngIf="canWriteReports"
           type="button"
           class="btn btn--edit"
           (click)="openEditReportModal()"
@@ -249,6 +255,7 @@
           <span class="btn-icon">✎</span> Editar
         </button>
         <button
+          *ngIf="canWriteReports"
           type="button"
           class="btn btn--archive"
           (click)="archiveSelectedReport()"
@@ -257,6 +264,7 @@
           <span class="btn-icon">🗂</span> Arquivar
         </button>
         <button
+          *ngIf="canWriteReports"
           type="button"
           class="btn btn--neutral"
           (click)="unarchiveSelectedReport()"
