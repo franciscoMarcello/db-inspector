@@ -1,12 +1,13 @@
 <div class="app-shell" [class.dark-theme]="theme === 'dark'">
   <mat-toolbar class="app-toolbar">
     <span class="title">AgroReport</span>
-    @if (activeNameValue) {
+    @if (activeNameValue && isLoggedIn) {
     <span class="env">Ambiente: {{ activeNameValue }}</span>
     }
 
     <span class="spacer"></span>
 
+    @if (isLoggedIn) {
     <button mat-button class="nav-btn" routerLink="/schemas" routerLinkActive="active">
       Esquemas
     </button>
@@ -40,6 +41,8 @@
     </button>
 
     <button mat-button class="nav-btn" (click)="openEnv()">Ambientes</button>
+    <button mat-button class="nav-btn" (click)="logout()">Sair</button>
+    }
 
     <button mat-icon-button class="theme-toggle" (click)="toggleTheme()" aria-label="Alternar tema">
       <mat-icon>

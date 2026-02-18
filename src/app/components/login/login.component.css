@@ -1,0 +1,82 @@
+.login-page {
+  min-height: calc(100vh - 64px - 42px);
+  display: grid;
+  place-items: center;
+  padding: 16px;
+}
+
+.login-card {
+  width: min(420px, 96vw);
+  padding: 18px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+}
+
+h2 {
+  margin: 0 0 6px;
+}
+
+.muted {
+  margin: 0 0 14px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+form {
+  display: grid;
+  gap: 10px;
+}
+
+.full {
+  width: 100%;
+}
+
+.error {
+  margin: 0;
+  color: #f87171;
+  font-size: 13px;
+}
+
+.login-submit {
+  background: var(--chip-bg-active) !important;
+  color: #ffffff !important;
+  border: 1px solid color-mix(in srgb, var(--chip-bg-active) 70%, #ffffff) !important;
+}
+
+.login-submit:disabled {
+  background: #334155 !important;
+  color: #94a3b8 !important;
+  border-color: #475569 !important;
+}
+
+:host ::ng-deep .login-card .mat-mdc-form-field {
+  width: 100%;
+}
+
+:host ::ng-deep .login-card .mdc-text-field--outlined {
+  background: var(--bg-surface-alt) !important;
+}
+
+:host ::ng-deep .login-card .mat-mdc-input-element {
+  color: var(--text-primary) !important;
+  -webkit-text-fill-color: var(--text-primary) !important;
+  caret-color: var(--text-primary) !important;
+}
+
+:host ::ng-deep .login-card .mat-mdc-input-element::placeholder {
+  color: var(--text-muted) !important;
+  opacity: 1;
+}
+
+:host ::ng-deep .login-card .mdc-floating-label,
+:host ::ng-deep .login-card .mat-mdc-form-field-hint {
+  color: var(--text-muted) !important;
+}
+
+:host ::ng-deep .login-card .mdc-notched-outline__leading,
+:host ::ng-deep .login-card .mdc-notched-outline__notch,
+:host ::ng-deep .login-card .mdc-notched-outline__trailing {
+  border-color: var(--border-subtle) !important;
+}

@@ -18,25 +18,34 @@ export const envHeadersInterceptor: HttpInterceptorFn = (req, next) => {
 
   const env = inject(EnvStorageService).getActive();
   const endpointUrl = env?.url?.trim();
-  const token = env?.apiKey?.trim();
+  const upstreamToken = env?.apiKey?.trim();
 
-  if (!endpointUrl || !token) {
+  if (!endpointUrl || !upstreamToken) {
     return throwError(
       () =>
         new HttpErrorResponse({
           status: 428,
           statusText: 'Precondition Required',
-          error: { message: 'Ambiente incompleto: X-SQL-EXEC-URL e X-API-Token são obrigatórios.' },
+          error: {
+            message:
+              'Ambiente incompleto: X-SQL-EXEC-URL e token upstream (X-API-Token ou X-Upstream-Authorization) são obrigatórios.',
+          },
         })
     );
   }
 
+  const headers: Record<string, string> = {
+    'X-SQL-EXEC-URL': endpointUrl,
+  };
+  if (/^bearer\s+/i.test(upstreamToken) || /^basic\s+/i.test(upstreamToken)) {
+    headers['X-Upstream-Authorization'] = upstreamToken;
+  } else {
+    headers['X-API-Token'] = upstreamToken;
+  }
+
   return next(
     req.clone({
-      setHeaders: {
-        'X-SQL-EXEC-URL': endpointUrl,
-        'X-API-Token': token,
-      },
+      setHeaders: headers,
     })
   );
 };

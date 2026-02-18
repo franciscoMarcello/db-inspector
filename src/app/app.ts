@@ -1,11 +1,12 @@
 import { Component, ViewChild, AfterViewInit, inject, signal, HostBinding } from '@angular/core';
-import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
+import { RouterOutlet, RouterLink, RouterLinkActive, Router } from '@angular/router';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatButtonModule } from '@angular/material/button';
 import { ModalComponent } from './components/modal/modal.component';
 import { EnvStorageService, EnvConfig } from './services/env-storage.service';
 import { MatIconModule } from '@angular/material/icon';
 import { OverlayContainer } from '@angular/cdk/overlay'; // <-- ADICIONA ISSO
+import { AuthService } from './services/auth.service';
 import packageJson from '../../package.json';
 
 @Component({
@@ -35,11 +36,17 @@ export class App implements AfterViewInit {
 
   private storage = inject(EnvStorageService);
   private overlay = inject(OverlayContainer); // <-- INJETADO
+  private auth = inject(AuthService);
+  private router = inject(Router);
   appVersion = packageJson.version;
 
   activeName = signal(this.storage.getActive()?.name ?? '');
   get activeNameValue() {
     return this.activeName();
+  }
+
+  get isLoggedIn() {
+    return this.auth.isAuthenticated();
   }
 
   theme: 'light' | 'dark' = (localStorage.getItem('theme') as 'light' | 'dark') || 'light';
@@ -74,7 +81,7 @@ export class App implements AfterViewInit {
   }
 
   ngAfterViewInit(): void {
-    if (!this.storage.getActive()) {
+    if (this.isLoggedIn && !this.storage.getActive()) {
       queueMicrotask(() => this.envModal.open());
     }
   }
@@ -85,5 +92,13 @@ export class App implements AfterViewInit {
 
   onSaved(cfg: EnvConfig) {
     this.activeName.set(cfg.name);
+  }
+
+  logout() {
+    this.auth.logout().subscribe({
+      next: () => {
+        this.router.navigate(['/login']);
+      },
+    });
   }
 }
