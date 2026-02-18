@@ -27,7 +27,7 @@ export class App {
   sideMenuCollapsed = localStorage.getItem('layout.side_menu_collapsed') === 'true';
 
   get isLoggedIn() {
-    return this.auth.isAuthenticated();
+    return this.auth.hasSession();
   }
 
   get userEmail() {

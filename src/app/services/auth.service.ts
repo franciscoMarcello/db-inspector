@@ -84,6 +84,10 @@ export class AuthService {
     return this.hasValidAccessToken();
   }
 
+  hasSession(): boolean {
+    return !!this.userSig() && (!!this.accessTokenSig() || !!this.refreshTokenSig());
+  }
+
   roles(): string[] {
     return this.userSig()?.roles ?? [];
   }
