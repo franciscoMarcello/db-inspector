@@ -2,7 +2,7 @@
   <div class="report-modal__panel report-modal__panel--wide">
     <div class="report-modal__header">
       <h3>{{ mode === 'create' ? 'Novo relatório' : 'Editar relatório' }}</h3>
-      <button type="button" class="btn btn--secondary" (click)="close.emit()">Fechar</button>
+      <app-button type="button" tone="neutral" variant="outline" (pressed)="close.emit()">Fechar</app-button>
     </div>
 
     <div class="report-modal__body">
@@ -22,9 +22,9 @@
           <select [(ngModel)]="reportDraft.folderId" [ngModelOptions]="{ standalone: true }">
             <option *ngFor="let folder of folders" [value]="folder.id">{{ folder.name }}</option>
           </select>
-          <button type="button" class="btn btn--neutral" (click)="createFolder.emit()">
+          <app-button type="button" tone="neutral" variant="outline" (pressed)="createFolder.emit()">
             + Pasta
-          </button>
+          </app-button>
         </div>
       </label>
 
@@ -35,9 +35,9 @@
             <option value="">Sem template</option>
             <option *ngFor="let template of templates" [value]="template.id">{{ template.name }}</option>
           </select>
-          <button type="button" class="btn btn--neutral" (click)="openTemplateManager.emit()">
+          <app-button type="button" tone="neutral" variant="outline" (pressed)="openTemplateManager.emit()">
             Gerenciar templates
-          </button>
+          </app-button>
         </div>
       </label>
 
@@ -201,10 +201,10 @@
     </div>
 
     <div class="report-modal__footer">
-      <button type="button" class="btn btn--secondary" (click)="validate.emit()" [disabled]="validating">
+      <app-button type="button" tone="neutral" variant="outline" (pressed)="validate.emit()" [disabled]="validating">
         {{ validating ? 'Validando...' : 'Validar SQL' }}
-      </button>
-      <button type="button" class="btn btn--primary" (click)="save.emit()">Salvar</button>
+      </app-button>
+      <app-button type="button" tone="primary" variant="solid" (pressed)="save.emit()">Salvar</app-button>
     </div>
   </div>
 </dialog>

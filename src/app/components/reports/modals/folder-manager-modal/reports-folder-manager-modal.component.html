@@ -2,7 +2,7 @@
   <div class="report-modal__panel report-modal__panel--small">
     <div class="report-modal__header">
       <h3>Gerenciar pastas</h3>
-      <button type="button" class="btn btn--secondary" (click)="close.emit()">Fechar</button>
+      <app-button type="button" tone="neutral" variant="outline" (pressed)="close.emit()">Fechar</app-button>
     </div>
 
     <div class="report-modal__body folder-manager">
@@ -18,7 +18,7 @@
             (keydown.enter)="createFolder.emit()"
           />
         </label>
-        <button type="button" class="btn btn--primary" (click)="createFolder.emit()">Criar pasta</button>
+        <app-button type="button" tone="primary" variant="solid" (pressed)="createFolder.emit()">Criar pasta</app-button>
       </div>
 
       <div class="folder-manager__section">
@@ -50,30 +50,33 @@
         </label>
 
         <div class="actions">
-          <button
+          <app-button
             type="button"
-            class="btn btn--secondary"
-            (click)="renameSelectedFolder.emit()"
+            tone="neutral"
+            variant="outline"
+            (pressed)="renameSelectedFolder.emit()"
             [disabled]="!selectedFolder"
           >
             Renomear
-          </button>
-          <button
+          </app-button>
+          <app-button
             type="button"
-            class="btn btn--archive"
-            (click)="archiveSelectedFolder.emit()"
+            tone="neutral"
+            variant="outline"
+            (pressed)="archiveSelectedFolder.emit()"
             [disabled]="!selectedFolder || !!selectedFolder.archived"
           >
             Arquivar
-          </button>
-          <button
+          </app-button>
+          <app-button
             type="button"
-            class="btn btn--neutral"
-            (click)="unarchiveSelectedFolder.emit()"
+            tone="neutral"
+            variant="outline"
+            (pressed)="unarchiveSelectedFolder.emit()"
             [disabled]="!selectedFolder || !selectedFolder.archived"
           >
             Desarquivar
-          </button>
+          </app-button>
         </div>
       </div>
 

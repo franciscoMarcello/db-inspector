@@ -41,23 +41,5 @@
 }
 
 .schema-btn {
-  text-transform: none;
-  border-radius: 999px;
-  padding: 4px 14px;
-  background: transparent;
-  border-color: var(--border-subtle);
-  color: var(--text-primary);
-  --mdc-outlined-button-outline-color: var(--border-subtle);
-  --mdc-outlined-button-label-text-color: var(--text-primary);
-}
-
-.schema-btn:not(.schema-active):hover {
-  background: var(--bg-surface-alt);
-}
-
-.schema-btn.schema-active {
-  background: var(--chip-bg-active);
-  border-color: var(--chip-bg-active);
-  color: #ffffff;
-  --mdc-outlined-button-label-text-color: #ffffff;
+  display: inline-flex;
 }

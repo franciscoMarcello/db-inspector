@@ -54,7 +54,7 @@ export class DbInspectorService {
   private http = inject(HttpClient);
   private env = inject(EnvStorageService);
   private get base(): string {
-    return this.env.getActive()?.backend || 'http://localhost:8080/api/db';
+    return this.env.getActive()?.backend || '/api/db';
   }
 
   getSchemas(): Observable<string[]> {

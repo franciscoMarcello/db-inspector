@@ -85,35 +85,6 @@ select {
   padding: 0 10px;
 }
 
-.btn {
-  min-height: 36px;
-  border-radius: 6px;
-  border: 1px solid var(--border-subtle);
-  background: var(--bg-surface-alt);
-  color: var(--text-primary);
-  padding: 0 10px;
-  cursor: pointer;
-}
-
-.btn.primary {
-  background: var(--chip-bg-active);
-  color: #fff;
-  border-color: var(--chip-bg-active);
-  font-weight: 600;
-}
-
-.btn.danger {
-  border-color: rgba(248, 113, 113, 0.35);
-  background: rgba(248, 113, 113, 0.12);
-  color: #fecaca;
-}
-
-.btn-sm {
-  min-height: 30px;
-  padding: 0 8px;
-  font-size: 12px;
-}
-
 .check {
   display: inline-flex;
   align-items: center;
@@ -192,14 +163,6 @@ select {
   justify-content: space-between;
   gap: 8px;
   align-items: center;
-}
-
-.users-list {
-  display: grid;
-  gap: 12px;
-  max-height: 62vh;
-  overflow: auto;
-  padding-right: 4px;
 }
 
 .users-table-wrap {
@@ -285,44 +248,9 @@ select {
   flex-wrap: wrap;
 }
 
-.user-row {
-  border: 1px solid var(--border-subtle);
-  border-radius: 10px;
-  padding: 10px;
-  background: var(--bg-surface-alt);
-  display: grid;
-  gap: 10px;
-}
-
-.user-row-head {
-  display: flex;
-  gap: 10px;
-  justify-content: space-between;
-  flex-wrap: wrap;
-}
-
-.email {
-  font-weight: 600;
-  font-size: 16px;
-}
-
 .meta {
   color: #64748b;
   font-size: 12px;
-}
-
-.user-actions,
-.add-role-row,
-.roles-row,
-.password-reset-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.password-reset-row input {
-  min-width: 220px;
 }
 
 .role-chip,
@@ -336,14 +264,6 @@ select {
   border-radius: 999px;
   padding: 2px 8px;
   font-size: 12px;
-}
-
-.chip-remove {
-  border: none;
-  background: transparent;
-  color: #f87171;
-  cursor: pointer;
-  font-size: 14px;
 }
 
 .roles-def-list,
@@ -567,31 +487,6 @@ select {
   font-size: 13px;
 }
 
-.acl-perm-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 6px;
-}
-
-.acl-perm-item {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 28px;
-  border-radius: 6px;
-  border: 1px solid rgba(34, 197, 94, 0.35);
-  background: rgba(34, 197, 94, 0.12);
-  color: #22c55e;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.acl-perm-item.denied {
-  border-color: rgba(248, 113, 113, 0.35);
-  background: rgba(248, 113, 113, 0.12);
-  color: #f87171;
-}
-
 .acl-row {
   border: 1px solid var(--border-subtle);
   border-radius: 8px;
@@ -713,11 +608,6 @@ select {
     min-height: 0;
   }
 
-  .card-users .users-list {
-    max-height: none;
-    min-height: 0;
-  }
-
   .card-users .users-table-wrap {
     max-height: none;
     min-height: 0;
@@ -728,10 +618,6 @@ select {
   .acl-grid,
   .acl-flags {
     grid-template-columns: 1fr;
-  }
-
-  .acl-perm-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .acl-perm-stack {

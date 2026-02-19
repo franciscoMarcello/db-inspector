@@ -1,20 +1,16 @@
 import { Component, inject, HostBinding } from '@angular/core';
-import { RouterOutlet, RouterLink, RouterLinkActive, Router } from '@angular/router';
-import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
-import { OverlayContainer } from '@angular/cdk/overlay'; // <-- ADICIONA ISSO
+import { RouterOutlet, Router } from '@angular/router';
+import { OverlayContainer } from '@angular/cdk/overlay';
 import { AuthService } from './services/auth.service';
 import packageJson from '../../package.json';
+import { AppButtonComponent } from './components/shared/app-button/app-button.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
   imports: [
-    MatButtonModule,
     RouterOutlet,
-    MatIconModule,
-    RouterLink,
-    RouterLinkActive,
+    AppButtonComponent,
   ],
   templateUrl: './app.html',
   styleUrls: ['./app.css'],
@@ -95,6 +91,16 @@ export class App {
   toggleSideMenu() {
     this.sideMenuCollapsed = !this.sideMenuCollapsed;
     localStorage.setItem('layout.side_menu_collapsed', String(this.sideMenuCollapsed));
+  }
+
+  go(path: string): void {
+    this.router.navigate([path]);
+  }
+
+  isRoute(path: string, exact = false): boolean {
+    const current = this.router.url || '';
+    if (exact) return current === path;
+    return current === path || current.startsWith(`${path}/`);
   }
 
   private applyTheme(theme: 'light' | 'dark') {

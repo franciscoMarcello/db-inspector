@@ -2,13 +2,13 @@
   <div class="report-modal__panel">
     <div class="report-modal__header">
       <h3>Gerenciar templates PDF</h3>
-      <button type="button" class="btn btn--secondary" (click)="close.emit()">Fechar</button>
+      <app-button type="button" tone="neutral" variant="outline" (pressed)="close.emit()">Fechar</app-button>
     </div>
 
     <div class="report-modal__body template-manager">
       <div class="template-manager__list">
         <div class="template-manager__top">
-          <button type="button" class="btn btn--neutral" (click)="startNew.emit()">Novo</button>
+          <app-button type="button" tone="neutral" variant="outline" (pressed)="startNew.emit()">Novo</app-button>
         </div>
         <button
           type="button"
@@ -46,8 +46,11 @@
         <label class="var-field">
           <span>Arquivo JRXML</span>
           <div class="file-picker">
-            <label class="btn btn--secondary file-picker__btn" for="template-jrxml-file">Escolher arquivo</label>
+            <app-button type="button" class="file-picker__btn" tone="neutral" variant="outline" (pressed)="openFilePicker(templateFileInput)">
+              Escolher arquivo
+            </app-button>
             <input
+              #templateFileInput
               id="template-jrxml-file"
               type="file"
               accept=".jrxml,application/xml,text/xml"
@@ -76,25 +79,27 @@
     </div>
 
     <div class="report-modal__footer report-modal__footer--spaced">
-      <button
+      <app-button
         type="button"
-        class="btn btn--danger"
-        (click)="deleteTemplate.emit()"
+        tone="danger"
+        variant="outline"
+        (pressed)="deleteTemplate.emit()"
         [disabled]="creatingTemplate || !templateDraft.id"
       >
         Excluir
-      </button>
-      <button
+      </app-button>
+      <app-button
         type="button"
-        class="btn btn--neutral"
-        (click)="applyTemplate.emit()"
+        tone="neutral"
+        variant="outline"
+        (pressed)="applyTemplate.emit()"
         [disabled]="!templateDraft.id"
       >
         Vincular ao relatório
-      </button>
-      <button type="button" class="btn btn--primary" (click)="saveTemplate.emit()" [disabled]="creatingTemplate">
+      </app-button>
+      <app-button type="button" tone="primary" variant="solid" (pressed)="saveTemplate.emit()" [disabled]="creatingTemplate">
         {{ creatingTemplate ? 'Salvando...' : templateDraft.id ? 'Atualizar template' : 'Criar template' }}
-      </button>
+      </app-button>
     </div>
   </div>
 </dialog>

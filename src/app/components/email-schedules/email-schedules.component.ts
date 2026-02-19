@@ -1,7 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
@@ -10,6 +9,7 @@ import {
   EmailScheduleResult,
 } from './email-schedule-dialog';
 import { DbInspectorService, ApiEmailSchedule } from '../../services/db-inspector.service';
+import { AppButtonComponent } from '../shared/app-button/app-button.component';
 
 type EmailSchedule = {
   id: string;
@@ -32,10 +32,10 @@ type EmailSchedule = {
   imports: [
     CommonModule,
     FormsModule,
-    MatButtonModule,
     MatIconModule,
     MatDialogModule,
     MatSnackBarModule,
+    AppButtonComponent,
   ],
   templateUrl: './email-schedules.component.html',
   styleUrls: ['./email-schedules.component.css'],

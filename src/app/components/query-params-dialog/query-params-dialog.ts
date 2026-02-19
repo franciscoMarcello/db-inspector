@@ -3,6 +3,7 @@ import { Component, Inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { AppButtonComponent } from '../shared/app-button/app-button.component';
 
 export interface QueryParam {
   name: string;
@@ -12,7 +13,7 @@ export interface QueryParam {
 @Component({
   selector: 'app-query-params-dialog',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatDialogModule],
+  imports: [CommonModule, FormsModule, MatDialogModule, AppButtonComponent],
   templateUrl: './query-params-dialog.html',
   styleUrls: ['./query-params-dialog.css'],
 })

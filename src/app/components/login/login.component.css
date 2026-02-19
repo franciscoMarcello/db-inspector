@@ -42,12 +42,15 @@ form {
 }
 
 .login-submit {
-  background: var(--chip-bg-active) !important;
-  color: #ffffff !important;
-  border: 1px solid color-mix(in srgb, var(--chip-bg-active) 70%, #ffffff) !important;
+  width: 100%;
 }
 
-.login-submit:disabled {
+:host ::ng-deep app-button.login-submit .app-btn {
+  min-height: 42px;
+  border-radius: 999px;
+}
+
+:host ::ng-deep app-button.login-submit .app-btn:disabled {
   background: #334155 !important;
   color: #94a3b8 !important;
   border-color: #475569 !important;

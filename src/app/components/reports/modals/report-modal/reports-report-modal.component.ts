@@ -4,11 +4,12 @@ import { FormsModule } from '@angular/forms';
 import { CdkDragDrop, DragDropModule } from '@angular/cdk/drag-drop';
 import { DraftVariable, FolderNode, ReportDraft } from '../../core/reports.component.models';
 import { JasperTemplateResponse, ReportValidationResponse } from '../../../../services/report.service';
+import { AppButtonComponent } from '../../../shared/app-button/app-button.component';
 
 @Component({
   selector: 'app-reports-report-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule, DragDropModule],
+  imports: [CommonModule, FormsModule, DragDropModule, AppButtonComponent],
   templateUrl: './reports-report-modal.component.html',
   styleUrls: [
     '../../reports-page/reports.component.css',

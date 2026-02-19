@@ -92,20 +92,16 @@
 
 <div class="toolbar">
   <div class="btns">
-    <button mat-raised-button color="primary" (click)="runPaged()">Executar (Ctrl+Enter)</button>
-    <button mat-stroked-button color="primary" (click)="openScheduleDialog()">
+    <app-button tone="primary" variant="solid" (pressed)="runPaged()">Executar (Ctrl+Enter)</app-button>
+    <app-button tone="neutral" variant="outline" (pressed)="openScheduleDialog()">
       Agendar envio por e-mail
-    </button>
-    <button
-      mat-stroked-button
-      (click)="copyResultsForExcel()"
-      [disabled]="rows.length === 0"
-    >
+    </app-button>
+    <app-button tone="neutral" variant="outline" (pressed)="copyResultsForExcel()" [disabled]="rows.length === 0">
       Exportar Excel
-    </button>
-    <button mat-stroked-button (click)="saveQueryAsSql()">Salvar .sql</button>
-    <button mat-stroked-button (click)="saveAsReport()">Salvar como relatório</button>
-    <button mat-stroked-button (click)="saveCurrentAsSnippet()">Salvar favorito (Ctrl+S)</button>
+    </app-button>
+    <app-button tone="neutral" variant="outline" (pressed)="saveQueryAsSql()">Salvar .sql</app-button>
+    <app-button tone="neutral" variant="outline" (pressed)="saveAsReport()">Salvar como relatório</app-button>
+    <app-button tone="neutral" variant="outline" (pressed)="saveCurrentAsSnippet()">Salvar favorito (Ctrl+S)</app-button>
   </div>
   <span class="meta">
     {{ usingAllMode ? 'modo all' : 'página ' + page }} • {{ rowCount }} linhas • {{ elapsedMs }} ms
@@ -138,13 +134,13 @@
 
 <div class="result-controls" *ngIf="!loading && !error">
   <div class="btns">
-    <button mat-stroked-button color="primary" (click)="runAll()">Executar tudo (/query/all)</button>
-    <button mat-stroked-button *ngIf="!usingAllMode && canGoPrev" (click)="prevPage()">
+    <app-button tone="neutral" variant="outline" (pressed)="runAll()">Executar tudo (/query/all)</app-button>
+    <app-button tone="neutral" variant="outline" *ngIf="!usingAllMode && canGoPrev" (pressed)="prevPage()">
       Página anterior
-    </button>
-    <button mat-stroked-button *ngIf="!usingAllMode && canGoNext" (click)="nextPage()">
+    </app-button>
+    <app-button tone="neutral" variant="outline" *ngIf="!usingAllMode && canGoNext" (pressed)="nextPage()">
       Próxima página
-    </button>
+    </app-button>
     <label class="small size-field" *ngIf="!usingAllMode">
       size
       <input

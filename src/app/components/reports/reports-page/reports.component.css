@@ -98,7 +98,6 @@
 .tree-toggle-all,
 .tree-clear-filter {
   width: 100%;
-  justify-content: center;
 }
 
 .tree-folder + .tree-folder {
@@ -421,102 +420,8 @@
   flex-wrap: wrap;
 }
 
-.btn {
-  min-height: 34px;
-  border-radius: 6px;
-  padding: 0 12px;
-  border: 1px solid transparent;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.btn--sm {
-  min-height: 30px;
-  padding: 0 10px;
-  font-size: 12px;
-}
-
-.btn--show-sidebar {
-  background: #1d4ed8;
-  color: #ffffff;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
-}
-
-.btn--show-sidebar:hover {
-  background: #2563eb;
-}
-
-.btn:disabled {
-  background: #334155 !important;
-  border-color: #475569 !important;
-  color: #94a3b8 !important;
-  cursor: not-allowed;
-  opacity: 0.85;
-}
-
-.btn:disabled .btn-icon {
-  opacity: 0.7;
-}
-
-.btn--icon {
-  min-width: 30px;
-  width: 30px;
-  height: 30px;
-  padding: 0;
-  justify-content: center;
-  border: none !important;
-  box-shadow: none !important;
-}
-
-.btn--primary {
-  background: #4f647a;
-  color: #fff;
-}
-
-.btn--secondary,
-.btn--neutral {
-  background: var(--bg-surface-alt);
-  color: var(--text-primary);
-  border-color: var(--border-subtle);
-}
-
-.btn--edit {
-  background: #1d4ed8;
-  color: #fff;
-  border-color: #2563eb;
-}
-
-.btn--danger {
-  background: #b91c1c;
-  color: #fff;
-  border-color: #dc2626;
-}
-
-.btn--excel {
-  background: #166534;
-  color: #fff;
-  border-color: #22c55e;
-}
-
-.btn--pdf {
-  background: #7f1d1d;
-  color: #fff;
-  border-color: #b91c1c;
-}
-
-.btn--archive {
-  background: color-mix(in srgb, var(--bg-surface-alt) 85%, #6b7280);
-  color: var(--text-primary);
-  border-color: var(--border-subtle);
-}
-
 .folder-plus {
   opacity: 0.9;
-  background: var(--bg-surface-alt);
-  color: var(--text-primary);
 }
 
 .folder-plus:hover {
@@ -528,7 +433,7 @@
   line-height: 1;
 }
 
-.btn .mat-icon.btn-icon {
+.actions .mat-icon.btn-icon {
   width: 16px;
   height: 16px;
   font-size: 16px;
@@ -537,4 +442,32 @@
 
 .btn-icon--pdf {
   color: #fecaca;
+}
+
+:host ::ng-deep app-button.icon-btn .app-btn,
+:host ::ng-deep app-button.folder-plus .app-btn {
+  min-width: 30px;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+}
+
+:host ::ng-deep app-button.show-sidebar-btn .app-btn {
+  background: #1d4ed8;
+  border-color: #3b82f6;
+  color: #ffffff;
+}
+
+:host ::ng-deep app-button.show-sidebar-btn .app-btn:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+:host ::ng-deep app-button.action-excel .app-btn {
+  background: #166534;
+  border-color: #22c55e;
+  color: #fff;
+}
+
+:host ::ng-deep app-button.action-excel .app-btn:hover:not(:disabled) {
+  background: #15803d;
 }

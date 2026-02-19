@@ -2,11 +2,12 @@ import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { FolderNode } from '../../core/reports.component.models';
+import { AppButtonComponent } from '../../../shared/app-button/app-button.component';
 
 @Component({
   selector: 'app-reports-folder-manager-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, AppButtonComponent],
   templateUrl: './reports-folder-manager-modal.component.html',
   styleUrls: [
     '../../reports-page/reports.component.css',

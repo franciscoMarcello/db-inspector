@@ -3,11 +3,12 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { JasperTemplateResponse } from '../../../../services/report.service';
 import { TemplateDraft } from '../../core/reports.component.models';
+import { AppButtonComponent } from '../../../shared/app-button/app-button.component';
 
 @Component({
   selector: 'app-reports-template-manager-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, AppButtonComponent],
   templateUrl: './reports-template-manager-modal.component.html',
   styleUrls: [
     '../../reports-page/reports.component.css',
@@ -34,4 +35,8 @@ export class ReportsTemplateManagerModalComponent {
   @Output() deleteTemplate = new EventEmitter<void>();
   @Output() applyTemplate = new EventEmitter<void>();
   @Output() saveTemplate = new EventEmitter<void>();
+
+  openFilePicker(input: HTMLInputElement): void {
+    input.click();
+  }
 }

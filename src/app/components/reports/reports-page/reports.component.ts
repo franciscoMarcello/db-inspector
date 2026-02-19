@@ -33,6 +33,7 @@ import { ReportsFolderManagerModalComponent } from '../modals/folder-manager-mod
 import { MultiSelectOption, ReportsMultiSelectComponent } from '../controls/multi-select/reports-multi-select.component';
 import { ReportsReportModalComponent } from '../modals/report-modal/reports-report-modal.component';
 import { ReportsTemplateManagerModalComponent } from '../modals/template-manager-modal/reports-template-manager-modal.component';
+import { AppButtonComponent } from '../../shared/app-button/app-button.component';
 import {
   buildArchivePayload,
   buildReportValidationParams,
@@ -78,6 +79,7 @@ import {
     ReportsFolderManagerModalComponent,
     ReportsTemplateManagerModalComponent,
     ReportsMultiSelectComponent,
+    AppButtonComponent,
   ],
   templateUrl: './reports.component.html',
   styleUrls: [

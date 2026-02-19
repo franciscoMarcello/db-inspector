@@ -6,7 +6,7 @@
           <h2>Usuários</h2>
           <p class="muted">Gerencie criação, ativação e permissões de acesso.</p>
         </div>
-        <button type="button" class="btn primary" (click)="openCreateUserModal()">Criar usuário</button>
+        <app-button tone="primary" variant="solid" (pressed)="openCreateUserModal()">Criar usuário</app-button>
       </div>
       <div class="status-row">
         <div class="status error" *ngIf="error">{{ error }}</div>
@@ -17,9 +17,9 @@
     <div class="card card-users">
       <div class="card-head">
         <h3>Lista de usuários</h3>
-        <button type="button" class="btn" (click)="loadAll()" [disabled]="loading">
+        <app-button tone="neutral" variant="outline" (pressed)="loadAll()" [disabled]="loading">
           {{ loading ? 'Atualizando...' : 'Atualizar' }}
-        </button>
+        </app-button>
       </div>
 
       <div class="users-table-wrap">
@@ -54,11 +54,11 @@
               <td>{{ user.updatedAt | date : 'dd/MM/yyyy HH:mm' }}</td>
               <td class="actions-col">
                 <div class="table-actions">
-                  <button type="button" class="btn btn-sm" (click)="openEditUserModal(user)">Editar</button>
-                  <button type="button" class="btn btn-sm" (click)="openPasswordModal(user)">Redefinir senha</button>
-                  <button type="button" class="btn btn-sm" (click)="revokeRefreshTokens(user)">
+                  <app-button size="sm" tone="neutral" variant="outline" (pressed)="openEditUserModal(user)">Editar</app-button>
+                  <app-button size="sm" tone="neutral" variant="outline" (pressed)="openPasswordModal(user)">Redefinir senha</app-button>
+                  <app-button size="sm" tone="neutral" variant="outline" (pressed)="revokeRefreshTokens(user)">
                     Revogar refresh
-                  </button>
+                  </app-button>
                 </div>
               </td>
             </tr>
@@ -70,13 +70,13 @@
     <div class="card card-roles">
       <div class="card-head">
         <h3>Roles</h3>
-        <button type="button" class="btn primary" (click)="startCreateRole()">Nova role</button>
+        <app-button tone="primary" variant="solid" (pressed)="startCreateRole()">Nova role</app-button>
       </div>
 
       <div class="role-editor" *ngIf="roleEditorOpen">
         <div class="role-editor-head">
           <strong>{{ roleEditorMode === 'create' ? 'Criar role' : 'Editar role' }}</strong>
-          <button type="button" class="btn" (click)="cancelRoleEditor()">Cancelar</button>
+          <app-button tone="neutral" variant="outline" (pressed)="cancelRoleEditor()">Cancelar</app-button>
         </div>
 
         <label class="field">
@@ -98,8 +98,8 @@
               [ngModelOptions]="{ standalone: true }"
               placeholder="Filtrar permissões"
             />
-            <button type="button" class="btn btn-sm" (click)="selectAllVisibleRolePermissions()">Marcar visíveis</button>
-            <button type="button" class="btn btn-sm" (click)="clearAllRolePermissions()">Limpar</button>
+            <app-button size="sm" tone="neutral" variant="outline" (pressed)="selectAllVisibleRolePermissions()">Marcar visíveis</app-button>
+            <app-button size="sm" tone="neutral" variant="outline" (pressed)="clearAllRolePermissions()">Limpar</app-button>
           </div>
           <small class="roles-picker-meta">
             {{ roleForm.permissions.size }} selecionada(s) de {{ permissionsCatalog.length }}
@@ -123,9 +123,9 @@
           </div>
         </div>
 
-        <button type="button" class="btn primary" [disabled]="roleSaving" (click)="saveRole()">
+        <app-button tone="primary" variant="solid" [disabled]="roleSaving" (pressed)="saveRole()">
           {{ roleSaving ? 'Salvando...' : 'Salvar role' }}
-        </button>
+        </app-button>
       </div>
 
       <div class="roles-def-list">
@@ -133,15 +133,16 @@
           <div class="role-def-head">
             <strong>{{ role.name }}</strong>
             <div class="role-def-actions">
-              <button type="button" class="btn btn-sm" (click)="startEditRole(role.name)">Editar</button>
-              <button
-                type="button"
-                class="btn btn-sm danger"
+              <app-button size="sm" tone="neutral" variant="outline" (pressed)="startEditRole(role.name)">Editar</app-button>
+              <app-button
+                size="sm"
+                tone="danger"
+                variant="outline"
                 [disabled]="isSystemRole(role.name)"
-                (click)="deleteRole(role.name)"
+                (pressed)="deleteRole(role.name)"
               >
                 Excluir
-              </button>
+              </app-button>
             </div>
           </div>
           <div class="perm-list">
@@ -160,19 +161,19 @@
     <div class="card card-acl">
       <div class="card-head">
         <h3>ACL de pastas e relatórios</h3>
-        <button type="button" class="btn" (click)="refreshAclRules()" [disabled]="aclLoading">
+        <app-button tone="neutral" variant="outline" (pressed)="refreshAclRules()" [disabled]="aclLoading">
           {{ aclLoading ? 'Carregando...' : 'Atualizar ACL' }}
-        </button>
+        </app-button>
       </div>
 
       <div class="acl-subject-view">
         <div class="card-head">
           <strong>Visualizar ACL por usuário/role</strong>
           <div class="table-actions">
-            <button type="button" class="btn btn-sm" (click)="clearAclSubjectView()">Limpar</button>
-            <button type="button" class="btn btn-sm" (click)="loadAclSubjectView()" [disabled]="aclSubjectViewLoading">
+            <app-button size="sm" tone="neutral" variant="outline" (pressed)="clearAclSubjectView()">Limpar</app-button>
+            <app-button size="sm" tone="neutral" variant="outline" (pressed)="loadAclSubjectView()" [disabled]="aclSubjectViewLoading">
               {{ aclSubjectViewLoading ? 'Carregando...' : 'Carregar visão' }}
-            </button>
+            </app-button>
           </div>
         </div>
 
@@ -446,9 +447,9 @@
           </label>
         </div>
 
-        <button type="button" class="btn primary" (click)="saveAclRule()" [disabled]="aclSaving || !aclTargetId">
+        <app-button tone="primary" variant="solid" (pressed)="saveAclRule()" [disabled]="aclSaving || !aclTargetId">
           {{ aclSaving ? 'Salvando...' : 'Salvar regra ACL' }}
-        </button>
+        </app-button>
       </div>
 
       <div class="acl-list">
@@ -467,9 +468,9 @@
             <span class="perm-chip">edit: {{ rule.canEdit ? 'sim' : 'não' }}</span>
             <span class="perm-chip">delete: {{ rule.canDelete ? 'sim' : 'não' }}</span>
           </div>
-          <button type="button" class="btn btn-sm danger" (click)="removeAclRule(rule)">
+          <app-button size="sm" tone="danger" variant="outline" (pressed)="removeAclRule(rule)">
             Remover
-          </button>
+          </app-button>
         </div>
       </div>
     </div>
@@ -479,7 +480,7 @@
   <div class="modal-card" *ngIf="createUserModalOpen">
     <div class="card-head">
       <h3>Criar usuário</h3>
-      <button type="button" class="btn" (click)="closeCreateUserModal()">Fechar</button>
+      <app-button tone="neutral" variant="outline" (pressed)="closeCreateUserModal()">Fechar</app-button>
     </div>
 
     <div class="create-form">
@@ -508,9 +509,9 @@
         ></app-reports-multi-select>
       </div>
 
-      <button type="button" class="btn primary" (click)="createUser()" [disabled]="saving">
+      <app-button tone="primary" variant="solid" (pressed)="createUser()" [disabled]="saving">
         {{ saving ? 'Criando...' : 'Criar usuário' }}
-      </button>
+      </app-button>
     </div>
   </div>
 
@@ -518,7 +519,7 @@
   <div class="modal-card" *ngIf="editUserModalOpen && editUserDraft">
     <div class="card-head">
       <h3>Editar usuário</h3>
-      <button type="button" class="btn" (click)="closeEditUserModal()">Fechar</button>
+      <app-button tone="neutral" variant="outline" (pressed)="closeEditUserModal()">Fechar</app-button>
     </div>
 
     <div class="create-form">
@@ -542,9 +543,9 @@
         ></app-reports-multi-select>
       </div>
 
-      <button type="button" class="btn primary" (click)="saveEditUser()" [disabled]="editUserSaving">
+      <app-button tone="primary" variant="solid" (pressed)="saveEditUser()" [disabled]="editUserSaving">
         {{ editUserSaving ? 'Salvando...' : 'Salvar alterações' }}
-      </button>
+      </app-button>
     </div>
   </div>
 
@@ -552,7 +553,7 @@
   <div class="modal-card modal-card--sm" *ngIf="passwordModalOpen && passwordModalUser">
     <div class="card-head">
       <h3>Redefinir senha</h3>
-      <button type="button" class="btn" (click)="closePasswordModal()">Fechar</button>
+      <app-button tone="neutral" variant="outline" (pressed)="closePasswordModal()">Fechar</app-button>
     </div>
     <div class="create-form">
       <div class="meta">{{ passwordModalUser.email }}</div>
@@ -566,9 +567,9 @@
           autocomplete="new-password"
         />
       </label>
-      <button type="button" class="btn primary" (click)="submitPasswordReset()" [disabled]="passwordModalSaving">
+      <app-button tone="primary" variant="solid" (pressed)="submitPasswordReset()" [disabled]="passwordModalSaving">
         {{ passwordModalSaving ? 'Salvando...' : 'Redefinir senha' }}
-      </button>
+      </app-button>
     </div>
   </div>
 </section>

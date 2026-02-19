@@ -1,7 +1,6 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatCardModule } from '@angular/material/card';
 import { MatTableModule } from '@angular/material/table';
@@ -21,6 +20,7 @@ import {
 } from '../email-schedules/email-schedule-dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { createXlsxBlob } from '../../utils/xlsx-export';
+import { AppButtonComponent } from '../shared/app-button/app-button.component';
 
 const STORAGE_KEY = 'dbi.query.state';
 const SNIPPETS_COLLAPSED_KEY = 'dbi.query.snippets_collapsed';
@@ -33,7 +33,6 @@ const REPORT_DRAFT_SQL_KEY = 'dbi.reports.pending_sql';
   imports: [
     CommonModule,
     FormsModule,
-    MatButtonModule,
     MatProgressBarModule,
     MatCardModule,
     MatTableModule,
@@ -43,6 +42,7 @@ const REPORT_DRAFT_SQL_KEY = 'dbi.reports.pending_sql';
     MatInputModule,
     MatDialogModule,
     MatIconModule,
+    AppButtonComponent,
   ],
   templateUrl: './query-runner.html',
   styleUrls: ['./query-runner.css'],

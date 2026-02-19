@@ -2,15 +2,15 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DbInspectorService } from '../../services/db-inspector.service';
 import { TableListComponent } from '../table-list/table-list';
-import { MatButtonModule } from '@angular/material/button';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { AppButtonComponent } from '../shared/app-button/app-button.component';
 
 const SCHEMA_STATE_KEY = 'dbi.schema.state.v1';
 
 @Component({
   selector: 'app-schema-list',
   standalone: true,
-  imports: [CommonModule, TableListComponent, MatButtonModule, MatProgressBarModule],
+  imports: [CommonModule, TableListComponent, MatProgressBarModule, AppButtonComponent],
   templateUrl: './schema-list.html',
   styleUrls: ['./schema-list.css'],
 })

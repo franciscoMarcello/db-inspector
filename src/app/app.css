@@ -73,16 +73,23 @@
 }
 
 .side-logout-btn {
-  justify-content: flex-start;
-  color: #f87171;
-  --mdc-text-button-label-text-color: #f87171;
+  width: 100%;
 }
 
-.side-logout-btn .nav-icon {
+:host ::ng-deep app-button.side-logout-btn .app-btn {
+  justify-content: flex-start;
+  color: #f87171;
+}
+
+:host ::ng-deep app-button.side-logout-btn .app-btn__icon {
   color: #f87171;
 }
 
 .nav-btn {
+  width: 100%;
+}
+
+:host ::ng-deep app-button.nav-btn .app-btn {
   text-transform: none;
   border-radius: 10px;
   justify-content: flex-start;
@@ -90,31 +97,29 @@
   min-height: 38px;
   padding: 0 12px;
   color: var(--text-primary);
-  --mdc-text-button-label-text-color: var(--text-primary);
 }
 
-.nav-icon {
+:host ::ng-deep app-button.nav-btn .app-btn__icon {
   font-size: 18px;
   width: 18px;
   height: 18px;
-  margin-right: 8px;
 }
 
-.nav-btn.active {
+:host ::ng-deep app-button.nav-btn.active .app-btn {
   background: var(--chip-bg-active);
+  border-color: var(--chip-bg-active);
   color: #ffffff;
-  --mdc-text-button-label-text-color: #ffffff;
 }
 
-.nav-btn:not(.active):hover {
+:host ::ng-deep app-button.nav-btn:not(.active) .app-btn:hover:not(:disabled) {
   background: rgba(148, 163, 184, 0.15);
 }
 
-.dark-theme .nav-btn:not(.active) {
+:host-context(.dark-theme) ::ng-deep app-button.nav-btn:not(.active) .app-btn {
   color: var(--text-primary);
 }
 
-.dark-theme .nav-btn:not(.active) .mdc-button__label {
+:host-context(.dark-theme) ::ng-deep app-button.nav-btn:not(.active) .app-btn__label {
   color: var(--text-primary);
 }
 
@@ -123,27 +128,13 @@
 }
 
 .collapse-btn {
-  border: 1px solid var(--border-subtle);
-  border-radius: 10px;
   width: 36px;
   height: 36px;
 }
 
 .theme-toggle {
-  border-radius: 999px;
-  border: 1px solid var(--border-subtle);
-  background: transparent;
-}
-
-.theme-toggle mat-icon {
-  color: var(--text-primary);
-  font-size: 20px;
-  height: 20px;
-  width: 20px;
-}
-
-.theme-toggle:hover {
-  background: rgba(148, 163, 184, 0.15);
+  width: 36px;
+  height: 36px;
 }
 
 .main-area {
@@ -189,7 +180,19 @@
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  --mdc-icon-button-state-layer-size: 36px;
+}
+
+:host ::ng-deep app-button.icon-only .app-btn {
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  min-height: 36px;
+  padding: 0;
+  border-radius: 10px;
+}
+
+:host ::ng-deep app-button.theme-toggle.icon-only .app-btn {
+  border-radius: 999px;
 }
 
 .top-lite-actions {
@@ -245,7 +248,7 @@
 .app-shell.side-collapsed .title,
 .app-shell.side-collapsed .user-welcome,
 .app-shell.side-collapsed .user-email,
-.app-shell.side-collapsed .nav-label {
+.app-shell.side-collapsed ::ng-deep app-button.nav-btn .app-btn__label {
   display: none;
 }
 
@@ -259,10 +262,6 @@
   overflow: hidden;
 }
 
-.app-shell.side-collapsed .side-logout-btn .nav-icon {
-  margin-right: 0;
-}
-
 .app-shell.side-collapsed .side-menu {
   padding: 8px 6px;
 }
@@ -270,10 +269,13 @@
 .app-shell.side-collapsed .nav-btn {
   width: 100%;
   min-width: 0;
+}
+
+.app-shell.side-collapsed ::ng-deep app-button.nav-btn .app-btn {
   justify-content: center;
   padding: 0;
 }
 
-.app-shell.side-collapsed .nav-icon {
+.app-shell.side-collapsed ::ng-deep app-button.nav-btn .app-btn__icon {
   margin-right: 0;
 }

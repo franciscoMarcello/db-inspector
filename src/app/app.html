@@ -9,58 +9,53 @@
           Bem-vindo, {{ userDisplayName || 'Usuário' }}
         </div>
         <div class="user-email" [title]="userEmail">{{ userEmail }}</div>
-        <button mat-button class="nav-btn side-logout-btn" (click)="logout()">
-          <mat-icon class="nav-icon">logout</mat-icon>
-          <span class="nav-label">Sair</span>
-        </button>
+        <app-button class="nav-btn side-logout-btn" tone="neutral" variant="ghost" icon="logout" (pressed)="logout()">
+          Sair
+        </app-button>
       </div>
 
       <nav class="side-menu">
         @if (canViewSchemas) {
-          <button mat-button class="nav-btn" routerLink="/schemas" routerLinkActive="active">
-            <mat-icon class="nav-icon">schema</mat-icon>
-            <span class="nav-label">Esquemas</span>
-          </button>
+          <app-button class="nav-btn" [class.active]="isRoute('/schemas')" tone="neutral" variant="ghost" icon="schema" (pressed)="go('/schemas')">
+            Esquemas
+          </app-button>
         }
         @if (canExecuteSql) {
-          <button mat-button class="nav-btn" routerLink="/query" routerLinkActive="active">
-            <mat-icon class="nav-icon">terminal</mat-icon>
-            <span class="nav-label">Executar SQL</span>
-          </button>
+          <app-button class="nav-btn" [class.active]="isRoute('/query')" tone="neutral" variant="ghost" icon="terminal" (pressed)="go('/query')">
+            Executar SQL
+          </app-button>
         }
         @if (canViewSchedules) {
-          <button mat-button class="nav-btn" routerLink="/schedules" routerLinkActive="active">
-            <mat-icon class="nav-icon">event</mat-icon>
-            <span class="nav-label">Agendamentos</span>
-          </button>
+          <app-button class="nav-btn" [class.active]="isRoute('/schedules')" tone="neutral" variant="ghost" icon="event" (pressed)="go('/schedules')">
+            Agendamentos
+          </app-button>
         }
-        <button
-          mat-button
+        <app-button
           class="nav-btn"
-          routerLink="/reports"
-          routerLinkActive="active"
-          [routerLinkActiveOptions]="{ exact: true }"
+          [class.active]="isRoute('/reports', true)"
+          tone="neutral"
+          variant="ghost"
+          icon="description"
+          (pressed)="go('/reports')"
         >
-          <mat-icon class="nav-icon">description</mat-icon>
-          <span class="nav-label">Relatorios</span>
-        </button>
+          Relatorios
+        </app-button>
         @if (canManageReports) {
-          <button
-            mat-button
+          <app-button
             class="nav-btn"
-            routerLink="/reports/manage"
-            routerLinkActive="active"
-            [routerLinkActiveOptions]="{ exact: true }"
+            [class.active]="isRoute('/reports/manage', true)"
+            tone="neutral"
+            variant="ghost"
+            icon="settings"
+            (pressed)="go('/reports/manage')"
           >
-            <mat-icon class="nav-icon">settings</mat-icon>
-            <span class="nav-label">Gerenciar Relatorios</span>
-          </button>
+            Gerenciar Relatorios
+          </app-button>
         }
         @if (isAdmin) {
-          <button mat-button class="nav-btn" routerLink="/admin/users" routerLinkActive="active">
-            <mat-icon class="nav-icon">group</mat-icon>
-            <span class="nav-label">Usuários</span>
-          </button>
+          <app-button class="nav-btn" [class.active]="isRoute('/admin/users')" tone="neutral" variant="ghost" icon="group" (pressed)="go('/admin/users')">
+            Usuários
+          </app-button>
         }
       </nav>
     </aside>
@@ -70,25 +65,36 @@
     <div class="top-lite">
       @if (isLoggedIn) {
         <div class="top-lite-left">
-          <button mat-icon-button class="collapse-btn collapse-btn-main" (click)="toggleSideMenu()" aria-label="Mostrar menu">
-            <mat-icon>{{ sideMenuCollapsed ? 'menu' : 'menu_open' }}</mat-icon>
-          </button>
+          <app-button
+            class="collapse-btn collapse-btn-main icon-only"
+            tone="neutral"
+            variant="outline"
+            [icon]="sideMenuCollapsed ? 'menu' : 'menu_open'"
+            aria-label="Mostrar menu"
+            (pressed)="toggleSideMenu()"
+          ></app-button>
           <div class="top-title">AgroReport</div>
         </div>
         <div class="top-lite-actions">
-          <button mat-icon-button class="theme-toggle" (click)="toggleTheme()" aria-label="Alternar tema">
-            <mat-icon>
-              {{ theme === 'dark' ? 'dark_mode' : 'light_mode' }}
-            </mat-icon>
-          </button>
+          <app-button
+            class="theme-toggle icon-only"
+            tone="neutral"
+            variant="outline"
+            [icon]="theme === 'dark' ? 'dark_mode' : 'light_mode'"
+            aria-label="Alternar tema"
+            (pressed)="toggleTheme()"
+          ></app-button>
         </div>
       } @else {
         <div class="title">AgroReport</div>
-        <button mat-icon-button class="theme-toggle" (click)="toggleTheme()" aria-label="Alternar tema">
-          <mat-icon>
-            {{ theme === 'dark' ? 'dark_mode' : 'light_mode' }}
-          </mat-icon>
-        </button>
+        <app-button
+          class="theme-toggle icon-only"
+          tone="neutral"
+          variant="outline"
+          [icon]="theme === 'dark' ? 'dark_mode' : 'light_mode'"
+          aria-label="Alternar tema"
+          (pressed)="toggleTheme()"
+        ></app-button>
       }
     </div>
 

@@ -22,9 +22,9 @@
 
       <p class="error" *ngIf="error">{{ error }}</p>
 
-      <button mat-raised-button class="full login-submit" type="submit" [disabled]="loading">
+      <app-button class="full login-submit" type="submit" tone="primary" variant="solid" [fullWidth]="true" [disabled]="loading">
         {{ loading ? 'Entrando...' : 'Entrar' }}
-      </button>
+      </app-button>
     </form>
   </mat-card>
 </div>

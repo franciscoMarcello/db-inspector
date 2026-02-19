@@ -8,8 +8,8 @@
       </p>
     </div>
     <div class="hero-actions">
-      <button mat-stroked-button color="primary" (click)="sendSimpleTest()">Enviar teste</button>
-      <button mat-raised-button color="primary" (click)="startNew()">Novo agendamento</button>
+      <app-button tone="neutral" variant="outline" (pressed)="sendSimpleTest()">Enviar teste</app-button>
+      <app-button tone="primary" variant="solid" (pressed)="startNew()">Novo agendamento</app-button>
     </div>
   </header>
 
@@ -29,7 +29,7 @@
     <div>
       <h4>Nenhum agendamento</h4>
       <p>Crie o primeiro para começar a enviar consultas automaticamente.</p>
-      <button mat-stroked-button color="primary" (click)="startNew()">Criar agora</button>
+      <app-button tone="neutral" variant="outline" (pressed)="startNew()">Criar agora</app-button>
     </div>
   </div>
 
@@ -52,12 +52,12 @@
       </div>
 
       <div class="card__actions">
-        <button mat-raised-button color="primary" (click)="sendNow(s)">Enviar agora</button>
-        <button mat-stroked-button (click)="edit(s)">Editar</button>
-        <button mat-stroked-button (click)="toggleActive(s)">
+        <app-button tone="primary" variant="solid" (pressed)="sendNow(s)">Enviar agora</app-button>
+        <app-button tone="neutral" variant="outline" (pressed)="edit(s)">Editar</app-button>
+        <app-button tone="neutral" variant="outline" (pressed)="toggleActive(s)">
           {{ s.active ? 'Pausar' : 'Ativar' }}
-        </button>
-        <button mat-button color="warn" (click)="remove(s)">Remover</button>
+        </app-button>
+        <app-button tone="danger" variant="outline" (pressed)="remove(s)">Remover</app-button>
       </div>
     </article>
   </div>

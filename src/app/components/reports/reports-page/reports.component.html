@@ -3,20 +3,20 @@
     <div class="tree-header">
       <div class="tree-header__row">
         <h3>Visualizador de Relatorios</h3>
-        <button type="button" class="btn btn--neutral btn--icon" (click)="toggleSidebar()">
+        <app-button type="button" class="icon-btn" tone="neutral" variant="outline" size="sm" (pressed)="toggleSidebar()">
           ◀
-        </button>
+        </app-button>
       </div>
       <p>{{ manageMode ? 'Gestão de pastas e consultas' : 'Pastas e consultas' }}</p>
     </div>
 
     <div class="folder-create" *ngIf="manageMode">
-      <button type="button" class="btn btn--primary" (click)="openFolderManager()">
+      <app-button type="button" tone="primary" variant="solid" [fullWidth]="true" (pressed)="openFolderManager()">
         Gerenciar pastas
-      </button>
-      <button type="button" class="btn btn--neutral" (click)="openTemplateManager()">
+      </app-button>
+      <app-button type="button" tone="neutral" variant="outline" [fullWidth]="true" (pressed)="openTemplateManager()">
         Gerenciar templates PDF
-      </button>
+      </app-button>
     </div>
 
     <div class="tree-filter">
@@ -26,17 +26,27 @@
         [ngModelOptions]="{ standalone: true }"
         placeholder="Filtrar relatório ou pasta"
       />
-      <button
+      <app-button
         *ngIf="treeFilter"
         type="button"
-        class="btn btn--neutral tree-clear-filter"
-        (click)="clearTreeFilter()"
+        class="tree-clear-filter"
+        tone="neutral"
+        variant="outline"
+        [fullWidth]="true"
+        (pressed)="clearTreeFilter()"
       >
         Limpar filtro
-      </button>
-      <button type="button" class="btn btn--secondary tree-toggle-all" (click)="toggleAllFoldersExpanded()">
+      </app-button>
+      <app-button
+        type="button"
+        class="tree-toggle-all"
+        tone="neutral"
+        variant="outline"
+        [fullWidth]="true"
+        (pressed)="toggleAllFoldersExpanded()"
+      >
         {{ allFilteredFoldersExpanded ? 'Recolher tudo' : 'Expandir tudo' }}
-      </button>
+      </app-button>
     </div>
 
     <div class="tree-list">
@@ -56,16 +66,19 @@
             <span class="archived-badge" *ngIf="folder.archived">Arquivado</span>
             <span class="folder-count">{{ reportCountByFolder(folder) }}</span>
           </button>
-          <button
+          <app-button
             *ngIf="manageMode"
             type="button"
-            class="btn btn--neutral btn--icon folder-plus"
-            (click)="openCreateReportForFolder(folder, $event)"
+            class="folder-plus"
+            tone="neutral"
+            variant="outline"
+            size="sm"
+            (pressed)="openCreateReportForFolder(folder, $event)"
             title="Novo relatório nesta pasta"
             aria-label="Novo relatório nesta pasta"
           >
             ＋
-          </button>
+          </app-button>
         </div>
 
         <div class="tree-reports" *ngIf="folder.expanded || hasTreeFilter">
@@ -93,14 +106,17 @@
         <div class="title-row">
           <h2>{{ runResult?.name || selectedReport?.name || 'Relatorio' }}</h2>
           <div class="title-actions">
-            <button
+            <app-button
               *ngIf="sidebarCollapsed"
               type="button"
-              class="btn btn--show-sidebar btn--sm"
-              (click)="toggleSidebar()"
+              class="show-sidebar-btn"
+              tone="neutral"
+              variant="outline"
+              size="sm"
+              (pressed)="toggleSidebar()"
             >
               ▶ Mostrar pastas
-            </button>
+            </app-button>
           </div>
         </div>
         <p>{{ selectedReport?.description || 'Selecione um relatorio na arvore.' }}</p>
@@ -231,92 +247,106 @@
       <p class="params-error" *ngIf="paramsError">{{ paramsError }}</p>
 
       <div class="actions" *ngIf="manageMode">
-        <button type="button" class="btn btn--primary" (click)="applyFilters()">
+        <app-button type="button" tone="primary" variant="solid" (pressed)="applyFilters()">
           <span class="btn-icon">▶</span> Executar
-        </button>
-        <button type="button" class="btn btn--secondary" (click)="clearAllFilters()">
+        </app-button>
+        <app-button type="button" tone="neutral" variant="outline" (pressed)="clearAllFilters()">
           Limpar filtros
-        </button>
-        <button
+        </app-button>
+        <app-button
           *ngIf="canWriteReports"
           type="button"
-          class="btn btn--neutral"
-          (click)="openCreateReportModal()"
+          tone="neutral"
+          variant="outline"
+          (pressed)="openCreateReportModal()"
         >
           <span class="btn-icon">＋</span> Novo relatorio
-        </button>
-        <button
+        </app-button>
+        <app-button
           *ngIf="canWriteReports"
           type="button"
-          class="btn btn--edit"
-          (click)="openEditReportModal()"
+          tone="primary"
+          variant="solid"
+          (pressed)="openEditReportModal()"
           [disabled]="!selectedReport"
         >
           <span class="btn-icon">✎</span> Editar
-        </button>
-        <button
+        </app-button>
+        <app-button
           *ngIf="canWriteReports"
           type="button"
-          class="btn btn--archive"
-          (click)="archiveSelectedReport()"
+          class="action-archive"
+          tone="neutral"
+          variant="outline"
+          (pressed)="archiveSelectedReport()"
           [disabled]="!selectedReport || !!selectedReport.archived"
         >
           <span class="btn-icon">🗂</span> Arquivar
-        </button>
-        <button
+        </app-button>
+        <app-button
           *ngIf="canWriteReports"
           type="button"
-          class="btn btn--neutral"
-          (click)="unarchiveSelectedReport()"
+          class="action-unarchive"
+          tone="neutral"
+          variant="outline"
+          (pressed)="unarchiveSelectedReport()"
           [disabled]="!selectedReport || !selectedReport.archived"
         >
           <span class="btn-icon">↺</span> Desarquivar
-        </button>
-        <button
+        </app-button>
+        <app-button
           type="button"
-          class="btn btn--excel"
-          (click)="exportExcel()"
+          class="action-excel"
+          tone="neutral"
+          variant="solid"
+          (pressed)="exportExcel()"
           [disabled]="!hasResultRows"
         >
           <span class="btn-icon">⤓</span> Exportar Excel
-        </button>
-        <button
+        </app-button>
+        <app-button
           *ngIf="canExportPdf"
           type="button"
-          class="btn btn--pdf"
-          (click)="exportPdf()"
+          class="action-pdf"
+          tone="danger"
+          variant="outline"
+          (pressed)="exportPdf()"
           [disabled]="loadingPdf || !hasRequiredParamsForRun"
         >
           <mat-icon class="btn-icon btn-icon--pdf" aria-hidden="true">picture_as_pdf</mat-icon>
           {{ loadingPdf ? 'Gerando PDF...' : 'Exportar PDF' }}
-        </button>
+        </app-button>
       </div>
 
       <div class="actions" *ngIf="!manageMode">
-        <button type="button" class="btn btn--primary" (click)="applyFilters()">
+        <app-button type="button" tone="primary" variant="solid" (pressed)="applyFilters()">
           <span class="btn-icon">▶</span> Executar
-        </button>
-        <button type="button" class="btn btn--secondary" (click)="clearAllFilters()">
+        </app-button>
+        <app-button type="button" tone="neutral" variant="outline" (pressed)="clearAllFilters()">
           Limpar filtros
-        </button>
-        <button
+        </app-button>
+        <app-button
           type="button"
-          class="btn btn--excel"
-          (click)="exportExcel()"
+          class="action-excel"
+          tone="neutral"
+          variant="solid"
+          (pressed)="exportExcel()"
           [disabled]="!hasResultRows"
         >
           <span class="btn-icon">⤓</span> Exportar Excel
-        </button>
-        <button
+        </app-button>
+        <app-button
           *ngIf="canExportPdf"
           type="button"
-          class="btn btn--pdf"
-          (click)="exportPdf()"
+          class="action-pdf"
+          tone="danger"
+          variant="outline"
+          (pressed)="exportPdf()"
           [disabled]="loadingPdf || !hasRequiredParamsForRun"
         >
           <mat-icon class="btn-icon btn-icon--pdf" aria-hidden="true">picture_as_pdf</mat-icon>
           {{ loadingPdf ? 'Gerando PDF...' : 'Exportar PDF' }}
-        </button>
+        </app-button>
       </div>
     </section>
 

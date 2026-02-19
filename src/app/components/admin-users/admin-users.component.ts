@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Observable, forkJoin, of } from 'rxjs';
 import { MultiSelectOption, ReportsMultiSelectComponent } from '../reports/controls/multi-select/reports-multi-select.component';
+import { AppButtonComponent } from '../shared/app-button/app-button.component';
 import {
   AdminRole,
   AdminUser,
@@ -21,7 +22,7 @@ import {
 @Component({
   selector: 'app-admin-users',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReportsMultiSelectComponent],
+  imports: [CommonModule, FormsModule, ReportsMultiSelectComponent, AppButtonComponent],
   templateUrl: './admin-users.component.html',
   styleUrls: ['./admin-users.component.css'],
 })
