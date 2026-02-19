@@ -21,6 +21,7 @@ export class App {
   private router = inject(Router);
   appVersion = packageJson.version;
   sideMenuCollapsed = localStorage.getItem('layout.side_menu_collapsed') === 'true';
+  adminMenuExpanded = localStorage.getItem('layout.admin_menu_expanded') !== 'false';
 
   get isLoggedIn() {
     return this.auth.hasSession();
@@ -98,6 +99,11 @@ export class App {
   toggleSideMenu() {
     this.sideMenuCollapsed = !this.sideMenuCollapsed;
     localStorage.setItem('layout.side_menu_collapsed', String(this.sideMenuCollapsed));
+  }
+
+  toggleAdminMenu() {
+    this.adminMenuExpanded = !this.adminMenuExpanded;
+    localStorage.setItem('layout.admin_menu_expanded', String(this.adminMenuExpanded));
   }
 
   go(path: string): void {

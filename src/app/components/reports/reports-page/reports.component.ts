@@ -578,7 +578,7 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
         this.selectedFolderId = null;
         this.selectedReportId = null;
         this.loadingList = false;
-        this.statusMessage = this.resolveRequestError(err, 'Falha ao carregar relatorios/pastas.');
+        this.statusMessage = this.resolveAclAwareError(err, 'Falha ao carregar relatorios/pastas.');
       },
     });
   }
@@ -605,7 +605,7 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
       error: (err) => {
         this.runResult = null;
         this.loadingRun = false;
-        this.statusMessage = this.resolveRequestError(err, 'Falha ao executar relatorio.');
+        this.statusMessage = this.resolveAclAwareError(err, 'Falha ao executar relatorio.');
       },
     });
   }
@@ -920,6 +920,14 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
 
   resolveRequestError(error: unknown, fallback: string): string {
     return resolveRequestErrorMessage(error, fallback, this.manageMode);
+  }
+
+  private resolveAclAwareError(error: unknown, fallback: string): string {
+    const status = Number((error as any)?.status ?? 0);
+    if (status === 403) {
+      return 'Acesso negado. Se o ACL padrão deny estiver ativo, solicite ao administrador a liberação de pasta/relatório para seu usuário ou role.';
+    }
+    return this.resolveRequestError(error, fallback);
   }
 
   private consumePendingSql(): string | null {

@@ -53,9 +53,43 @@
           </app-button>
         }
         @if (isAdmin) {
-          <app-button class="nav-btn" [class.active]="isRoute('/admin/users')" tone="neutral" variant="ghost" icon="group" (pressed)="go('/admin/users')">
-            Usuários
-          </app-button>
+          <div class="nav-group">
+            <app-button
+              class="nav-btn nav-group-toggle"
+              [class.active]="isRoute('/admin/users') || isRoute('/admin/permissions')"
+              tone="neutral"
+              variant="ghost"
+              icon="group"
+              (pressed)="toggleAdminMenu()"
+            >
+              Gerenciar usuários {{ adminMenuExpanded ? '▾' : '▸' }}
+            </app-button>
+
+            @if (adminMenuExpanded) {
+              <div class="nav-group-children">
+                <app-button
+                  class="nav-btn nav-btn--child"
+                  [class.active]="isRoute('/admin/users', true)"
+                  tone="neutral"
+                  variant="ghost"
+                  icon="person"
+                  (pressed)="go('/admin/users')"
+                >
+                  Usuários
+                </app-button>
+                <app-button
+                  class="nav-btn nav-btn--child"
+                  [class.active]="isRoute('/admin/permissions', true)"
+                  tone="neutral"
+                  variant="ghost"
+                  icon="shield"
+                  (pressed)="go('/admin/permissions')"
+                >
+                  Permissões
+                </app-button>
+              </div>
+            }
+          </div>
         }
       </nav>
     </aside>

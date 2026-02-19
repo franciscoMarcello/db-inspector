@@ -2,6 +2,7 @@ import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Observable, forkJoin, of } from 'rxjs';
+import { ActivatedRoute } from '@angular/router';
 import { MultiSelectOption, ReportsMultiSelectComponent } from '../reports/controls/multi-select/reports-multi-select.component';
 import { AppButtonComponent } from '../shared/app-button/app-button.component';
 import {
@@ -29,6 +30,7 @@ import {
 export class AdminUsersComponent implements OnInit {
   private api = inject(AdminUserService);
   private reportApi = inject(ReportService);
+  private route = inject(ActivatedRoute);
 
   loading = false;
   saving = false;
@@ -61,6 +63,7 @@ export class AdminUsersComponent implements OnInit {
   passwordModalSaving = false;
   passwordModalValue = '';
   passwordModalUser: AdminUser | null = null;
+  adminSection: 'USERS' | 'PERMISSIONS' = 'USERS';
   roleForm = {
     originalName: '',
     name: '',
@@ -115,6 +118,10 @@ export class AdminUsersComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.route.data.subscribe((data) => {
+      const section = String(data?.['adminSection'] || 'USERS').toUpperCase();
+      this.adminSection = section === 'PERMISSIONS' ? 'PERMISSIONS' : 'USERS';
+    });
     this.loadAll();
   }
 

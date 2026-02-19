@@ -3,10 +3,16 @@
     <div class="card card-header">
       <div class="card-head">
         <div>
-          <h2>Usuários</h2>
-          <p class="muted">Gerencie criação, ativação e permissões de acesso.</p>
+          <h2>{{ adminSection === 'USERS' ? 'Usuários' : 'Permissões' }}</h2>
+          <p class="muted">
+            {{ adminSection === 'USERS'
+              ? 'Gerencie criação, ativação e permissões de acesso.'
+              : 'Gerencie roles e regras ACL de pastas e relatórios.' }}
+          </p>
         </div>
-        <app-button tone="primary" variant="solid" (pressed)="openCreateUserModal()">Criar usuário</app-button>
+        <app-button *ngIf="adminSection === 'USERS'" tone="primary" variant="solid" (pressed)="openCreateUserModal()">
+          Criar usuário
+        </app-button>
       </div>
       <div class="status-row">
         <div class="status error" *ngIf="error && !anyModalOpen">{{ error }}</div>
@@ -14,7 +20,7 @@
       </div>
     </div>
 
-    <div class="card card-users">
+    <div class="card card-users" *ngIf="adminSection === 'USERS'">
       <div class="card-head">
         <h3>Lista de usuários</h3>
         <app-button tone="neutral" variant="outline" (pressed)="loadAll()" [disabled]="loading">
@@ -71,7 +77,7 @@
       </div>
     </div>
 
-    <div class="card card-roles">
+    <div class="card card-roles" *ngIf="adminSection === 'PERMISSIONS'">
       <div class="card-head">
         <h3>Roles</h3>
         <app-button tone="primary" variant="solid" (pressed)="startCreateRole()">Nova role</app-button>
@@ -162,12 +168,19 @@
       </div>
     </div>
 
-    <div class="card card-acl">
+    <div class="card card-acl" *ngIf="adminSection === 'PERMISSIONS'">
       <div class="card-head">
         <h3>ACL de pastas e relatórios</h3>
         <app-button tone="neutral" variant="outline" (pressed)="refreshAclRules()" [disabled]="aclLoading">
           {{ aclLoading ? 'Carregando...' : 'Atualizar ACL' }}
         </app-button>
+      </div>
+      <div class="acl-default-deny-note">
+        <strong>Fluxo para ACL default deny</strong>
+        <span>
+          Se o backend estiver com <code>acl-default-deny=true</code>, crie as regras ACL para usuário/role antes de liberar acesso às
+          pastas e relatórios.
+        </span>
       </div>
 
       <div class="acl-subject-view">

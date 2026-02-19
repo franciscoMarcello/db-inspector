@@ -89,6 +89,17 @@
   width: 100%;
 }
 
+.nav-group {
+  display: grid;
+  gap: 6px;
+}
+
+.nav-group-children {
+  display: grid;
+  gap: 6px;
+  padding-left: 10px;
+}
+
 :host ::ng-deep app-button.nav-btn .app-btn {
   text-transform: none;
   border-radius: 10px;
@@ -97,6 +108,11 @@
   min-height: 38px;
   padding: 0 12px;
   color: var(--text-primary);
+}
+
+:host ::ng-deep app-button.nav-btn.nav-btn--child .app-btn {
+  min-height: 34px;
+  font-size: 13px;
 }
 
 :host ::ng-deep app-button.nav-btn .app-btn__icon {
@@ -264,6 +280,10 @@
 
 .app-shell.side-collapsed .side-menu {
   padding: 8px 6px;
+}
+
+.app-shell.side-collapsed .nav-group-children {
+  padding-left: 0;
 }
 
 .app-shell.side-collapsed .nav-btn {
