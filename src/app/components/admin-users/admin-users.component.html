@@ -84,25 +84,51 @@
             <h3>Perfis</h3>
             <app-button size="sm" tone="primary" variant="solid" (pressed)="startCreateRole()">Novo perfil</app-button>
           </div>
+          <label class="field role-search">
+            <span>Buscar perfil</span>
+            <input
+              type="text"
+              [(ngModel)]="roleSearchTerm"
+              [ngModelOptions]="{ standalone: true }"
+              placeholder="Digite o nome do perfil"
+            />
+          </label>
           <div class="role-list">
             <button
               type="button"
               class="role-item"
-              *ngFor="let role of roles; trackBy: trackRole"
+              *ngFor="let role of filteredRoles(); trackBy: trackRole"
               [class.active]="sameRoleName(role.name, selectedRoleName)"
               [class.system]="isSystemRole(role.name)"
               (click)="selectRole(role.name)"
             >
-              <span>{{ role.name }}</span>
-              <span class="role-system-chip" *ngIf="isSystemRole(role.name)">sistema</span>
+              <span class="role-item__name">{{ role.name }}</span>
+              <span class="role-item__meta">
+                <span class="perm-chip">{{ rolePermissionCount(role) }}</span>
+                <span class="role-system-chip" *ngIf="isSystemRole(role.name)">sistema</span>
+              </span>
             </button>
           </div>
         </aside>
 
         <div class="permissions-content">
           <div class="card-head">
-            <h3>Permissões do perfil: {{ selectedRoleName || '-' }}</h3>
+            <div class="permissions-title-wrap">
+              <h3 class="permissions-title">Permissões do perfil: {{ selectedRoleName || '-' }}</h3>
+              <p class="permissions-subtitle" *ngIf="selectedRoleName">
+                {{ selectedRolePermissionSummary() }}
+              </p>
+            </div>
             <div class="table-actions" *ngIf="selectedRoleName">
+              <app-button
+                size="sm"
+                tone="primary"
+                [variant]="hasAnyRoleChanges() ? 'solid' : 'outline'"
+                [disabled]="savingAllRoleChanges || isSelectedAdminProfile() || !hasAnyRoleChanges()"
+                (pressed)="saveAllRoleChanges()"
+              >
+                {{ savingAllRoleChanges ? 'Salvando...' : 'Salvar alterações' }}
+              </app-button>
               <app-button
                 size="sm"
                 tone="neutral"
@@ -155,22 +181,27 @@
               <small class="roles-picker-meta">
                 {{ roleForm.permissions.size }} selecionada(s) de {{ permissionsCatalog.length }}
               </small>
-              <div class="roles-pick-list">
-                <label
-                  class="check inline permission-option"
-                  *ngFor="let permission of filteredPermissionsCatalog(); trackBy: trackPermissionCatalog"
-                  [title]="permission.description || permission.code"
-                >
-                  <input
-                    type="checkbox"
-                    [checked]="roleForm.permissions.has(permission.code)"
-                    (change)="toggleRolePermission(permission.code, $any($event.target).checked)"
-                  />
-                  <span class="permission-option__text">
-                    <span class="permission-option__label">{{ permission.label || permission.code }}</span>
-                    <span class="permission-option__code">{{ permission.code }}</span>
-                  </span>
-                </label>
+              <div class="permission-groups">
+                <section class="permission-group" *ngFor="let group of groupedRoleEditorPermissions(); trackBy: trackPermissionGroup">
+                  <div class="permission-group__title">{{ group.title }}</div>
+                  <div class="roles-pick-list">
+                    <label
+                      class="check inline permission-option"
+                      *ngFor="let permission of group.items; trackBy: trackPermissionCatalog"
+                      [title]="permission.description || permission.code"
+                    >
+                      <input
+                        type="checkbox"
+                        [checked]="roleForm.permissions.has(permission.code)"
+                        (change)="toggleRolePermission(permission.code, $any($event.target).checked)"
+                      />
+                      <span class="permission-option__text">
+                        <span class="permission-option__label">{{ permission.label || permission.code }}</span>
+                        <span class="permission-option__code">{{ permission.code }}</span>
+                      </span>
+                    </label>
+                  </div>
+                </section>
               </div>
             </div>
 
@@ -186,47 +217,75 @@
             <div class="permission-block">
               <div class="card-head">
                 <strong>Telas e ações</strong>
+                <span class="dirty-chip" *ngIf="hasSelectedRolePermissionChanges()">Não salvo</span>
                 <app-button
                   size="sm"
-                  tone="primary"
-                  variant="solid"
-                  [disabled]="rolePermissionsSaving || isSelectedAdminProfile()"
+                  tone="neutral"
+                  variant="outline"
+                  [disabled]="rolePermissionsSaving || isSelectedAdminProfile() || !hasSelectedRolePermissionChanges()"
                   (pressed)="saveSelectedRolePermissions()"
                 >
                   {{ rolePermissionsSaving ? 'Salvando...' : 'Salvar permissões de telas' }}
                 </app-button>
               </div>
-              <div class="roles-pick-list">
-                <label
-                  class="check inline permission-option"
-                  *ngFor="let permission of permissionsCatalog; trackBy: trackPermissionCatalog"
-                  [title]="permission.description || permission.code"
-                >
+              <div class="permissions-filters">
+                <label class="field">
+                  <span>Buscar permissões</span>
                   <input
-                    type="checkbox"
-                    [checked]="isSelectedRolePermission(permission.code)"
-                    [disabled]="isSelectedAdminProfile()"
-                    (change)="setSelectedRolePermission(permission.code, $any($event.target).checked)"
+                    type="text"
+                    [(ngModel)]="selectedPermissionSearchTerm"
+                    [ngModelOptions]="{ standalone: true }"
+                    placeholder="Buscar por nome, código ou descrição"
                   />
-                  <span class="permission-option__text">
-                    <span class="permission-option__label">{{ permission.label || permission.code }}</span>
-                    <span class="permission-option__code">{{ permission.code }}</span>
-                  </span>
                 </label>
+                <div class="permissions-quick-filters">
+                  <app-button size="sm" [tone]="selectedPermissionCategoryFilter === 'ALL' ? 'primary' : 'neutral'" [variant]="selectedPermissionCategoryFilter === 'ALL' ? 'solid' : 'outline'" (pressed)="selectedPermissionCategoryFilter = 'ALL'">Todas</app-button>
+                  <app-button size="sm" [tone]="selectedPermissionCategoryFilter === 'EMAIL' ? 'primary' : 'neutral'" [variant]="selectedPermissionCategoryFilter === 'EMAIL' ? 'solid' : 'outline'" (pressed)="selectedPermissionCategoryFilter = 'EMAIL'">Email</app-button>
+                  <app-button size="sm" [tone]="selectedPermissionCategoryFilter === 'REPORTS' ? 'primary' : 'neutral'" [variant]="selectedPermissionCategoryFilter === 'REPORTS' ? 'solid' : 'outline'" (pressed)="selectedPermissionCategoryFilter = 'REPORTS'">Relatórios</app-button>
+                  <app-button size="sm" [tone]="selectedPermissionCategoryFilter === 'TEMPLATES' ? 'primary' : 'neutral'" [variant]="selectedPermissionCategoryFilter === 'TEMPLATES' ? 'solid' : 'outline'" (pressed)="selectedPermissionCategoryFilter = 'TEMPLATES'">Templates</app-button>
+                  <app-button size="sm" [tone]="selectedPermissionCategoryFilter === 'FOLDERS' ? 'primary' : 'neutral'" [variant]="selectedPermissionCategoryFilter === 'FOLDERS' ? 'solid' : 'outline'" (pressed)="selectedPermissionCategoryFilter = 'FOLDERS'">Pastas</app-button>
+                  <app-button size="sm" [tone]="selectedPermissionCategoryFilter === 'SQL' ? 'primary' : 'neutral'" [variant]="selectedPermissionCategoryFilter === 'SQL' ? 'solid' : 'outline'" (pressed)="selectedPermissionCategoryFilter = 'SQL'">SQL</app-button>
+                  <app-button size="sm" [tone]="selectedPermissionCategoryFilter === 'SCHEDULES' ? 'primary' : 'neutral'" [variant]="selectedPermissionCategoryFilter === 'SCHEDULES' ? 'solid' : 'outline'" (pressed)="selectedPermissionCategoryFilter = 'SCHEDULES'">Agendamentos</app-button>
+                  <app-button size="sm" [tone]="selectedPermissionOnlyMarked ? 'primary' : 'neutral'" [variant]="selectedPermissionOnlyMarked ? 'solid' : 'outline'" (pressed)="selectedPermissionOnlyMarked = !selectedPermissionOnlyMarked">Somente marcadas</app-button>
+                </div>
+              </div>
+              <div class="permission-groups">
+                <section class="permission-group" *ngFor="let group of groupedSelectedRolePermissions(); trackBy: trackPermissionGroup">
+                  <div class="permission-group__title">{{ group.title }}</div>
+                  <div class="roles-pick-list">
+                    <label
+                      class="check inline permission-option"
+                      *ngFor="let permission of group.items; trackBy: trackPermissionCatalog"
+                      [title]="permission.description || permission.code"
+                    >
+                      <input
+                        type="checkbox"
+                        [checked]="isSelectedRolePermission(permission.code)"
+                        [disabled]="isSelectedAdminProfile()"
+                        (change)="setSelectedRolePermission(permission.code, $any($event.target).checked)"
+                      />
+                      <span class="permission-option__text">
+                        <span class="permission-option__label">{{ permission.label || permission.code }}</span>
+                        <span class="permission-option__code">{{ permission.code }}</span>
+                      </span>
+                    </label>
+                  </div>
+                </section>
               </div>
             </div>
 
             <div class="permission-block">
               <div class="card-head">
                 <strong>Pastas e relatórios</strong>
+                <span class="dirty-chip" *ngIf="hasRoleAclChanges()">Não salvo</span>
                 <div class="table-actions">
                   <app-button size="sm" tone="neutral" variant="outline" (pressed)="expandAllRoleAclFolders()">Expandir tudo</app-button>
                   <app-button size="sm" tone="neutral" variant="outline" (pressed)="collapseAllRoleAclFolders()">Recolher tudo</app-button>
                   <app-button
                     size="sm"
-                    tone="primary"
-                    variant="solid"
-                    [disabled]="aclTreeSaving || aclTreeLoading || isSelectedAdminProfile()"
+                    tone="neutral"
+                    variant="outline"
+                    [disabled]="aclTreeSaving || aclTreeLoading || isSelectedAdminProfile() || !hasRoleAclChanges()"
                     (pressed)="saveRoleAclTree()"
                   >
                     {{ aclTreeSaving ? 'Salvando ACL...' : 'Salvar ACL do perfil' }}

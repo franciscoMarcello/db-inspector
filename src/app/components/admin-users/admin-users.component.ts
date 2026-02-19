@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, HostListener, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Observable, forkJoin, of } from 'rxjs';
@@ -35,6 +35,21 @@ type RoleAclNode = {
   }>;
 };
 
+type PermissionGroupKey =
+  | 'EMAIL'
+  | 'REPORTS'
+  | 'TEMPLATES'
+  | 'FOLDERS'
+  | 'SQL'
+  | 'SCHEDULES'
+  | 'OTHER';
+
+type PermissionGroup = {
+  key: PermissionGroupKey;
+  title: string;
+  items: PermissionCatalogItem[];
+};
+
 @Component({
   selector: 'app-admin-users',
   standalone: true,
@@ -66,8 +81,13 @@ export class AdminUsersComponent implements OnInit {
   rolePermissionsSaving = false;
   aclTreeLoading = false;
   aclTreeSaving = false;
+  savingAllRoleChanges = false;
+  roleSearchTerm = '';
   roleAclSearchTerm = '';
   roleAclAccessFilter: 'ALL' | 'ALLOW' | 'DENY' = 'ALL';
+  selectedPermissionSearchTerm = '';
+  selectedPermissionCategoryFilter: PermissionGroupKey | 'ALL' = 'ALL';
+  selectedPermissionOnlyMarked = false;
   roleAclTree: RoleAclNode[] = [];
   createUserModalOpen = false;
   editUserModalOpen = false;
@@ -93,41 +113,8 @@ export class AdminUsersComponent implements OnInit {
     name: '',
     permissions: new Set<string>(),
   };
-  aclEntityType: 'FOLDER' | 'REPORT' = 'FOLDER';
-  aclTargetId = '';
-  aclRules: AccessControlRule[] = [];
-  aclLoading = false;
-  aclSaving = false;
-  aclSubjectViewType: AclSubjectType = 'ROLE';
-  aclSubjectView = '';
-  aclSubjectViewLoading = false;
-  aclSubjectRows: Array<{
-    targetType: 'FOLDER' | 'REPORT';
-    targetName: string;
-    folderName: string;
-    rule: AccessControlRule;
-  }> = [];
-  aclSubjectTree: Array<{
-    folderId: string | null;
-    folderName: string;
-    folderRules: AccessControlRule[];
-    reports: Array<{
-      reportId: string;
-      reportName: string;
-      rules: AccessControlRule[];
-    }>;
-  }> = [];
-  aclSubjectTreeExpanded: Record<string, boolean> = {};
   aclFolders: ReportFolder[] = [];
   aclReports: ReportDefinition[] = [];
-  aclDraft: AccessControlRuleInput = {
-    subjectType: 'ROLE',
-    subject: '',
-    canView: true,
-    canRun: true,
-    canEdit: false,
-    canDelete: false,
-  };
 
   createForm = {
     name: '',
@@ -147,6 +134,14 @@ export class AdminUsersComponent implements OnInit {
       this.adminSection = section === 'PERMISSIONS' ? 'PERMISSIONS' : 'USERS';
     });
     this.loadAll();
+  }
+
+  @HostListener('window:beforeunload', ['$event'])
+  handleBeforeUnload(event: BeforeUnloadEvent): void {
+    if (this.adminSection === 'PERMISSIONS' && this.hasAnyRoleChanges()) {
+      event.preventDefault();
+      event.returnValue = '';
+    }
   }
 
   loadAll() {
@@ -172,18 +167,6 @@ export class AdminUsersComponent implements OnInit {
           this.selectedRoleName = this.roles[0]?.name || '';
         }
         this.syncSelectedRolePermissionDraft();
-        if (this.aclDraft.subjectType === 'ROLE' && !this.aclDraft.subject && this.roles.length) {
-          this.aclDraft = {
-            ...this.aclDraft,
-            subject: this.roles[0].name,
-          };
-        }
-        if (this.aclSubjectViewType === 'ROLE' && !this.aclSubjectView && this.roles.length) {
-          this.aclSubjectView = this.roles[0].name;
-        }
-        if (this.aclSubjectViewType === 'USER' && !this.aclSubjectView && this.users.length) {
-          this.aclSubjectView = this.users[0].id;
-        }
         this.permissionsCatalog = [...(permissionsCatalog || [])].sort((a, b) =>
           String(a.label || a.code).localeCompare(String(b.label || b.code), undefined, { sensitivity: 'base' })
         );
@@ -201,7 +184,6 @@ export class AdminUsersComponent implements OnInit {
         this.aclReports = [...(reports || [])].sort((a, b) =>
           a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })
         );
-        this.aclRules = [];
         if (this.adminSection === 'PERMISSIONS' && this.selectedRoleName) {
           this.loadRoleAclTree();
         }
@@ -213,8 +195,13 @@ export class AdminUsersComponent implements OnInit {
     });
   }
 
-  availableRoleNames(): string[] {
-    return this.roles.map((r) => r.name);
+  filteredRoles(): AdminRole[] {
+    const term = String(this.roleSearchTerm || '').trim().toLowerCase();
+    if (!term) return this.roles;
+    return this.roles.filter((role) => {
+      const name = String(role.name || '').toLowerCase();
+      return name.includes(term);
+    });
   }
 
   isSystemRole(roleName: string): boolean {
@@ -281,6 +268,51 @@ export class AdminUsersComponent implements OnInit {
           this.error = this.messageFromError(err, 'Falha ao salvar permissões do perfil.');
         },
       });
+  }
+
+  saveAllRoleChanges() {
+    const role = this.selectedRole();
+    if (!role) {
+      this.error = 'Selecione um perfil.';
+      return;
+    }
+    if (this.isSelectedAdminProfile()) {
+      this.status = 'Perfil ADMIN possui acesso total gerenciado no backend.';
+      return;
+    }
+
+    const hasPermissionChanges = this.hasSelectedRolePermissionChanges();
+    const aclRequests = this.buildRoleAclRequests(role.name);
+    if (!hasPermissionChanges && !aclRequests.length) {
+      this.status = 'Nenhuma alteração pendente.';
+      return;
+    }
+
+    const requests: Observable<unknown>[] = [];
+    if (hasPermissionChanges) {
+      requests.push(
+        this.api.updateRole(role.name, {
+          name: role.name,
+          permissions: Array.from(this.selectedRolePermissionDraft),
+        })
+      );
+    }
+    requests.push(...aclRequests);
+
+    this.savingAllRoleChanges = true;
+    this.error = '';
+    this.status = '';
+    forkJoin(requests).subscribe({
+      next: () => {
+        this.savingAllRoleChanges = false;
+        this.status = `Alterações do perfil "${role.name}" salvas.`;
+        this.loadAll();
+      },
+      error: (err) => {
+        this.savingAllRoleChanges = false;
+        this.error = this.messageFromError(err, 'Falha ao salvar alterações do perfil.');
+      },
+    });
   }
 
   toggleRoleAclFolder(folderId: string) {
@@ -354,21 +386,7 @@ export class AdminUsersComponent implements OnInit {
       return;
     }
 
-    const requests: Observable<unknown>[] = [];
-    for (const folderNode of this.roleAclTree) {
-      requests.push(...this.buildAclRequestsForTarget('FOLDER', folderNode.id, role, folderNode.originalRule, folderNode.allowed));
-      for (const reportNode of folderNode.reports) {
-        if (reportNode.useFolderInheritance) {
-          if (reportNode.originalRule) {
-            requests.push(this.reportApi.deleteReportAcl(reportNode.id, 'ROLE', role));
-          }
-          continue;
-        }
-        requests.push(
-          ...this.buildAclRequestsForTarget('REPORT', reportNode.id, role, reportNode.originalRule, reportNode.allowed)
-        );
-      }
-    }
+    const requests = this.buildRoleAclRequests(role);
 
     if (!requests.length) {
       this.status = `Nenhuma alteração de ACL para o perfil "${role}".`;
@@ -506,10 +524,6 @@ export class AdminUsersComponent implements OnInit {
     this.editUserDraft = null;
   }
 
-  editUserSelectedRoles(): string[] {
-    return this.editUserDraft ? Array.from(this.editUserDraft.roles) : [];
-  }
-
   onEditUserRolesChange(values: string[]) {
     if (!this.editUserDraft) return;
     const normalized = (values || []).map((value) => String(value).trim()).filter(Boolean);
@@ -621,13 +635,8 @@ export class AdminUsersComponent implements OnInit {
 
   trackUser = (_: number, u: AdminUser) => u.id;
   trackRole = (_: number, r: AdminRole) => r.name;
-  trackPermission = (_: number, p: string) => p;
   trackPermissionCatalog = (_: number, p: PermissionCatalogItem) => p.code;
-  trackAclRule = (_: number, rule: AccessControlRule) =>
-    `${rule.subjectType}:${rule.subject}:${rule.id || ''}`;
-  trackAclSubjectFolder = (_: number, node: { folderId: string | null; folderName: string }) =>
-    `${node.folderId || 'no-folder'}:${node.folderName}`;
-  trackAclSubjectReport = (_: number, node: { reportId: string }) => node.reportId;
+  trackPermissionGroup = (_: number, group: PermissionGroup) => group.key;
   trackRoleAclFolder = (_: number, node: RoleAclNode) => node.id;
   trackRoleAclReport = (_: number, node: { id: string }) => node.id;
 
@@ -660,16 +669,6 @@ export class AdminUsersComponent implements OnInit {
   private matchesAccessFilter(allowed: boolean): boolean {
     if (this.roleAclAccessFilter === 'ALL') return true;
     return this.roleAclAccessFilter === 'ALLOW' ? allowed : !allowed;
-  }
-
-  permissionLabel(code: string): string {
-    const item = this.permissionCatalogByCode[String(code || '').toUpperCase()];
-    return item?.label || code;
-  }
-
-  permissionDescription(code: string): string {
-    const item = this.permissionCatalogByCode[String(code || '').toUpperCase()];
-    return item?.description || '';
   }
 
   startCreateRole() {
@@ -722,6 +721,64 @@ export class AdminUsersComponent implements OnInit {
       const description = String(permission.description || '').toLowerCase();
       return label.includes(term) || code.includes(term) || description.includes(term);
     });
+  }
+
+  groupedRoleEditorPermissions(): PermissionGroup[] {
+    return this.groupPermissions(this.filteredPermissionsCatalog());
+  }
+
+  groupedSelectedRolePermissions(): PermissionGroup[] {
+    return this.groupPermissions(this.filteredSelectedPermissionsCatalog());
+  }
+
+  selectedRolePermissionSummary(): string {
+    return `${this.selectedRolePermissionDraft.size} de ${this.permissionsCatalog.length} permissões ativas`;
+  }
+
+  rolePermissionCount(role: AdminRole): number {
+    return Array.isArray(role?.permissions) ? role.permissions.length : 0;
+  }
+
+  filteredSelectedPermissionsCatalog(): PermissionCatalogItem[] {
+    const term = String(this.selectedPermissionSearchTerm || '').trim().toLowerCase();
+    return this.permissionsCatalog.filter((permission) => {
+      const groupMatches =
+        this.selectedPermissionCategoryFilter === 'ALL' ||
+        this.permissionGroupKey(permission.code) === this.selectedPermissionCategoryFilter;
+      if (!groupMatches) return false;
+
+      if (this.selectedPermissionOnlyMarked && !this.isSelectedRolePermission(permission.code)) return false;
+
+      if (!term) return true;
+      const label = String(permission.label || '').toLowerCase();
+      const code = String(permission.code || '').toLowerCase();
+      const description = String(permission.description || '').toLowerCase();
+      return label.includes(term) || code.includes(term) || description.includes(term);
+    });
+  }
+
+  hasSelectedRolePermissionChanges(): boolean {
+    const role = this.selectedRole();
+    if (!role) return false;
+    if (this.isSelectedAdminProfile()) return false;
+    const current = new Set(role.permissions || []);
+    const draft = this.selectedRolePermissionDraft;
+    if (current.size !== draft.size) return true;
+    for (const permission of current) {
+      if (!draft.has(permission)) return true;
+    }
+    return false;
+  }
+
+  hasRoleAclChanges(): boolean {
+    if (this.isSelectedAdminProfile()) return false;
+    const role = String(this.selectedRoleName || '').trim();
+    if (!role) return false;
+    return this.buildRoleAclRequests(role).length > 0;
+  }
+
+  hasAnyRoleChanges(): boolean {
+    return this.hasSelectedRolePermissionChanges() || this.hasRoleAclChanges();
   }
 
   selectAllVisibleRolePermissions() {
@@ -790,253 +847,6 @@ export class AdminUsersComponent implements OnInit {
     });
   }
 
-  onAclEntityTypeChange(value: 'FOLDER' | 'REPORT') {
-    this.aclEntityType = value;
-    this.aclTargetId = '';
-    this.aclRules = [];
-  }
-
-  onAclTargetChange(value: string) {
-    this.aclTargetId = String(value || '').trim();
-    this.loadAclRules();
-  }
-
-  onAclDraftFieldChange<K extends keyof AccessControlRuleInput>(key: K, value: AccessControlRuleInput[K]) {
-    this.aclDraft = {
-      ...this.aclDraft,
-      [key]: value,
-    };
-  }
-
-  onAclSubjectTypeChange(value: AclSubjectType) {
-    const nextType = (value || 'ROLE') as AclSubjectType;
-    if (nextType === 'ROLE') {
-      const firstRole = this.roles[0]?.name || '';
-      this.aclDraft = {
-        ...this.aclDraft,
-        subjectType: nextType,
-        subject: this.roles.some((r) => r.name === this.aclDraft.subject) ? this.aclDraft.subject : firstRole,
-      };
-      return;
-    }
-
-    this.aclDraft = {
-      ...this.aclDraft,
-      subjectType: nextType,
-      subject: '',
-    };
-  }
-
-  onAclSubjectViewTypeChange(value: AclSubjectType) {
-    this.aclSubjectViewType = (value || 'ROLE') as AclSubjectType;
-    if (this.aclSubjectViewType === 'ROLE') {
-      this.aclSubjectView = this.roles[0]?.name || '';
-    } else {
-      this.aclSubjectView = this.users[0]?.id || '';
-    }
-  }
-
-  toggleAclSubjectFolder(folderId: string | null) {
-    const key = folderId || '__no_folder__';
-    this.aclSubjectTreeExpanded[key] = !this.aclSubjectTreeExpanded[key];
-  }
-
-  isAclSubjectFolderExpanded(folderId: string | null): boolean {
-    const key = folderId || '__no_folder__';
-    return this.aclSubjectTreeExpanded[key] ?? true;
-  }
-
-  clearAclSubjectView() {
-    this.aclSubjectViewLoading = false;
-    this.aclSubjectRows = [];
-    this.aclSubjectTree = [];
-  }
-
-  loadAclSubjectView() {
-    const subject = String(this.aclSubjectView || '').trim();
-    if (!subject) {
-      this.error = this.aclSubjectViewType === 'ROLE' ? 'Selecione a role.' : 'Selecione o usuário.';
-      return;
-    }
-
-    const folderRequests = this.aclFolders.map((folder) => this.reportApi.listFolderAcl(folder.id));
-    const reportRequests = this.aclReports.map((report) => this.reportApi.listReportAcl(report.id));
-
-    this.aclSubjectViewLoading = true;
-    this.error = '';
-    forkJoin({
-      folderRulesByTarget: folderRequests.length ? forkJoin(folderRequests) : of<AccessControlRule[][]>([]),
-      reportRulesByTarget: reportRequests.length ? forkJoin(reportRequests) : of<AccessControlRule[][]>([]),
-    }).subscribe({
-      next: ({ folderRulesByTarget, reportRulesByTarget }) => {
-        const normalizedSubject = subject.trim().toUpperCase();
-        const subjectType = this.aclSubjectViewType;
-
-        const matches = (rule: AccessControlRule) =>
-          rule.subjectType === subjectType && String(rule.subject || '').trim().toUpperCase() === normalizedSubject;
-
-        const grouped = new Map<
-          string,
-          {
-            folderId: string | null;
-            folderName: string;
-            folderRules: AccessControlRule[];
-            reports: Array<{ reportId: string; reportName: string; rules: AccessControlRule[] }>;
-          }
-        >();
-        const flatRows: Array<{
-          targetType: 'FOLDER' | 'REPORT';
-          targetName: string;
-          folderName: string;
-          rule: AccessControlRule;
-        }> = [];
-
-        for (const folder of this.aclFolders) {
-          grouped.set(folder.id, {
-            folderId: folder.id,
-            folderName: folder.name,
-            folderRules: [],
-            reports: [],
-          });
-        }
-
-        for (let i = 0; i < this.aclFolders.length; i++) {
-          const folder = this.aclFolders[i];
-          const rules = (folderRulesByTarget[i] || []).filter(matches);
-          const node = grouped.get(folder.id);
-          if (!node) continue;
-          node.folderRules.push(...rules);
-          for (const rule of rules) {
-            flatRows.push({
-              targetType: 'FOLDER',
-              targetName: folder.name,
-              folderName: folder.name,
-              rule,
-            });
-          }
-        }
-
-        for (let i = 0; i < this.aclReports.length; i++) {
-          const report = this.aclReports[i];
-          const rules = (reportRulesByTarget[i] || []).filter(matches);
-          if (!rules.length) continue;
-          const key = report.folderId || '__no_folder__';
-          const folderName =
-            this.aclFolders.find((folder) => folder.id === report.folderId)?.name ||
-            report.folderName ||
-            'Sem pasta';
-          if (!grouped.has(key)) {
-            grouped.set(key, {
-              folderId: report.folderId || null,
-              folderName,
-              folderRules: [],
-              reports: [],
-            });
-          }
-          const node = grouped.get(key);
-          if (!node) continue;
-          node.reports.push({
-            reportId: report.id,
-            reportName: report.name,
-            rules,
-          });
-          for (const rule of rules) {
-            flatRows.push({
-              targetType: 'REPORT',
-              targetName: report.name,
-              folderName,
-              rule,
-            });
-          }
-        }
-
-        this.aclSubjectViewLoading = false;
-        this.aclSubjectRows = flatRows.sort((a, b) => {
-          const folderCmp = a.folderName.localeCompare(b.folderName, undefined, { sensitivity: 'base' });
-          if (folderCmp !== 0) return folderCmp;
-          const typeCmp = a.targetType.localeCompare(b.targetType);
-          if (typeCmp !== 0) return typeCmp;
-          return a.targetName.localeCompare(b.targetName, undefined, { sensitivity: 'base' });
-        });
-        this.aclSubjectTree = Array.from(grouped.values())
-          .sort((a, b) => a.folderName.localeCompare(b.folderName, undefined, { sensitivity: 'base' }))
-          .filter((node) => node.folderRules.length || node.reports.length);
-        for (const folderNode of this.aclSubjectTree) {
-          folderNode.reports.sort((a, b) =>
-            a.reportName.localeCompare(b.reportName, undefined, { sensitivity: 'base' })
-          );
-          this.aclSubjectTreeExpanded[folderNode.folderId || '__no_folder__'] =
-            this.aclSubjectTreeExpanded[folderNode.folderId || '__no_folder__'] ?? true;
-        }
-      },
-      error: (err) => {
-        this.aclSubjectViewLoading = false;
-        this.aclSubjectRows = [];
-        this.aclSubjectTree = [];
-        this.error = this.messageFromError(err, 'Falha ao carregar visão ACL por usuário/role.');
-      },
-    });
-  }
-
-  saveAclRule() {
-    const targetId = this.aclTargetId;
-    if (!targetId) {
-      this.error = 'Selecione a pasta ou relatório para ACL.';
-      return;
-    }
-    const subject = (this.aclDraft.subject || '').trim();
-    if (!subject) {
-      this.error = 'Informe o alvo da ACL (role ou uuid).';
-      return;
-    }
-
-    this.aclSaving = true;
-    this.error = '';
-    const payload: AccessControlRuleInput = {
-      ...this.aclDraft,
-      subjectType: this.aclDraft.subjectType as AclSubjectType,
-      subject,
-    };
-    const req =
-      this.aclEntityType === 'FOLDER'
-        ? this.reportApi.upsertFolderAcl(targetId, payload)
-        : this.reportApi.upsertReportAcl(targetId, payload);
-
-    req.subscribe({
-      next: () => {
-        this.aclSaving = false;
-        this.status = `Regra ACL ${this.aclEntityType === 'FOLDER' ? 'da pasta' : 'do relatório'} salva.`;
-        this.loadAclRules();
-      },
-      error: (err) => {
-        this.aclSaving = false;
-        this.error = this.messageFromError(err, 'Falha ao salvar ACL.');
-      },
-    });
-  }
-
-  removeAclRule(rule: AccessControlRule) {
-    const targetId = this.aclTargetId;
-    if (!targetId) return;
-    const req =
-      this.aclEntityType === 'FOLDER'
-        ? this.reportApi.deleteFolderAcl(targetId, rule.subjectType, rule.subject)
-        : this.reportApi.deleteReportAcl(targetId, rule.subjectType, rule.subject);
-
-    req.subscribe({
-      next: () => {
-        this.status = `Regra ACL ${this.aclEntityType === 'FOLDER' ? 'da pasta' : 'do relatório'} removida.`;
-        this.loadAclRules();
-      },
-      error: (err) => {
-        this.error = this.messageFromError(err, 'Falha ao remover ACL.');
-      },
-    });
-  }
-
-  refreshAclRules() {
-    this.loadAclRules();
-  }
 
   private loadUsers() {
     this.api.listUsers().subscribe({
@@ -1177,29 +987,23 @@ export class AdminUsersComponent implements OnInit {
     ];
   }
 
-  private loadAclRules() {
-    const targetId = this.aclTargetId;
-    if (!targetId) {
-      this.aclRules = [];
-      return;
+  private buildRoleAclRequests(role: string): Observable<unknown>[] {
+    const requests: Observable<unknown>[] = [];
+    for (const folderNode of this.roleAclTree) {
+      requests.push(...this.buildAclRequestsForTarget('FOLDER', folderNode.id, role, folderNode.originalRule, folderNode.allowed));
+      for (const reportNode of folderNode.reports) {
+        if (reportNode.useFolderInheritance) {
+          if (reportNode.originalRule) {
+            requests.push(this.reportApi.deleteReportAcl(reportNode.id, 'ROLE', role));
+          }
+          continue;
+        }
+        requests.push(
+          ...this.buildAclRequestsForTarget('REPORT', reportNode.id, role, reportNode.originalRule, reportNode.allowed)
+        );
+      }
     }
-    this.aclLoading = true;
-    const req =
-      this.aclEntityType === 'FOLDER'
-        ? this.reportApi.listFolderAcl(targetId)
-        : this.reportApi.listReportAcl(targetId);
-
-    req.subscribe({
-      next: (rules) => {
-        this.aclLoading = false;
-        this.aclRules = rules || [];
-      },
-      error: (err) => {
-        this.aclLoading = false;
-        this.aclRules = [];
-        this.error = this.messageFromError(err, 'Falha ao carregar ACL.');
-      },
-    });
+    return requests;
   }
 
   private messageFromError(err: any, fallback: string): string {
@@ -1209,5 +1013,48 @@ export class AdminUsersComponent implements OnInit {
       (typeof err?.error === 'string' ? err.error : '') ||
       fallback
     );
+  }
+
+  private groupPermissions(items: PermissionCatalogItem[]): PermissionGroup[] {
+    const byKey = new Map<PermissionGroupKey, PermissionCatalogItem[]>();
+    const push = (key: PermissionGroupKey, item: PermissionCatalogItem) => {
+      const current = byKey.get(key) || [];
+      current.push(item);
+      byKey.set(key, current);
+    };
+
+    for (const item of items || []) {
+      push(this.permissionGroupKey(item.code), item);
+    }
+
+    const order: PermissionGroupKey[] = ['EMAIL', 'REPORTS', 'TEMPLATES', 'FOLDERS', 'SQL', 'SCHEDULES', 'OTHER'];
+    return order
+      .filter((key) => (byKey.get(key) || []).length > 0)
+      .map((key) => ({
+        key,
+        title: this.permissionGroupTitle(key),
+        items: byKey.get(key) || [],
+      }));
+  }
+
+  private permissionGroupKey(code: string): PermissionGroupKey {
+    const value = String(code || '').toUpperCase();
+    if (value.startsWith('EMAIL_SCHEDULE_')) return 'SCHEDULES';
+    if (value.startsWith('EMAIL_')) return 'EMAIL';
+    if (value.startsWith('REPORT_')) return 'REPORTS';
+    if (value.startsWith('TEMPLATE_')) return 'TEMPLATES';
+    if (value.startsWith('FOLDER_')) return 'FOLDERS';
+    if (value.startsWith('SQL_')) return 'SQL';
+    return 'OTHER';
+  }
+
+  private permissionGroupTitle(key: PermissionGroupKey): string {
+    if (key === 'EMAIL') return 'Email';
+    if (key === 'REPORTS') return 'Relatorios';
+    if (key === 'TEMPLATES') return 'Templates';
+    if (key === 'FOLDERS') return 'Pastas';
+    if (key === 'SQL') return 'SQL';
+    if (key === 'SCHEDULES') return 'Agendamentos';
+    return 'Outros';
   }
 }
