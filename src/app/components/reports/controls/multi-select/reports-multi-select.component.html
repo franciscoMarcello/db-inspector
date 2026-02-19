@@ -4,7 +4,7 @@
     <span class="multi-select__caret">{{ open ? '▴' : '▾' }}</span>
   </button>
 
-  <div class="multi-select__panel" *ngIf="open">
+  <div class="multi-select__panel" *ngIf="open" (click)="$event.stopPropagation()">
     <div class="multi-select__toolbar">
       <input
         type="text"
@@ -18,14 +18,15 @@
     </div>
 
     <div class="multi-select__list" *ngIf="!loading; else loadingTpl">
-      <label class="multi-select__item" *ngFor="let opt of filteredOptions">
+      <div class="multi-select__item" *ngFor="let opt of filteredOptions">
         <input
           type="checkbox"
           [checked]="isChecked(opt.value)"
+          (click)="$event.stopPropagation()"
           (change)="toggleOption(opt.value, $any($event.target).checked)"
         />
-        <span>{{ opt.label }}</span>
-      </label>
+        <span (click)="toggleOptionByClick(opt.value, $event)">{{ opt.label }}</span>
+      </div>
       <div class="multi-select__empty" *ngIf="!filteredOptions.length">Sem opções</div>
     </div>
     <ng-template #loadingTpl>

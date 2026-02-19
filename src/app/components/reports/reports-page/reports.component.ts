@@ -1,13 +1,14 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { HttpErrorResponse } from '@angular/common/http';
 import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 import { ActivatedRoute } from '@angular/router';
-import { forkJoin } from 'rxjs';
+import { catchError, forkJoin, of } from 'rxjs';
 import {
   JasperTemplateResponse,
   ReportDefinition,
@@ -178,6 +179,10 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
     return Boolean(this.selectedReport?.jasperTemplateId);
   }
 
+  get canRunReport(): boolean {
+    return !!this.selectedReport && !this.loadingRun;
+  }
+
   get canWriteReports(): boolean {
     return this.auth.hasPermission('REPORT_WRITE') || this.auth.isAdmin();
   }
@@ -325,7 +330,11 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
   unarchiveSelectedFolder() { this.folderTemplateLogic.unarchiveSelectedFolder(); }
 
   applyFilters() {
-    this.statusMessage = 'Consulta executada.';
+    if (!this.selectedReport) {
+      this.statusMessage = 'Selecione um relatório para executar.';
+      this.runResult = null;
+      return;
+    }
     this.runSelectedReport();
   }
 
@@ -550,19 +559,46 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
 
   private loadData(preferredReportId?: string, preferredFolderId?: string) {
     this.loadingList = true;
+    let templatesDenied = false;
+    let foldersDenied = false;
     forkJoin({
-      folders: this.reportService.listFolders(),
+      folders: this.reportService.listFolders().pipe(
+        catchError((err: HttpErrorResponse) => {
+          if (Number(err?.status ?? 0) === 403) {
+            foldersDenied = true;
+            return of<ReportFolder[]>([]);
+          }
+          throw err;
+        })
+      ),
       reports: this.reportService.listReports(),
-      templates: this.reportService.listTemplates(),
+      templates: this.reportService.listTemplates().pipe(
+        catchError((err: HttpErrorResponse) => {
+          if (Number(err?.status ?? 0) === 403) {
+            templatesDenied = true;
+            return of<JasperTemplateResponse[]>([]);
+          }
+          throw err;
+        })
+      ),
     }).subscribe({
       next: ({ folders, reports, templates }) => {
-        this.allFolders = folders || [];
-        this.reports = this.manageMode ? reports || [] : (reports || []).filter((r) => !r.archived);
+        const apiFolders = folders || [];
+        const apiReports = reports || [];
+        this.allFolders = apiFolders;
+        this.reports = this.manageMode ? apiReports : apiReports.filter((r) => !r.archived);
         this.templates = (templates || []).filter((t) => !t.archived);
+        const baseFolders = this.manageMode ? apiFolders : apiFolders.filter((f) => !f.archived);
+        const visibleFolders = this.manageMode
+          ? baseFolders
+          : this.buildTreeFolders(baseFolders, this.reports);
         this.rebuildFolders(
-          this.manageMode ? folders || [] : (folders || []).filter((f) => !f.archived)
+          visibleFolders
         );
         this.reconcileSelection(preferredReportId, preferredFolderId);
+        if (foldersDenied || templatesDenied) {
+          this.statusMessage = '';
+        }
         if (this.manageMode && this.pendingCreateSql) {
           const sql = this.pendingCreateSql;
           this.pendingCreateSql = null;
@@ -618,6 +654,45 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
     }
 
     this.persistFolderExpandedState();
+  }
+
+  private buildTreeFolders(apiFolders: ReportFolder[], reports: ReportDefinition[]): ReportFolder[] {
+    const foldersById = new Map<string, ReportFolder>();
+    const foldersByName = new Map<string, ReportFolder>();
+    const visibleFolderIds = new Set<string>();
+    for (const folder of apiFolders) {
+      foldersById.set(String(folder.id), folder);
+      foldersByName.set(String(folder.name || '').toLowerCase(), folder);
+    }
+
+    for (const report of reports) {
+      const reportFolderId = String(report.folderId || '').trim();
+      const reportFolderName = String(report.folderName || report.templateName || '').trim();
+      const byId = reportFolderId ? foldersById.get(reportFolderId) : undefined;
+      const byName = reportFolderName ? foldersByName.get(reportFolderName.toLowerCase()) : undefined;
+      if (byId) {
+        visibleFolderIds.add(String(byId.id));
+        continue;
+      }
+      if (byName) {
+        visibleFolderIds.add(String(byName.id));
+        continue;
+      }
+
+      if (reportFolderId || reportFolderName) {
+        const virtualFolder: ReportFolder = {
+          id: reportFolderId || `virtual-${reportFolderName.toLowerCase().replace(/\s+/g, '-')}`,
+          name: reportFolderName || 'Sem pasta',
+          description: null,
+          archived: false,
+        };
+        foldersById.set(String(virtualFolder.id), virtualFolder);
+        foldersByName.set(String(virtualFolder.name || '').toLowerCase(), virtualFolder);
+        visibleFolderIds.add(String(virtualFolder.id));
+      }
+    }
+
+    return Array.from(foldersById.values()).filter((folder) => visibleFolderIds.has(String(folder.id)));
   }
 
   private loadPersistedUiState() {
@@ -925,7 +1000,7 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
   private resolveAclAwareError(error: unknown, fallback: string): string {
     const status = Number((error as any)?.status ?? 0);
     if (status === 403) {
-      return 'Acesso negado. Se o ACL padrão deny estiver ativo, solicite ao administrador a liberação de pasta/relatório para seu usuário ou role.';
+      return 'Acesso negado. Se o ACL padrão deny estiver ativo, solicite ao administrador a liberação de pasta/relatório para seu usuário ou perfil.';
     }
     return this.resolveRequestError(error, fallback);
   }

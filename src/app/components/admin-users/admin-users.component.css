@@ -271,6 +271,18 @@ select {
   font-size: 12px;
 }
 
+.perm-chip--allowed {
+  border-color: rgba(34, 197, 94, 0.4);
+  color: #16a34a;
+  background: rgba(34, 197, 94, 0.12);
+}
+
+.perm-chip--denied {
+  border-color: rgba(248, 113, 113, 0.38);
+  color: #dc2626;
+  background: rgba(248, 113, 113, 0.12);
+}
+
 .roles-def-list,
 .perm-list {
   display: flex;
@@ -317,25 +329,93 @@ select {
   align-items: center;
 }
 
-.card-acl {
-  display: grid;
-  gap: 10px;
+.card-permissions {
+  padding: 0;
+  overflow: hidden;
 }
 
-.acl-default-deny-note {
+.permissions-layout {
   display: grid;
-  gap: 4px;
-  padding: 10px 12px;
-  border-radius: 8px;
-  border: 1px solid rgba(59, 130, 246, 0.35);
-  background: rgba(59, 130, 246, 0.08);
+  grid-template-columns: 280px minmax(0, 1fr);
+  min-height: 640px;
+}
+
+.permissions-roles {
+  border-right: 1px solid var(--border-subtle);
+  background: var(--bg-surface-alt);
+  padding: 12px;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 12px;
+}
+
+.role-list {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  max-height: calc(100vh - 260px);
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.role-item {
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  min-height: 38px;
+  background: var(--bg-surface);
   color: var(--text-primary);
+  text-align: left;
+  padding: 0 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.role-item.active {
+  border-color: var(--brand);
+  background: color-mix(in srgb, var(--brand) 20%, var(--bg-surface));
+}
+
+.role-item.system {
+  border-color: color-mix(in srgb, var(--brand) 45%, var(--border-subtle));
+}
+
+.role-system-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(99, 102, 241, 0.45);
+  background: rgba(99, 102, 241, 0.12);
+  color: #3730a3;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.permissions-content {
+  padding: 12px;
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.admin-profile-note {
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  background: rgba(59, 130, 246, 0.1);
+  color: var(--text-primary);
+  border-radius: 10px;
+  padding: 10px 12px;
   font-size: 13px;
 }
 
-.acl-default-deny-note code {
-  font-size: 12px;
-  color: var(--text-muted);
+.card-acl {
+  display: grid;
+  gap: 10px;
 }
 
 .acl-grid {
@@ -382,6 +462,24 @@ select {
   background: var(--bg-surface-alt);
   display: grid;
   gap: 10px;
+}
+
+.permission-block {
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 10px;
+  background: var(--bg-surface-alt);
+  display: grid;
+  gap: 10px;
+}
+
+.acl-tree-editor {
+  min-height: 340px;
+  max-height: 58vh;
+  overflow: auto;
+  display: grid;
+  gap: 8px;
+  padding-right: 4px;
 }
 
 .acl-subject-tree {
@@ -431,27 +529,40 @@ select {
   border: 1px solid var(--border-subtle);
   border-radius: 8px;
   overflow: visible;
-  background: var(--bg-surface);
+  background: var(--bg-surface-alt);
 }
 
 .acl-tree-folder-head {
   width: 100%;
   border: none;
-  background: var(--bg-surface-alt);
+  background: color-mix(in srgb, var(--brand) 14%, var(--bg-surface));
   color: var(--text-primary);
-  min-height: 36px;
-  padding: 0 10px;
+  min-height: 40px;
+  padding: 0 12px;
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   cursor: pointer;
   text-align: left;
 }
 
+.acl-search-field {
+  margin: 8px 0 2px;
+  max-width: 420px;
+}
+
+.acl-filter-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 2px;
+}
+
 .acl-tree-folder-body {
   display: grid;
   gap: 8px;
-  padding: 8px;
+  padding: 10px;
   overflow-x: auto;
 }
 
@@ -471,11 +582,11 @@ select {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  min-height: 34px;
-  padding: 6px 10px;
+  min-height: 36px;
+  padding: 7px 10px;
   border-radius: 8px;
   border: 1px solid var(--border-subtle);
-  background: var(--bg-surface);
+  background: color-mix(in srgb, var(--bg-surface) 90%, var(--brand));
 }
 
 .acl-perm-label {
@@ -484,28 +595,79 @@ select {
   font-weight: 600;
 }
 
+.acl-entity-title {
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.acl-entity-title--sub {
+  margin-top: 2px;
+}
+
+.acl-simple-field {
+  max-width: 420px;
+}
+
+.acl-kind-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.acl-kind-chip--folder {
+  border: 1px solid rgba(99, 102, 241, 0.45);
+  background: rgba(99, 102, 241, 0.12);
+  color: #3730a3;
+}
+
+.acl-kind-chip--report {
+  border: 1px solid rgba(16, 185, 129, 0.45);
+  background: rgba(16, 185, 129, 0.12);
+  color: #065f46;
+}
+
 .acl-perm-value {
-  color: #22c55e;
+  color: #15803d;
   font-weight: 700;
   font-size: 12px;
 }
 
 .acl-perm-value.denied {
-  color: #f87171;
+  color: #b91c1c;
 }
 
 .acl-tree-report {
-  border: 1px dashed var(--border-subtle);
+  border: 1px dashed color-mix(in srgb, var(--brand) 45%, var(--border-subtle));
   border-radius: 8px;
   padding: 8px;
   display: grid;
   gap: 6px;
-  background: var(--bg-surface-alt);
+  background: color-mix(in srgb, var(--bg-surface) 94%, var(--brand));
+  margin-left: 14px;
 }
 
 .acl-tree-report-title {
-  font-weight: 600;
+  font-weight: 700;
   font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.acl-tree-report-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
 }
 
 .acl-row {
@@ -596,6 +758,44 @@ select {
   color: var(--text-primary);
 }
 
+:host-context(.dark-theme) .perm-chip--allowed {
+  border-color: rgba(34, 197, 94, 0.45);
+  background: rgba(34, 197, 94, 0.16);
+  color: #86efac;
+}
+
+:host-context(.dark-theme) .perm-chip--denied {
+  border-color: rgba(248, 113, 113, 0.45);
+  background: rgba(248, 113, 113, 0.16);
+  color: #fca5a5;
+}
+
+:host-context(.dark-theme) .role-system-chip {
+  border-color: rgba(99, 102, 241, 0.45);
+  background: rgba(99, 102, 241, 0.12);
+  color: #c7d2fe;
+}
+
+:host-context(.dark-theme) .acl-kind-chip--folder {
+  border-color: rgba(99, 102, 241, 0.45);
+  background: rgba(99, 102, 241, 0.14);
+  color: #c7d2fe;
+}
+
+:host-context(.dark-theme) .acl-kind-chip--report {
+  border-color: rgba(16, 185, 129, 0.45);
+  background: rgba(16, 185, 129, 0.12);
+  color: #a7f3d0;
+}
+
+:host-context(.dark-theme) .acl-perm-value {
+  color: #22c55e;
+}
+
+:host-context(.dark-theme) .acl-perm-value.denied {
+  color: #f87171;
+}
+
 :host-context(.dark-theme) .status-chip {
   border-color: rgba(34, 197, 94, 0.35);
   background: rgba(34, 197, 94, 0.12);
@@ -614,8 +814,7 @@ select {
     grid-template-areas:
       'header header'
       'users users'
-      'acl acl'
-      'roles roles';
+      'permissions permissions';
     align-items: stretch;
   }
 
@@ -627,9 +826,8 @@ select {
     display: grid;
     grid-template-rows: auto 1fr;
   }
-  .card-roles { grid-area: roles; }
-  .card-acl {
-    grid-area: acl;
+  .card-permissions {
+    grid-area: permissions;
     min-height: 0;
   }
 
@@ -641,6 +839,16 @@ select {
 
 
 @media (max-width: 900px) {
+  .permissions-layout {
+    grid-template-columns: 1fr;
+    min-height: auto;
+  }
+
+  .permissions-roles {
+    border-right: none;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+
   .acl-grid,
   .acl-flags {
     grid-template-columns: 1fr;

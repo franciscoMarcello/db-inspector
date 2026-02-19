@@ -7,7 +7,7 @@
           <p class="muted">
             {{ adminSection === 'USERS'
               ? 'Gerencie criação, ativação e permissões de acesso.'
-              : 'Gerencie roles e regras ACL de pastas e relatórios.' }}
+              : 'Gerencie perfis e regras ACL de pastas e relatórios.' }}
           </p>
         </div>
         <app-button *ngIf="adminSection === 'USERS'" tone="primary" variant="solid" (pressed)="openCreateUserModal()">
@@ -35,7 +35,7 @@
               <th>Nome</th>
               <th>E-mail</th>
               <th>Status</th>
-              <th>Roles</th>
+              <th>Perfis</th>
               <th>Criado</th>
               <th>Atualizado</th>
               <th class="actions-col">Ações</th>
@@ -77,417 +77,257 @@
       </div>
     </div>
 
-    <div class="card card-roles" *ngIf="adminSection === 'PERMISSIONS'">
-      <div class="card-head">
-        <h3>Roles</h3>
-        <app-button tone="primary" variant="solid" (pressed)="startCreateRole()">Nova role</app-button>
-      </div>
-
-      <div class="role-editor" *ngIf="roleEditorOpen">
-        <div class="role-editor-head">
-          <strong>{{ roleEditorMode === 'create' ? 'Criar role' : 'Editar role' }}</strong>
-          <app-button tone="neutral" variant="outline" (pressed)="cancelRoleEditor()">Cancelar</app-button>
-        </div>
-
-        <label class="field">
-          <span>Nome da role</span>
-          <input
-            type="text"
-            [(ngModel)]="roleForm.name"
-            [ngModelOptions]="{ standalone: true }"
-            placeholder="Ex.: ANALISTA"
-          />
-        </label>
-
-        <div class="roles-picker">
-          <span class="roles-label">Permissões</span>
-          <div class="roles-picker-actions">
-            <input
-              type="text"
-              [(ngModel)]="rolePermissionFilter"
-              [ngModelOptions]="{ standalone: true }"
-              placeholder="Filtrar permissões"
-            />
-            <app-button size="sm" tone="neutral" variant="outline" (pressed)="selectAllVisibleRolePermissions()">Marcar visíveis</app-button>
-            <app-button size="sm" tone="neutral" variant="outline" (pressed)="clearAllRolePermissions()">Limpar</app-button>
+    <div class="card card-permissions" *ngIf="adminSection === 'PERMISSIONS'">
+      <div class="permissions-layout">
+        <aside class="permissions-roles">
+          <div class="card-head">
+            <h3>Perfis</h3>
+            <app-button size="sm" tone="primary" variant="solid" (pressed)="startCreateRole()">Novo perfil</app-button>
           </div>
-          <small class="roles-picker-meta">
-            {{ roleForm.permissions.size }} selecionada(s) de {{ permissionsCatalog.length }}
-          </small>
-          <div class="roles-pick-list">
-            <label
-              class="check inline permission-option"
-              *ngFor="let permission of filteredPermissionsCatalog(); trackBy: trackPermissionCatalog"
-              [title]="permission.description || permission.code"
+          <div class="role-list">
+            <button
+              type="button"
+              class="role-item"
+              *ngFor="let role of roles; trackBy: trackRole"
+              [class.active]="sameRoleName(role.name, selectedRoleName)"
+              [class.system]="isSystemRole(role.name)"
+              (click)="selectRole(role.name)"
             >
-              <input
-                type="checkbox"
-                [checked]="roleForm.permissions.has(permission.code)"
-                (change)="toggleRolePermission(permission.code, $any($event.target).checked)"
-              />
-              <span class="permission-option__text">
-                <span class="permission-option__label">{{ permission.label || permission.code }}</span>
-                <span class="permission-option__code">{{ permission.code }}</span>
-              </span>
-            </label>
+              <span>{{ role.name }}</span>
+              <span class="role-system-chip" *ngIf="isSystemRole(role.name)">sistema</span>
+            </button>
           </div>
-        </div>
+        </aside>
 
-        <app-button tone="primary" variant="solid" [disabled]="roleSaving" (pressed)="saveRole()">
-          {{ roleSaving ? 'Salvando...' : 'Salvar role' }}
-        </app-button>
-      </div>
-
-      <div class="roles-def-list">
-        <div class="role-def" *ngFor="let role of roles; trackBy: trackRole">
-          <div class="role-def-head">
-            <strong>{{ role.name }}</strong>
-            <div class="role-def-actions">
-              <app-button size="sm" tone="neutral" variant="outline" (pressed)="startEditRole(role.name)">Editar</app-button>
+        <div class="permissions-content">
+          <div class="card-head">
+            <h3>Permissões do perfil: {{ selectedRoleName || '-' }}</h3>
+            <div class="table-actions" *ngIf="selectedRoleName">
+              <app-button
+                size="sm"
+                tone="neutral"
+                variant="outline"
+                [disabled]="isSystemRole(selectedRoleName)"
+                (pressed)="startEditRole(selectedRoleName)"
+              >
+                Editar perfil
+              </app-button>
               <app-button
                 size="sm"
                 tone="danger"
                 variant="outline"
-                [disabled]="isSystemRole(role.name)"
-                (pressed)="deleteRole(role.name)"
+                [disabled]="isSystemRole(selectedRoleName)"
+                (pressed)="deleteRole(selectedRoleName)"
               >
-                Excluir
+                Excluir perfil
               </app-button>
             </div>
           </div>
-          <div class="perm-list">
-            <span
-              class="perm-chip"
-              *ngFor="let perm of role.permissions"
-              [title]="permissionDescription(perm) || perm"
-            >
-              {{ permissionLabel(perm) }}
-            </span>
-          </div>
-        </div>
-      </div>
-    </div>
 
-    <div class="card card-acl" *ngIf="adminSection === 'PERMISSIONS'">
-      <div class="card-head">
-        <h3>ACL de pastas e relatórios</h3>
-        <app-button tone="neutral" variant="outline" (pressed)="refreshAclRules()" [disabled]="aclLoading">
-          {{ aclLoading ? 'Carregando...' : 'Atualizar ACL' }}
-        </app-button>
-      </div>
-      <div class="acl-default-deny-note">
-        <strong>Fluxo para ACL default deny</strong>
-        <span>
-          Se o backend estiver com <code>acl-default-deny=true</code>, crie as regras ACL para usuário/role antes de liberar acesso às
-          pastas e relatórios.
-        </span>
-      </div>
+          <div class="role-editor" *ngIf="roleEditorOpen">
+            <div class="role-editor-head">
+              <strong>{{ roleEditorMode === 'create' ? 'Criar perfil' : 'Editar perfil' }}</strong>
+              <app-button tone="neutral" variant="outline" (pressed)="cancelRoleEditor()">Cancelar</app-button>
+            </div>
 
-      <div class="acl-subject-view">
-        <div class="card-head">
-          <strong>Visualizar ACL por usuário/role</strong>
-          <div class="table-actions">
-            <app-button size="sm" tone="neutral" variant="outline" (pressed)="clearAclSubjectView()">Limpar</app-button>
-            <app-button size="sm" tone="neutral" variant="outline" (pressed)="loadAclSubjectView()" [disabled]="aclSubjectViewLoading">
-              {{ aclSubjectViewLoading ? 'Carregando...' : 'Carregar visão' }}
+            <label class="field">
+              <span>Nome do perfil</span>
+              <input
+                type="text"
+                [(ngModel)]="roleForm.name"
+                [ngModelOptions]="{ standalone: true }"
+                placeholder="Ex.: ANALISTA"
+              />
+            </label>
+
+            <div class="roles-picker">
+              <span class="roles-label">Permissões</span>
+              <div class="roles-picker-actions">
+                <input
+                  type="text"
+                  [(ngModel)]="rolePermissionFilter"
+                  [ngModelOptions]="{ standalone: true }"
+                  placeholder="Filtrar permissões"
+                />
+                <app-button size="sm" tone="neutral" variant="outline" (pressed)="selectAllVisibleRolePermissions()">Marcar visíveis</app-button>
+                <app-button size="sm" tone="neutral" variant="outline" (pressed)="clearAllRolePermissions()">Limpar</app-button>
+              </div>
+              <small class="roles-picker-meta">
+                {{ roleForm.permissions.size }} selecionada(s) de {{ permissionsCatalog.length }}
+              </small>
+              <div class="roles-pick-list">
+                <label
+                  class="check inline permission-option"
+                  *ngFor="let permission of filteredPermissionsCatalog(); trackBy: trackPermissionCatalog"
+                  [title]="permission.description || permission.code"
+                >
+                  <input
+                    type="checkbox"
+                    [checked]="roleForm.permissions.has(permission.code)"
+                    (change)="toggleRolePermission(permission.code, $any($event.target).checked)"
+                  />
+                  <span class="permission-option__text">
+                    <span class="permission-option__label">{{ permission.label || permission.code }}</span>
+                    <span class="permission-option__code">{{ permission.code }}</span>
+                  </span>
+                </label>
+              </div>
+            </div>
+
+            <app-button tone="primary" variant="solid" [disabled]="roleSaving" (pressed)="saveRole()">
+              {{ roleSaving ? 'Salvando...' : 'Salvar perfil' }}
             </app-button>
           </div>
-        </div>
 
-        <div class="acl-grid">
-          <label class="field">
-            <span>Tipo</span>
-            <select
-              [ngModel]="aclSubjectViewType"
-              [ngModelOptions]="{ standalone: true }"
-              (ngModelChange)="onAclSubjectViewTypeChange($event)"
-            >
-              <option value="ROLE">ROLE</option>
-              <option value="USER">USER</option>
-            </select>
-          </label>
+          <ng-container *ngIf="selectedRoleName">
+            <div class="admin-profile-note" *ngIf="isSelectedAdminProfile()">
+              Perfil <strong>ADMIN</strong>: acesso total definido no backend. Alterações de permissão/ACL ficam desabilitadas no frontend.
+            </div>
+            <div class="permission-block">
+              <div class="card-head">
+                <strong>Telas e ações</strong>
+                <app-button
+                  size="sm"
+                  tone="primary"
+                  variant="solid"
+                  [disabled]="rolePermissionsSaving || isSelectedAdminProfile()"
+                  (pressed)="saveSelectedRolePermissions()"
+                >
+                  {{ rolePermissionsSaving ? 'Salvando...' : 'Salvar permissões de telas' }}
+                </app-button>
+              </div>
+              <div class="roles-pick-list">
+                <label
+                  class="check inline permission-option"
+                  *ngFor="let permission of permissionsCatalog; trackBy: trackPermissionCatalog"
+                  [title]="permission.description || permission.code"
+                >
+                  <input
+                    type="checkbox"
+                    [checked]="isSelectedRolePermission(permission.code)"
+                    [disabled]="isSelectedAdminProfile()"
+                    (change)="setSelectedRolePermission(permission.code, $any($event.target).checked)"
+                  />
+                  <span class="permission-option__text">
+                    <span class="permission-option__label">{{ permission.label || permission.code }}</span>
+                    <span class="permission-option__code">{{ permission.code }}</span>
+                  </span>
+                </label>
+              </div>
+            </div>
 
-          <ng-container *ngIf="aclSubjectViewType === 'ROLE'; else aclUserViewPicker">
-            <label class="field">
-              <span>Role</span>
-              <select
-                [ngModel]="aclSubjectView"
-                [ngModelOptions]="{ standalone: true }"
-                (ngModelChange)="aclSubjectView = $event"
-              >
-                <option value="">Selecione uma role</option>
-                <option *ngFor="let role of roles; trackBy: trackRole" [value]="role.name">{{ role.name }}</option>
-              </select>
-            </label>
-          </ng-container>
-          <ng-template #aclUserViewPicker>
-            <label class="field">
-              <span>Usuário</span>
-              <select
-                [ngModel]="aclSubjectView"
-                [ngModelOptions]="{ standalone: true }"
-                (ngModelChange)="aclSubjectView = $event"
-              >
-              <option value="">Selecione um usuário</option>
-              <option *ngFor="let user of users; trackBy: trackUser" [value]="user.id">
-                  {{ user.name || user.email }} ({{ user.id }})
-              </option>
-            </select>
-          </label>
-          </ng-template>
-        </div>
-
-        <div class="acl-subject-tree">
-          <div class="muted" *ngIf="!aclSubjectTree.length && !aclSubjectViewLoading">
-            Sem regras para o filtro selecionado.
-          </div>
-
-          <div class="acl-tree-folder" *ngFor="let folderNode of aclSubjectTree; trackBy: trackAclSubjectFolder">
-            <button type="button" class="acl-tree-folder-head" (click)="toggleAclSubjectFolder(folderNode.folderId)">
-              <span>{{ isAclSubjectFolderExpanded(folderNode.folderId) ? '▾' : '▸' }}</span>
-              <strong>{{ folderNode.folderName }}</strong>
-              <span class="perm-chip">{{ folderNode.folderRules.length }} regra(s) na pasta</span>
-              <span class="perm-chip">{{ folderNode.reports.length }} relatório(s)</span>
-            </button>
-
-            <div class="acl-tree-folder-body" *ngIf="isAclSubjectFolderExpanded(folderNode.folderId)">
-              <div class="acl-tree-rules" *ngIf="folderNode.folderRules.length">
-                <div class="acl-row" *ngFor="let rule of folderNode.folderRules; trackBy: trackAclRule">
-                  <div class="acl-row__main">
-                    <strong class="acl-subject-type">{{ rule.subjectType }}</strong>
-                    <span>{{ rule.subject }}</span>
-                  </div>
-                  <div class="acl-perm-stack">
-                    <div class="acl-perm-line">
-                      <span class="acl-perm-label">Visualizar</span>
-                      <span class="acl-perm-value" [class.denied]="!rule.canView">{{ rule.canView ? 'Sim' : 'Não' }}</span>
-                    </div>
-                    <div class="acl-perm-line">
-                      <span class="acl-perm-label">Executar</span>
-                      <span class="acl-perm-value" [class.denied]="!rule.canRun">{{ rule.canRun ? 'Sim' : 'Não' }}</span>
-                    </div>
-                    <div class="acl-perm-line">
-                      <span class="acl-perm-label">Editar</span>
-                      <span class="acl-perm-value" [class.denied]="!rule.canEdit">{{ rule.canEdit ? 'Sim' : 'Não' }}</span>
-                    </div>
-                    <div class="acl-perm-line">
-                      <span class="acl-perm-label">Excluir</span>
-                      <span class="acl-perm-value" [class.denied]="!rule.canDelete">{{ rule.canDelete ? 'Sim' : 'Não' }}</span>
-                    </div>
-                  </div>
+            <div class="permission-block">
+              <div class="card-head">
+                <strong>Pastas e relatórios</strong>
+                <div class="table-actions">
+                  <app-button size="sm" tone="neutral" variant="outline" (pressed)="expandAllRoleAclFolders()">Expandir tudo</app-button>
+                  <app-button size="sm" tone="neutral" variant="outline" (pressed)="collapseAllRoleAclFolders()">Recolher tudo</app-button>
+                  <app-button
+                    size="sm"
+                    tone="primary"
+                    variant="solid"
+                    [disabled]="aclTreeSaving || aclTreeLoading || isSelectedAdminProfile()"
+                    (pressed)="saveRoleAclTree()"
+                  >
+                    {{ aclTreeSaving ? 'Salvando ACL...' : 'Salvar ACL do perfil' }}
+                  </app-button>
                 </div>
               </div>
-              <div class="muted" *ngIf="!folderNode.folderRules.length">
-                Sem regra explícita na pasta.
+              <label class="field acl-search-field">
+                <span>Buscar pasta ou relatório</span>
+                <input
+                  type="text"
+                  [(ngModel)]="roleAclSearchTerm"
+                  [ngModelOptions]="{ standalone: true }"
+                  placeholder="Digite para filtrar"
+                />
+              </label>
+              <div class="acl-filter-actions">
+                <app-button
+                  size="sm"
+                  [tone]="roleAclAccessFilter === 'ALLOW' ? 'primary' : 'neutral'"
+                  [variant]="roleAclAccessFilter === 'ALLOW' ? 'solid' : 'outline'"
+                  (pressed)="toggleRoleAclAccessFilter('ALLOW')"
+                >
+                  Com acesso
+                </app-button>
+                <app-button
+                  size="sm"
+                  [tone]="roleAclAccessFilter === 'DENY' ? 'danger' : 'neutral'"
+                  [variant]="roleAclAccessFilter === 'DENY' ? 'solid' : 'outline'"
+                  (pressed)="toggleRoleAclAccessFilter('DENY')"
+                >
+                  Sem acesso
+                </app-button>
               </div>
-              <div class="muted" *ngIf="!folderNode.folderRules.length && !folderNode.reports.length">
-                Sem regras neste grupo.
-              </div>
+              <div class="muted" *ngIf="aclTreeLoading">Carregando ACL do perfil...</div>
+              <div class="acl-tree-editor" *ngIf="!aclTreeLoading">
+                <div class="acl-tree-folder" *ngFor="let folderNode of filteredRoleAclTree(); trackBy: trackRoleAclFolder">
+                  <button type="button" class="acl-tree-folder-head" (click)="toggleRoleAclFolder(folderNode.id)">
+                    <span>{{ folderNode.expanded ? '▾' : '▸' }}</span>
+                    <span class="acl-kind-chip acl-kind-chip--folder">PASTA</span>
+                    <strong>{{ folderNode.name }}</strong>
+                    <span class="perm-chip">{{ folderNode.reports.length }} relatório(s)</span>
+                    <span class="perm-chip" [class.perm-chip--allowed]="folderNode.allowed" [class.perm-chip--denied]="!folderNode.allowed">
+                      {{ folderNode.allowed ? 'Com acesso' : 'Sem acesso' }}
+                    </span>
+                    <span class="perm-chip">
+                      {{ allowedReportsCount(folderNode) }} com acesso
+                    </span>
+                  </button>
 
-              <div class="acl-tree-report" *ngFor="let reportNode of folderNode.reports; trackBy: trackAclSubjectReport">
-                <div class="acl-tree-report-title">{{ reportNode.reportName }}</div>
-                <div class="acl-row" *ngFor="let rule of reportNode.rules; trackBy: trackAclRule">
-                  <div class="acl-row__main">
-                    <strong class="acl-subject-type">{{ rule.subjectType }}</strong>
-                    <span>{{ rule.subject }}</span>
+                  <div class="acl-tree-folder-body" *ngIf="folderNode.expanded">
+                    <div class="acl-entity-title">Permissões da pasta</div>
+                    <label class="field acl-simple-field">
+                      <span>Permissão da pasta</span>
+                      <select
+                        [ngModel]="folderNode.allowed ? 'ALLOW' : 'DENY'"
+                        [ngModelOptions]="{ standalone: true }"
+                        [disabled]="isSelectedAdminProfile()"
+                        (ngModelChange)="setFolderAclAllowed(folderNode.id, $event === 'ALLOW')"
+                      >
+                        <option value="ALLOW">Com acesso (ver e executar)</option>
+                        <option value="DENY">Sem acesso</option>
+                      </select>
+                    </label>
+
+                    <div class="acl-tree-report" *ngFor="let reportNode of folderNode.reports; trackBy: trackRoleAclReport">
+                      <div class="acl-tree-report-head">
+                        <div class="acl-tree-report-title">
+                          <span class="acl-kind-chip acl-kind-chip--report">RELATÓRIO</span>
+                          {{ reportNode.name }}
+                        </div>
+                        <app-button
+                          size="sm"
+                          tone="neutral"
+                          variant="outline"
+                          [disabled]="reportNode.useFolderInheritance || isSelectedAdminProfile()"
+                          (pressed)="inheritReportAclFromFolder(folderNode.id, reportNode.id)"
+                        >
+                          Herdar pasta
+                        </app-button>
+                      </div>
+                      <div class="acl-entity-title acl-entity-title--sub">Permissões do relatório</div>
+                      <label class="field acl-simple-field">
+                        <span>Permissão do relatório</span>
+                        <select
+                          [ngModel]="reportNode.allowed ? 'ALLOW' : 'DENY'"
+                          [ngModelOptions]="{ standalone: true }"
+                          [disabled]="isSelectedAdminProfile()"
+                          (ngModelChange)="setReportAclAllowed(folderNode.id, reportNode.id, $event === 'ALLOW')"
+                        >
+                          <option value="ALLOW">Com acesso (ver e executar)</option>
+                          <option value="DENY">Sem acesso</option>
+                        </select>
+                      </label>
+                    </div>
                   </div>
-                  <div class="acl-perm-stack">
-                    <div class="acl-perm-line">
-                      <span class="acl-perm-label">Visualizar</span>
-                      <span class="acl-perm-value" [class.denied]="!rule.canView">{{ rule.canView ? 'Sim' : 'Não' }}</span>
-                    </div>
-                    <div class="acl-perm-line">
-                      <span class="acl-perm-label">Executar</span>
-                      <span class="acl-perm-value" [class.denied]="!rule.canRun">{{ rule.canRun ? 'Sim' : 'Não' }}</span>
-                    </div>
-                    <div class="acl-perm-line">
-                      <span class="acl-perm-label">Editar</span>
-                      <span class="acl-perm-value" [class.denied]="!rule.canEdit">{{ rule.canEdit ? 'Sim' : 'Não' }}</span>
-                    </div>
-                    <div class="acl-perm-line">
-                      <span class="acl-perm-label">Excluir</span>
-                      <span class="acl-perm-value" [class.denied]="!rule.canDelete">{{ rule.canDelete ? 'Sim' : 'Não' }}</span>
-                    </div>
-                  </div>
-                </div>
-                <div class="muted" *ngIf="!reportNode.rules.length">
-                  Sem regra explícita no relatório (usa regra da pasta, se existir).
                 </div>
               </div>
             </div>
-          </div>
-        </div>
+          </ng-container>
 
-        <div class="acl-subject-list" *ngIf="aclSubjectRows.length">
-          <strong>Regras consolidadas</strong>
-          <div class="acl-subject-list-wrap">
-            <table class="acl-subject-table">
-              <thead>
-                <tr>
-                  <th>Tipo</th>
-                  <th>Pasta</th>
-                  <th>Alvo</th>
-                  <th>Visualizar</th>
-                  <th>Executar</th>
-                  <th>Editar</th>
-                  <th>Excluir</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let row of aclSubjectRows">
-                  <td>{{ row.targetType === 'FOLDER' ? 'Pasta' : 'Relatório' }}</td>
-                  <td>{{ row.folderName }}</td>
-                  <td>{{ row.targetName }}</td>
-                  <td>{{ row.rule.canView ? 'Sim' : 'Não' }}</td>
-                  <td>{{ row.rule.canRun ? 'Sim' : 'Não' }}</td>
-                  <td>{{ row.rule.canEdit ? 'Sim' : 'Não' }}</td>
-                  <td>{{ row.rule.canDelete ? 'Sim' : 'Não' }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <div class="acl-grid">
-        <label class="field">
-          <span>Tipo de alvo</span>
-          <select
-            [ngModel]="aclEntityType"
-            [ngModelOptions]="{ standalone: true }"
-            (ngModelChange)="onAclEntityTypeChange($event)"
-          >
-            <option value="FOLDER">Pasta</option>
-            <option value="REPORT">Relatório</option>
-          </select>
-        </label>
-
-        <label class="field">
-          <span>Alvo</span>
-          <select
-            [ngModel]="aclTargetId"
-            [ngModelOptions]="{ standalone: true }"
-            (ngModelChange)="onAclTargetChange($event)"
-          >
-            <option value="">Selecione</option>
-            <ng-container *ngIf="aclEntityType === 'FOLDER'; else reportAclTargets">
-              <option *ngFor="let folder of aclFolders" [value]="folder.id">
-                {{ folder.name }}
-              </option>
-            </ng-container>
-            <ng-template #reportAclTargets>
-              <option *ngFor="let report of aclReports" [value]="report.id">
-                {{ report.name }}
-              </option>
-            </ng-template>
-          </select>
-        </label>
-      </div>
-
-      <div class="acl-editor">
-        <label class="field">
-          <span>Subject Type</span>
-          <select
-            [ngModel]="aclDraft.subjectType"
-            [ngModelOptions]="{ standalone: true }"
-            (ngModelChange)="onAclSubjectTypeChange($event)"
-          >
-            <option value="ROLE">ROLE</option>
-            <option value="USER">USER</option>
-          </select>
-        </label>
-
-        <ng-container *ngIf="aclDraft.subjectType === 'ROLE'; else aclUserSubject">
-          <label class="field">
-            <span>Role</span>
-            <select
-              [ngModel]="aclDraft.subject"
-              [ngModelOptions]="{ standalone: true }"
-              (ngModelChange)="onAclDraftFieldChange('subject', $event)"
-            >
-              <option value="">Selecione uma role</option>
-              <option *ngFor="let role of roles; trackBy: trackRole" [value]="role.name">
-                {{ role.name }}
-              </option>
-            </select>
-          </label>
-        </ng-container>
-        <ng-template #aclUserSubject>
-          <label class="field">
-            <span>Usuário (UUID)</span>
-            <input
-              type="text"
-              [ngModel]="aclDraft.subject"
-              [ngModelOptions]="{ standalone: true }"
-              (ngModelChange)="onAclDraftFieldChange('subject', $event)"
-              placeholder="uuid do usuário"
-            />
-          </label>
-        </ng-template>
-
-        <div class="acl-flags">
-          <label class="check acl-flag">
-            <input
-              type="checkbox"
-              [ngModel]="aclDraft.canView"
-              [ngModelOptions]="{ standalone: true }"
-              (ngModelChange)="onAclDraftFieldChange('canView', $event)"
-            />
-            Pode visualizar
-          </label>
-          <label class="check acl-flag">
-            <input
-              type="checkbox"
-              [ngModel]="aclDraft.canRun"
-              [ngModelOptions]="{ standalone: true }"
-              (ngModelChange)="onAclDraftFieldChange('canRun', $event)"
-            />
-            Pode executar
-          </label>
-          <label class="check acl-flag">
-            <input
-              type="checkbox"
-              [ngModel]="aclDraft.canEdit"
-              [ngModelOptions]="{ standalone: true }"
-              (ngModelChange)="onAclDraftFieldChange('canEdit', $event)"
-            />
-            Pode editar
-          </label>
-          <label class="check acl-flag">
-            <input
-              type="checkbox"
-              [ngModel]="aclDraft.canDelete"
-              [ngModelOptions]="{ standalone: true }"
-              (ngModelChange)="onAclDraftFieldChange('canDelete', $event)"
-            />
-            Pode excluir
-          </label>
-        </div>
-
-        <app-button tone="primary" variant="solid" (pressed)="saveAclRule()" [disabled]="aclSaving || !aclTargetId">
-          {{ aclSaving ? 'Salvando...' : 'Salvar regra ACL' }}
-        </app-button>
-      </div>
-
-      <div class="acl-list">
-        <div class="muted" *ngIf="!aclTargetId">Selecione um alvo para visualizar ACL.</div>
-        <div class="muted" *ngIf="aclTargetId && aclLoading">Carregando regras ACL...</div>
-        <div class="muted" *ngIf="aclTargetId && !aclLoading && !aclRules.length">Sem regras ACL cadastradas.</div>
-
-        <div class="acl-row" *ngFor="let rule of aclRules; trackBy: trackAclRule">
-          <div class="acl-row__main">
-            <strong class="acl-subject-type">{{ rule.subjectType }}</strong>
-            <span>{{ rule.subject }}</span>
-          </div>
-          <div class="acl-row__flags">
-            <span class="perm-chip">view: {{ rule.canView ? 'sim' : 'não' }}</span>
-            <span class="perm-chip">run: {{ rule.canRun ? 'sim' : 'não' }}</span>
-            <span class="perm-chip">edit: {{ rule.canEdit ? 'sim' : 'não' }}</span>
-            <span class="perm-chip">delete: {{ rule.canDelete ? 'sim' : 'não' }}</span>
-          </div>
-          <app-button size="sm" tone="danger" variant="outline" (pressed)="removeAclRule(rule)">
-            Remover
-          </app-button>
+          <div class="muted" *ngIf="!selectedRoleName">Crie um perfil ou selecione um perfil para editar permissões e ACL.</div>
         </div>
       </div>
     </div>
@@ -526,16 +366,16 @@
       </label>
 
       <div class="roles-picker">
-        <span class="roles-label">Roles iniciais</span>
+        <span class="roles-label">Perfis iniciais</span>
         <app-reports-multi-select
           [options]="createUserRoleOptions()"
           [selectedValues]="createUserSelectedRoles()"
-          [placeholder]="'Selecione as roles'"
+          [placeholder]="'Selecione os perfis (obrigatório)'"
           (selectedValuesChange)="onCreateUserRolesChange($event)"
         ></app-reports-multi-select>
       </div>
 
-      <app-button tone="primary" variant="solid" (pressed)="createUser()" [disabled]="saving">
+      <app-button tone="primary" variant="solid" (pressed)="createUser()" [disabled]="saving || !canSubmitCreateUser()">
         {{ saving ? 'Criando...' : 'Criar usuário' }}
       </app-button>
     </div>
@@ -569,11 +409,11 @@
       </label>
 
       <div class="roles-picker">
-        <span class="roles-label">Roles</span>
+        <span class="roles-label">Perfis</span>
         <app-reports-multi-select
           [options]="createUserRoleOptions()"
-          [selectedValues]="editUserSelectedRoles()"
-          [placeholder]="'Selecione as roles'"
+          [selectedValues]="editUserRoleSelection"
+          [placeholder]="'Selecione os perfis'"
           (selectedValuesChange)="onEditUserRolesChange($event)"
         ></app-reports-multi-select>
       </div>

@@ -247,7 +247,7 @@
       <p class="params-error" *ngIf="paramsError">{{ paramsError }}</p>
 
       <div class="actions" *ngIf="manageMode">
-        <app-button type="button" tone="primary" variant="solid" (pressed)="applyFilters()">
+        <app-button type="button" tone="primary" variant="solid" (pressed)="applyFilters()" [disabled]="!canRunReport">
           <span class="btn-icon">▶</span> Executar
         </app-button>
         <app-button type="button" tone="neutral" variant="outline" (pressed)="clearAllFilters()">
@@ -319,7 +319,7 @@
       </div>
 
       <div class="actions" *ngIf="!manageMode">
-        <app-button type="button" tone="primary" variant="solid" (pressed)="applyFilters()">
+        <app-button type="button" tone="primary" variant="solid" (pressed)="applyFilters()" [disabled]="!canRunReport">
           <span class="btn-icon">▶</span> Executar
         </app-button>
         <app-button type="button" tone="neutral" variant="outline" (pressed)="clearAllFilters()">
