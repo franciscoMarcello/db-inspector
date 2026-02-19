@@ -214,6 +214,11 @@ select {
   font-size: 15px;
 }
 
+.user-name {
+  font-weight: 600;
+  font-size: 15px;
+}
+
 .roles-inline {
   display: flex;
   gap: 6px;
@@ -536,6 +541,10 @@ select {
   padding: 14px;
   display: grid;
   gap: 10px;
+}
+
+.modal-status-row {
+  margin-top: 0;
 }
 
 .modal-card--sm {

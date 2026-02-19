@@ -30,7 +30,14 @@ export class App {
     return this.auth.user()?.email || '';
   }
 
+  get userName() {
+    return String(this.auth.user()?.name || '').trim();
+  }
+
   get userDisplayName() {
+    const name = this.userName;
+    if (name) return name;
+
     const email = this.userEmail;
     if (!email) return '';
     const local = email.split('@')[0] || '';

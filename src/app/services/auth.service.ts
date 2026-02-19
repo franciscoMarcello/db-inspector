@@ -6,6 +6,7 @@ import { EnvStorageService } from './env-storage.service';
 
 export type AuthUser = {
   id: string;
+  name: string;
   email: string;
   roles: string[];
   permissions: string[];
@@ -265,6 +266,7 @@ export class AuthService {
     const user = res.user
       ? {
           id: String(res.user.id),
+          name: String(res.user.name || '').trim(),
           email: String(res.user.email),
           roles:
             this.normalizeRoles(res.user.roles).length
@@ -296,6 +298,7 @@ export class AuthService {
       const user = rawUser
         ? {
             id: String(rawUser.id || ''),
+            name: String(rawUser.name || '').trim(),
             email: String(rawUser.email || ''),
             roles: this.normalizeRoles(rawUser.roles).length
               ? this.normalizeRoles(rawUser.roles)
@@ -487,6 +490,7 @@ export class AuthService {
     const permissions = this.normalizePermissions(user.permissions);
     this.userSig.set({
       id: String(user.id || ''),
+      name: String(user.name || '').trim(),
       email: String(user.email || ''),
       roles: roles.length ? roles : this.extractRolesFromToken(token),
       permissions: permissions.length ? permissions : this.extractPermissionsFromToken(token),

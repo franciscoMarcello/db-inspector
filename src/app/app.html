@@ -5,8 +5,8 @@
         <div class="side-top">
           <div class="title">AgroReport</div>
         </div>
-        <div class="user-welcome" [title]="'Bem-vindo, ' + userDisplayName">
-          Bem-vindo, {{ userDisplayName || 'Usuário' }}
+        <div class="user-welcome" [title]="'Bem-vindo, ' + (userName || userDisplayName)">
+          Bem-vindo, {{ userName || userDisplayName || 'Usuário' }}
         </div>
         <div class="user-email" [title]="userEmail">{{ userEmail }}</div>
         <app-button class="nav-btn side-logout-btn" tone="neutral" variant="ghost" icon="logout" (pressed)="logout()">

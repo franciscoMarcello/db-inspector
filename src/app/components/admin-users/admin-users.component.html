@@ -9,8 +9,8 @@
         <app-button tone="primary" variant="solid" (pressed)="openCreateUserModal()">Criar usuário</app-button>
       </div>
       <div class="status-row">
-        <div class="status error" *ngIf="error">{{ error }}</div>
-        <div class="status ok" *ngIf="status">{{ status }}</div>
+        <div class="status error" *ngIf="error && !anyModalOpen">{{ error }}</div>
+        <div class="status ok" *ngIf="status && !anyModalOpen">{{ status }}</div>
       </div>
     </div>
 
@@ -26,6 +26,7 @@
         <table class="users-table">
           <thead>
             <tr>
+              <th>Nome</th>
               <th>E-mail</th>
               <th>Status</th>
               <th>Roles</th>
@@ -36,6 +37,9 @@
           </thead>
           <tbody>
             <tr *ngFor="let user of users; trackBy: trackUser">
+              <td>
+                <div class="user-name">{{ user.name || '-' }}</div>
+              </td>
               <td>
                 <div class="user-email">{{ user.email }}</div>
                 <div class="meta">ID: {{ user.id }}</div>
@@ -211,12 +215,12 @@
                 [ngModelOptions]="{ standalone: true }"
                 (ngModelChange)="aclSubjectView = $event"
               >
-                <option value="">Selecione um usuário</option>
-                <option *ngFor="let user of users; trackBy: trackUser" [value]="user.id">
-                  {{ user.email }} ({{ user.id }})
-                </option>
-              </select>
-            </label>
+              <option value="">Selecione um usuário</option>
+              <option *ngFor="let user of users; trackBy: trackUser" [value]="user.id">
+                  {{ user.name || user.email }} ({{ user.id }})
+              </option>
+            </select>
+          </label>
           </ng-template>
         </div>
 
@@ -482,8 +486,17 @@
       <h3>Criar usuário</h3>
       <app-button tone="neutral" variant="outline" (pressed)="closeCreateUserModal()">Fechar</app-button>
     </div>
+    <div class="status-row modal-status-row">
+      <div class="status error" *ngIf="error">{{ error }}</div>
+      <div class="status ok" *ngIf="status">{{ status }}</div>
+    </div>
 
     <div class="create-form">
+      <label class="field">
+        <span>Nome</span>
+        <input type="text" [(ngModel)]="createForm.name" [ngModelOptions]="{ standalone: true }" placeholder="Nome completo" />
+      </label>
+
       <label class="field">
         <span>E-mail</span>
         <input type="email" [(ngModel)]="createForm.email" [ngModelOptions]="{ standalone: true }" placeholder="usuario@empresa.com" />
@@ -521,8 +534,17 @@
       <h3>Editar usuário</h3>
       <app-button tone="neutral" variant="outline" (pressed)="closeEditUserModal()">Fechar</app-button>
     </div>
+    <div class="status-row modal-status-row">
+      <div class="status error" *ngIf="error">{{ error }}</div>
+      <div class="status ok" *ngIf="status">{{ status }}</div>
+    </div>
 
     <div class="create-form">
+      <label class="field">
+        <span>Nome</span>
+        <input type="text" [(ngModel)]="editUserDraft.name" [ngModelOptions]="{ standalone: true }" />
+      </label>
+
       <label class="field">
         <span>E-mail</span>
         <input type="text" [value]="editUserDraft.email" disabled />
@@ -554,6 +576,10 @@
     <div class="card-head">
       <h3>Redefinir senha</h3>
       <app-button tone="neutral" variant="outline" (pressed)="closePasswordModal()">Fechar</app-button>
+    </div>
+    <div class="status-row modal-status-row">
+      <div class="status error" *ngIf="error">{{ error }}</div>
+      <div class="status ok" *ngIf="status">{{ status }}</div>
     </div>
     <div class="create-form">
       <div class="meta">{{ passwordModalUser.email }}</div>

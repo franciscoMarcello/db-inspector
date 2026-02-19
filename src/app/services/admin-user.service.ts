@@ -5,6 +5,7 @@ import { EnvStorageService } from './env-storage.service';
 
 export type AdminUser = {
   id: string;
+  name: string;
   email: string;
   active: boolean;
   roles: string[];
@@ -18,6 +19,7 @@ export type AdminRole = {
 };
 
 export type CreateAdminUserInput = {
+  name: string;
   email: string;
   password: string;
   active?: boolean;
@@ -26,6 +28,10 @@ export type CreateAdminUserInput = {
 
 export type UpdateAdminUserPasswordInput = {
   password: string;
+};
+
+export type UpdateAdminUserNameInput = {
+  name: string;
 };
 
 export type UpsertAdminRoleInput = {
@@ -103,5 +109,9 @@ export class AdminUserService {
 
   updateUserPassword(id: string, payload: UpdateAdminUserPasswordInput): Observable<void> {
     return this.http.patch<void>(`${this.base}/users/${encodeURIComponent(id)}/password`, payload);
+  }
+
+  updateUserName(id: string, payload: UpdateAdminUserNameInput): Observable<AdminUser> {
+    return this.http.patch<AdminUser>(`${this.base}/users/${encodeURIComponent(id)}/name`, payload);
   }
 }

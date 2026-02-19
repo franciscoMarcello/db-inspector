@@ -49,6 +49,8 @@ export class AdminUsersComponent implements OnInit {
   editUserSaving = false;
   editUserDraft: {
     id: string;
+    name: string;
+    originalName: string;
     email: string;
     active: boolean;
     originalActive: boolean;
@@ -101,11 +103,16 @@ export class AdminUsersComponent implements OnInit {
   };
 
   createForm = {
+    name: '',
     email: '',
     password: '',
     active: true,
     roles: new Set<string>(['USER']),
   };
+
+  get anyModalOpen(): boolean {
+    return this.createUserModalOpen || this.editUserModalOpen || this.passwordModalOpen;
+  }
 
   ngOnInit(): void {
     this.loadAll();
@@ -173,10 +180,11 @@ export class AdminUsersComponent implements OnInit {
   }
 
   createUser() {
+    const name = this.createForm.name.trim();
     const email = this.createForm.email.trim();
     const password = this.createForm.password;
-    if (!email || !password) {
-      this.error = 'Informe e-mail e senha para criar usuário.';
+    if (!name || !email || !password) {
+      this.error = 'Informe nome, e-mail e senha para criar usuário.';
       return;
     }
 
@@ -185,6 +193,7 @@ export class AdminUsersComponent implements OnInit {
     this.error = '';
     this.api
       .createUser({
+        name,
         email,
         password,
         active: this.createForm.active,
@@ -193,7 +202,8 @@ export class AdminUsersComponent implements OnInit {
       .subscribe({
         next: () => {
           this.saving = false;
-          this.status = `Usuário "${email}" criado.`;
+          this.status = `Usuário "${name}" criado.`;
+          this.createForm.name = '';
           this.createForm.email = '';
           this.createForm.password = '';
           this.createForm.active = true;
@@ -239,6 +249,8 @@ export class AdminUsersComponent implements OnInit {
     this.status = '';
     this.editUserDraft = {
       id: user.id,
+      name: user.name,
+      originalName: user.name,
       email: user.email,
       active: user.active,
       originalActive: user.active,
@@ -268,6 +280,14 @@ export class AdminUsersComponent implements OnInit {
     if (!draft) return;
 
     const actions: Observable<unknown>[] = [];
+    const nextName = String(draft.name || '').trim();
+    if (!nextName) {
+      this.error = 'Informe o nome do usuário.';
+      return;
+    }
+    if (nextName !== String(draft.originalName || '').trim()) {
+      actions.push(this.api.updateUserName(draft.id, { name: nextName }));
+    }
     if (draft.active !== draft.originalActive) {
       actions.push(this.api.setUserActive(draft.id, draft.active));
     }
