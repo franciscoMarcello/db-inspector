@@ -22,6 +22,15 @@
         [(ngModel)]="filter"
       />
     </div>
+    <select [(ngModel)]="sortBy" aria-label="Ordenar agendamentos por">
+      <option value="nextRun">Ordenar: próxima execução</option>
+      <option value="name">Ordenar: nome</option>
+      <option value="status">Ordenar: status</option>
+    </select>
+    <select [(ngModel)]="sortDirection" aria-label="Direção da ordenação">
+      <option value="asc">Crescente</option>
+      <option value="desc">Decrescente</option>
+    </select>
     <span class="count">{{ filtered.length }} itens</span>
   </div>
 
@@ -33,31 +42,54 @@
     </div>
   </div>
 
-  <div class="cards">
+  <div class="cards" (click)="closeMenu()">
     <article class="card" *ngFor="let s of filtered; trackBy: trackId">
-      <div class="card__top">
-        <div class="status" [class.active]="s.active">{{ s.active ? 'Ativo' : 'Pausado' }}</div>
-        <div class="time">{{ s.time }} • {{ formatDays(s.days) }}</div>
+      <div class="meta-block">
+        <div
+          class="status"
+          [class.active]="statusLabel(s) === 'Ativo'"
+          [class.paused]="statusLabel(s) === 'Pausado'"
+          [class.error]="statusLabel(s) === 'Falhou'"
+          [class.running]="statusLabel(s) === 'Executando'"
+          [class.late]="statusLabel(s) === 'Atrasado'"
+        >
+          {{ statusLabel(s) }}
+        </div>
+        <span class="meta-line__item meta-line__item--main">
+          <mat-icon fontIcon="event" aria-hidden="true"></mat-icon>
+          {{ s.time }} • {{ formatDaysCompact(s.days) }}
+        </span>
+        <span
+          class="meta-line__item meta-line__item--next"
+          [attr.title]="nextRunTimezone(s.nextRun) || null"
+        >
+          Próx: {{ formatNextRunShort(s.nextRun) }}
+        </span>
       </div>
 
-      <div class="meta meta--compact">
-        <div>
-          <span class="label">Nome</span>
-          <div class="value">{{ s.subject || 'Sem nome' }}</div>
-        </div>
-        <div>
-          <span class="label">Proxima execucao</span>
-          <div class="value">{{ s.nextRun || s.createdAt || '-' }}</div>
-        </div>
+      <div class="card__title">
+        <div class="job-title" [attr.title]="s.subject || 'Sem nome'">{{ s.subject || 'Sem nome' }}</div>
       </div>
 
       <div class="card__actions">
-        <app-button tone="primary" variant="solid" (pressed)="sendNow(s)">Enviar agora</app-button>
-        <app-button tone="neutral" variant="outline" (pressed)="edit(s)">Editar</app-button>
-        <app-button tone="neutral" variant="outline" (pressed)="toggleActive(s)">
-          {{ s.active ? 'Pausar' : 'Ativar' }}
+        <app-button tone="primary" variant="solid" (pressed)="sendNow(s)" [disabled]="isSendingNow(s.id)">
+          {{ isSendingNow(s.id) ? 'Enviando...' : 'Enviar agora' }}
         </app-button>
-        <app-button tone="danger" variant="outline" (pressed)="remove(s)">Remover</app-button>
+        <div class="menu-wrap">
+          <button
+            type="button"
+            class="menu-trigger"
+            aria-label="Mais ações"
+            (click)="$event.stopPropagation(); toggleMenu(s.id)"
+          >
+            ⋯
+          </button>
+          <div class="card-menu" *ngIf="isMenuOpen(s.id)" (click)="$event.stopPropagation()">
+            <button type="button" (click)="edit(s)">Editar</button>
+            <button type="button" (click)="toggleActive(s)">{{ s.active ? 'Pausar' : 'Ativar' }}</button>
+            <button type="button" class="danger" (click)="remove(s)">Remover</button>
+          </div>
+        </div>
       </div>
     </article>
   </div>
