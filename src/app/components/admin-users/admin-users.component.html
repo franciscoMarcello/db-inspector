@@ -37,27 +37,118 @@
         </div>
       </div>
 
-      <div class="users-table-wrap">
+      <div class="users-toolbar">
+        <div class="users-status-filters">
+          <app-button size="sm" [tone]="userStatusFilter === 'ALL' ? 'primary' : 'neutral'" [variant]="userStatusFilter === 'ALL' ? 'solid' : 'outline'" (pressed)="userStatusFilter = 'ALL'">Todos ({{ userStatusCount('ALL') }})</app-button>
+          <app-button size="sm" [tone]="userStatusFilter === 'ACTIVE' ? 'primary' : 'neutral'" [variant]="userStatusFilter === 'ACTIVE' ? 'solid' : 'outline'" (pressed)="userStatusFilter = 'ACTIVE'">Ativos ({{ userStatusCount('ACTIVE') }})</app-button>
+          <app-button size="sm" [tone]="userStatusFilter === 'INACTIVE' ? 'danger' : 'neutral'" [variant]="userStatusFilter === 'INACTIVE' ? 'solid' : 'outline'" (pressed)="userStatusFilter = 'INACTIVE'">Inativos ({{ userStatusCount('INACTIVE') }})</app-button>
+          <app-reports-multi-select
+            class="users-profile-filter"
+            [options]="userProfileFilterOptions()"
+            [selectedValues]="userProfileFilters"
+            [placeholder]="'Filtrar por perfil'"
+            (selectedValuesChange)="onUserProfileFiltersChange($event)"
+          ></app-reports-multi-select>
+        </div>
+        <small class="users-last-update" *ngIf="usersLastUpdatedAt">Atualizado: {{ usersLastUpdatedAt | date : 'dd/MM/yyyy HH:mm:ss' }}</small>
+      </div>
+
+      <div class="users-bulk-actions" [class.active]="selectedUsersCount() > 0" [attr.aria-hidden]="selectedUsersCount() > 0 ? null : true">
+        <ng-container *ngIf="selectedUsersCount() > 0; else bulkEmpty">
+          <span class="users-bulk-label">{{ selectedUsersCount() }} usuário(s) selecionado(s)</span>
+          <div class="table-actions">
+            <app-button size="sm" tone="neutral" variant="outline" [disabled]="bulkUsersLoading" (pressed)="setSelectedUsersActive(true)">
+              Ativar
+            </app-button>
+            <app-button size="sm" tone="neutral" variant="outline" [disabled]="bulkUsersLoading" (pressed)="setSelectedUsersActive(false)">
+              Desativar
+            </app-button>
+            <app-button size="sm" tone="neutral" variant="outline" [disabled]="bulkUsersLoading" (pressed)="revokeRefreshTokensBulk()">
+              Revogar refresh
+            </app-button>
+            <select
+              [(ngModel)]="bulkTargetRole"
+              [ngModelOptions]="{ standalone: true }"
+              [disabled]="bulkUsersLoading"
+              aria-label="Selecionar perfil para alterar em lote"
+            >
+              <option value="">Aplicar perfil...</option>
+              <option *ngFor="let role of roles" [value]="role.name">{{ role.name }}</option>
+            </select>
+            <app-button size="sm" tone="neutral" variant="outline" [disabled]="bulkUsersLoading || !bulkTargetRole" (pressed)="applyBulkRole()">
+              Aplicar perfil
+            </app-button>
+            <app-button size="sm" tone="neutral" variant="outline" [disabled]="bulkUsersLoading" (pressed)="clearSelectedUsers()">
+              Limpar seleção
+            </app-button>
+          </div>
+        </ng-container>
+        <ng-template #bulkEmpty>
+          <span class="users-bulk-empty">Selecione usuários para ações em lote.</span>
+        </ng-template>
+      </div>
+
+      <div class="users-table-wrap" (click)="closeUserRowMenu()">
+        <div class="users-table-loading" *ngIf="loading || bulkUsersLoading">Atualizando usuários...</div>
         <table class="users-table">
           <thead>
             <tr>
-              <th>Nome</th>
-              <th>E-mail</th>
-              <th>Status</th>
+              <th class="check-col">
+                <input
+                  type="checkbox"
+                  [checked]="areAllFilteredUsersSelected()"
+                  [indeterminate]="isPartialUsersSelection()"
+                  (click)="$event.stopPropagation()"
+                  (change)="toggleSelectAllFilteredUsers($any($event.target).checked)"
+                  aria-label="Selecionar todos os usuários filtrados"
+                />
+              </th>
+              <th>
+                <button type="button" class="table-sort-btn" (click)="toggleUserSort('name')">
+                  Nome {{ userSortIndicator('name') }}
+                </button>
+              </th>
+              <th>
+                <button type="button" class="table-sort-btn" (click)="toggleUserSort('email')">
+                  E-mail {{ userSortIndicator('email') }}
+                </button>
+              </th>
+              <th>
+                <button type="button" class="table-sort-btn" (click)="toggleUserSort('status')">
+                  Status {{ userSortIndicator('status') }}
+                </button>
+              </th>
               <th>Perfis</th>
-              <th>Criado</th>
-              <th>Atualizado</th>
+              <th>
+                <button type="button" class="table-sort-btn" (click)="toggleUserSort('createdAt')">
+                  Criado {{ userSortIndicator('createdAt') }}
+                </button>
+              </th>
+              <th>
+                <button type="button" class="table-sort-btn" (click)="toggleUserSort('updatedAt')">
+                  Atualizado {{ userSortIndicator('updatedAt') }}
+                </button>
+              </th>
               <th class="actions-col">Ações</th>
             </tr>
           </thead>
           <tbody>
             <tr *ngFor="let user of filteredUsers(); trackBy: trackUser">
+              <td class="check-col">
+                <input
+                  type="checkbox"
+                  [checked]="isUserSelected(user.id)"
+                  (click)="$event.stopPropagation()"
+                  (change)="toggleUserSelection(user.id, $any($event.target).checked)"
+                  [attr.aria-label]="'Selecionar usuário ' + user.email"
+                />
+              </td>
               <td>
-                <div class="user-name">{{ user.name || '-' }}</div>
+                <div class="user-name">{{ user.name || '-' }} <span class="user-self-chip" *ngIf="isCurrentUser(user)">(você)</span></div>
               </td>
               <td>
                 <div class="user-email">{{ user.email }}</div>
-                <div class="meta">ID: {{ user.id }}</div>
+                <div class="meta user-id">ID: {{ user.id }}</div>
               </td>
               <td>
                 <span class="status-chip" [class.inactive]="!user.active">
@@ -74,10 +165,13 @@
               <td class="actions-col">
                 <div class="table-actions">
                   <app-button size="sm" tone="neutral" variant="outline" (pressed)="openEditUserModal(user)">Editar</app-button>
-                  <app-button size="sm" tone="neutral" variant="outline" (pressed)="openPasswordModal(user)">Redefinir senha</app-button>
-                  <app-button size="sm" tone="neutral" variant="outline" (pressed)="revokeRefreshTokens(user)">
-                    Revogar refresh
-                  </app-button>
+                  <button type="button" class="row-menu-trigger" (click)="$event.stopPropagation(); toggleUserRowMenu(user.id)">⋯</button>
+                  <div class="row-menu" *ngIf="isUserRowMenuOpen(user.id)" (click)="$event.stopPropagation()">
+                    <button type="button" (click)="openPasswordModal(user)">Redefinir senha</button>
+                    <button type="button" (click)="revokeRefreshTokens(user)">Revogar refresh</button>
+                    <button type="button" *ngIf="!user.active" (click)="setUserActiveQuick(user, true)">Ativar usuário</button>
+                    <button type="button" *ngIf="user.active" (click)="setUserActiveQuick(user, false)">Desativar usuário</button>
+                  </div>
                 </div>
               </td>
             </tr>
