@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
@@ -90,7 +90,7 @@ import {
     './reports.component.responsive.css',
   ],
 })
-export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
+export class ReportsComponent implements OnInit, OnDestroy, ReportsFolderTemplateHost {
   folders: FolderNode[] = [];
   allFolders: ReportFolder[] = [];
   reports: ReportDefinition[] = [];
@@ -104,9 +104,9 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
   treeFilter = '';
   statusMessage = '';
   paramsError = '';
-  loadingList = false;
   loadingRun = false;
   loadingPdf = false;
+  exportMenuOpen = false;
   manageMode = false;
   sidebarCollapsed = false;
   variableInputs: Record<string, string> = {};
@@ -138,6 +138,7 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
   private optionsReloadTimer: ReturnType<typeof setTimeout> | null = null;
   private optionsParamsSignatureByKey: Record<string, string> = {};
   private readonly folderTemplateLogic: ReportsFolderTemplateLogic;
+  private statusClearTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     private reportService: ReportService,
@@ -152,6 +153,10 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
     this.loadPersistedUiState();
     this.pendingCreateSql = this.manageMode ? this.consumePendingSql() : null;
     this.loadData();
+  }
+
+  ngOnDestroy(): void {
+    if (this.statusClearTimer) clearTimeout(this.statusClearTimer);
   }
 
   get selectedReport(): ReportDefinition | null {
@@ -208,6 +213,21 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
 
   get selectedReportVariables() {
     return [...(this.selectedReport?.variables ?? [])].sort((a, b) => a.orderIndex - b.orderIndex);
+  }
+
+  get primaryReportVariables(): ReportVariable[] {
+    const variables = this.selectedReportVariables;
+    if (!variables.length) return [];
+
+    const primary = variables.filter((variable) => this.isPrimaryVariable(variable));
+    if (primary.length) return primary;
+
+    return variables.slice(0, Math.min(2, variables.length));
+  }
+
+  get additionalReportVariables(): ReportVariable[] {
+    const primaryKeys = new Set(this.primaryReportVariables.map((variable) => variable.key));
+    return this.selectedReportVariables.filter((variable) => !primaryKeys.has(variable.key));
   }
 
   get statusToneClass(): string {
@@ -285,6 +305,17 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
   }
 
   selectReport(reportId: string) {
+    const report = this.reports.find((item) => item.id === reportId);
+    if (report) {
+      const folder = this.folders.find((candidate) => belongsToFolder(report, candidate));
+      if (folder) {
+        this.selectedFolderId = folder.id;
+        this.folders = this.folders.map((candidate) =>
+          candidate.id === folder.id ? { ...candidate, expanded: true } : candidate
+        );
+        this.persistFolderExpandedState();
+      }
+    }
     this.selectedReportId = reportId;
     this.statusMessage = '';
     this.paramsError = '';
@@ -297,6 +328,15 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
   toggleSidebar() {
     this.sidebarCollapsed = !this.sidebarCollapsed;
     this.persistSidebarCollapsedState();
+  }
+
+  toggleExportMenu(event?: Event) {
+    event?.stopPropagation();
+    this.exportMenuOpen = !this.exportMenuOpen;
+  }
+
+  closeExportMenu() {
+    this.exportMenuOpen = false;
   }
 
   loadDataFromAdmin(preferredReportId?: string, preferredFolderId?: string) {
@@ -522,21 +562,23 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
   unarchiveSelectedReport() { this.updateSelectedReportArchived(false); }
 
   exportExcel() {
+    this.closeExportMenu();
     const result = this.runResult;
     if (!result) return;
     const blob = createXlsxBlob(result.columns, result.rows || []);
     this.downloadBlob(blob, `${normalizeFileName(result.name)}.xlsx`);
-    this.statusMessage = `Exportacao Excel concluida para "${result.name}".`;
+    this.setStatusMessage(`Exportacao Excel concluida para "${result.name}".`, 2500);
   }
 
   exportPdf() {
+    this.closeExportMenu();
     const report = this.selectedReport;
     if (!report?.id) {
-      this.statusMessage = 'Selecione um relatório para exportar PDF.';
+      this.setStatusMessage('Selecione um relatório para exportar PDF.');
       return;
     }
     if (!report.jasperTemplateId) {
-      this.statusMessage = 'Este relatório não possui template Jasper vinculado.';
+      this.setStatusMessage('Este relatório não possui template Jasper vinculado.');
       return;
     }
 
@@ -548,17 +590,16 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
       next: (blob) => {
         this.loadingPdf = false;
         this.downloadBlob(blob, `${normalizeFileName(report.name)}.pdf`);
-        this.statusMessage = `Exportacao PDF concluida para "${report.name}".`;
+        this.setStatusMessage(`Exportacao PDF concluida para "${report.name}".`, 2500);
       },
       error: (err) => {
         this.loadingPdf = false;
-        this.statusMessage = this.resolveRequestError(err, 'Falha ao exportar PDF.');
+        this.setStatusMessage(this.resolveRequestError(err, 'Falha ao exportar PDF.'));
       },
     });
   }
 
   private loadData(preferredReportId?: string, preferredFolderId?: string) {
-    this.loadingList = true;
     let templatesDenied = false;
     let foldersDenied = false;
     forkJoin({
@@ -604,7 +645,6 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
           this.pendingCreateSql = null;
           this.openCreateReportModal(sql);
         }
-        this.loadingList = false;
       },
       error: (err) => {
         this.reports = [];
@@ -613,7 +653,6 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
         this.runResult = null;
         this.selectedFolderId = null;
         this.selectedReportId = null;
-        this.loadingList = false;
         this.statusMessage = this.resolveAclAwareError(err, 'Falha ao carregar relatorios/pastas.');
       },
     });
@@ -693,6 +732,13 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
     }
 
     return Array.from(foldersById.values()).filter((folder) => visibleFolderIds.has(String(folder.id)));
+  }
+
+  private isPrimaryVariable(variable: ReportVariable): boolean {
+    const text = `${variable.key} ${variable.label || ''}`.toLowerCase();
+    const isDateLike = variable.type === 'date' || variable.type === 'datetime';
+    const isTimeRangeLike = /(data|date|periodo|period|inicial|final|inicio|fim|from|to)/i.test(text);
+    return isDateLike || isTimeRangeLike;
   }
 
   private loadPersistedUiState() {
@@ -1003,6 +1049,20 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
       return 'Acesso negado. Se o ACL padrão deny estiver ativo, solicite ao administrador a liberação de pasta/relatório para seu usuário ou perfil.';
     }
     return this.resolveRequestError(error, fallback);
+  }
+
+  private setStatusMessage(message: string, autoClearMs?: number) {
+    if (this.statusClearTimer) {
+      clearTimeout(this.statusClearTimer);
+      this.statusClearTimer = null;
+    }
+    this.statusMessage = message;
+    if (autoClearMs && autoClearMs > 0) {
+      this.statusClearTimer = setTimeout(() => {
+        this.statusMessage = '';
+        this.statusClearTimer = null;
+      }, autoClearMs);
+    }
   }
 
   private consumePendingSql(): string | null {

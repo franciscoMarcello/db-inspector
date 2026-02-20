@@ -6,10 +6,6 @@
   .tree-panel {
     min-height: auto;
   }
-
-  .template-manager {
-    grid-template-columns: 1fr;
-  }
 }
 
 @media (max-height: 820px) {
@@ -45,27 +41,6 @@
     gap: 6px;
     font-size: 11px;
     line-height: 1.35;
-  }
-
-  .report-modal[open] {
-    align-items: start;
-    padding: 70px 10px 10px;
-  }
-
-  .report-modal__panel {
-    width: min(1080px, 96vw);
-    max-height: calc(100vh - 84px);
-    border-radius: 8px;
-  }
-
-  .report-modal__header,
-  .report-modal__footer {
-    padding: 8px 10px;
-  }
-
-  .report-modal__body {
-    padding: 10px;
-    gap: 8px;
   }
 
   .var-field textarea {
