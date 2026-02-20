@@ -66,10 +66,10 @@ export class AdminUsersComponent implements OnInit {
   saving = false;
   error = '';
   status = '';
+  userSearchTerm = '';
 
   users: AdminUser[] = [];
   roles: AdminRole[] = [];
-  permissions: string[] = [];
   permissionsCatalog: PermissionCatalogItem[] = [];
   permissionCatalogByCode: Record<string, PermissionCatalogItem> = {};
   roleSaving = false;
@@ -78,13 +78,12 @@ export class AdminUsersComponent implements OnInit {
   rolePermissionFilter = '';
   selectedRoleName = '';
   selectedRolePermissionDraft = new Set<string>();
-  rolePermissionsSaving = false;
   aclTreeLoading = false;
-  aclTreeSaving = false;
   savingAllRoleChanges = false;
   roleSearchTerm = '';
   roleAclSearchTerm = '';
   roleAclAccessFilter: 'ALL' | 'ALLOW' | 'DENY' = 'ALL';
+  folderBulkMenuOpenId: string | null = null;
   selectedPermissionSearchTerm = '';
   selectedPermissionCategoryFilter: PermissionGroupKey | 'ALL' = 'ALL';
   selectedPermissionOnlyMarked = false;
@@ -170,7 +169,6 @@ export class AdminUsersComponent implements OnInit {
         this.permissionsCatalog = [...(permissionsCatalog || [])].sort((a, b) =>
           String(a.label || a.code).localeCompare(String(b.label || b.code), undefined, { sensitivity: 'base' })
         );
-        this.permissions = this.permissionsCatalog.map((p) => p.code);
         this.permissionCatalogByCode = this.permissionsCatalog.reduce<Record<string, PermissionCatalogItem>>(
           (acc, item) => {
             acc[item.code] = item;
@@ -204,6 +202,16 @@ export class AdminUsersComponent implements OnInit {
     });
   }
 
+  filteredUsers(): AdminUser[] {
+    const term = String(this.userSearchTerm || '').trim().toLowerCase();
+    if (!term) return this.users;
+    return this.users.filter((user) => {
+      const name = String(user.name || '').toLowerCase();
+      const email = String(user.email || '').toLowerCase();
+      return name.includes(term) || email.includes(term);
+    });
+  }
+
   isSystemRole(roleName: string): boolean {
     return this.sameRoleName(roleName, 'ADMIN');
   }
@@ -220,6 +228,10 @@ export class AdminUsersComponent implements OnInit {
     if (!roleName) return;
     const nextRole = this.roles.find((role) => this.sameRoleName(role.name, roleName))?.name || roleName;
     if (this.sameRoleName(this.selectedRoleName, nextRole)) return;
+    if (this.hasAnyRoleChanges()) {
+      const confirmSwitch = confirm('Existem alterações não salvas. Deseja trocar de perfil mesmo assim?');
+      if (!confirmSwitch) return;
+    }
     this.selectedRoleName = nextRole;
     this.syncSelectedRolePermissionDraft();
     this.loadRoleAclTree();
@@ -239,35 +251,14 @@ export class AdminUsersComponent implements OnInit {
     else this.selectedRolePermissionDraft.delete(permission);
   }
 
-  saveSelectedRolePermissions() {
-    const role = this.selectedRole();
-    if (!role) {
-      this.error = 'Selecione um perfil.';
-      return;
+  applyPermissionGroupSelection(items: PermissionCatalogItem[], mode: 'all' | 'none') {
+    const list = items || [];
+    for (const permission of list) {
+      const code = permission?.code;
+      if (!code) continue;
+      if (mode === 'all') this.selectedRolePermissionDraft.add(code);
+      else if (mode === 'none') this.selectedRolePermissionDraft.delete(code);
     }
-    if (String(role.name || '').toUpperCase() === 'ADMIN') {
-      this.status = 'Perfil ADMIN possui acesso total gerenciado no backend.';
-      return;
-    }
-    this.rolePermissionsSaving = true;
-    this.error = '';
-    this.status = '';
-    this.api
-      .updateRole(role.name, {
-        name: role.name,
-        permissions: Array.from(this.selectedRolePermissionDraft),
-      })
-      .subscribe({
-        next: () => {
-          this.rolePermissionsSaving = false;
-          this.status = `Permissões de tela do perfil "${role.name}" atualizadas.`;
-          this.loadAll();
-        },
-        error: (err) => {
-          this.rolePermissionsSaving = false;
-          this.error = this.messageFromError(err, 'Falha ao salvar permissões do perfil.');
-        },
-      });
   }
 
   saveAllRoleChanges() {
@@ -319,6 +310,7 @@ export class AdminUsersComponent implements OnInit {
     this.roleAclTree = this.roleAclTree.map((node) =>
       node.id === folderId ? { ...node, expanded: !node.expanded } : node
     );
+    if (this.folderBulkMenuOpenId === folderId) this.folderBulkMenuOpenId = null;
   }
 
   expandAllRoleAclFolders() {
@@ -327,6 +319,7 @@ export class AdminUsersComponent implements OnInit {
 
   collapseAllRoleAclFolders() {
     this.roleAclTree = this.roleAclTree.map((node) => ({ ...node, expanded: false }));
+    this.folderBulkMenuOpenId = null;
   }
 
   setFolderAclAllowed(folderId: string, value: boolean) {
@@ -372,40 +365,6 @@ export class AdminUsersComponent implements OnInit {
               }
         ),
       };
-    });
-  }
-
-  saveRoleAclTree() {
-    const role = this.selectedRoleName;
-    if (!role) {
-      this.error = 'Selecione um perfil para salvar ACL.';
-      return;
-    }
-    if (String(role).toUpperCase() === 'ADMIN') {
-      this.status = 'Perfil ADMIN possui acesso total gerenciado no backend.';
-      return;
-    }
-
-    const requests = this.buildRoleAclRequests(role);
-
-    if (!requests.length) {
-      this.status = `Nenhuma alteração de ACL para o perfil "${role}".`;
-      return;
-    }
-
-    this.aclTreeSaving = true;
-    this.error = '';
-    this.status = '';
-    forkJoin(requests).subscribe({
-      next: () => {
-        this.aclTreeSaving = false;
-        this.status = `ACL do perfil "${role}" atualizada.`;
-        this.loadRoleAclTree();
-      },
-      error: (err) => {
-        this.aclTreeSaving = false;
-        this.error = this.messageFromError(err, 'Falha ao salvar ACL do perfil.');
-      },
     });
   }
 
@@ -662,6 +621,88 @@ export class AdminUsersComponent implements OnInit {
     return folderNode.reports.reduce((count, reportNode) => count + (reportNode.allowed ? 1 : 0), 0);
   }
 
+  deniedReportsCount(folderNode: RoleAclNode): number {
+    return folderNode.reports.reduce((count, reportNode) => count + (!reportNode.allowed ? 1 : 0), 0);
+  }
+
+  customReportsCount(folderNode: RoleAclNode): number {
+    return folderNode.reports.reduce((count, reportNode) => count + (reportNode.useFolderInheritance ? 0 : 1), 0);
+  }
+
+  customizeReportAcl(folderId: string, reportId: string) {
+    this.roleAclTree = this.roleAclTree.map((node) => {
+      if (node.id !== folderId) return node;
+      return {
+        ...node,
+        reports: node.reports.map((report) =>
+          report.id !== reportId
+            ? report
+            : {
+                ...report,
+                useFolderInheritance: false,
+              }
+        ),
+      };
+    });
+  }
+
+  applyFolderPermissionToAllReports(folderId: string) {
+    this.roleAclTree = this.roleAclTree.map((node) => {
+      if (node.id !== folderId) return node;
+      return {
+        ...node,
+        reports: node.reports.map((report) => ({
+          ...report,
+          useFolderInheritance: false,
+          allowed: node.allowed,
+        })),
+      };
+    });
+    this.folderBulkMenuOpenId = null;
+  }
+
+  setAllFolderReportsNoAccess(folderId: string) {
+    this.roleAclTree = this.roleAclTree.map((node) => {
+      if (node.id !== folderId) return node;
+      return {
+        ...node,
+        reports: node.reports.map((report) => ({
+          ...report,
+          useFolderInheritance: false,
+          allowed: false,
+        })),
+      };
+    });
+    this.folderBulkMenuOpenId = null;
+  }
+
+  inheritAllFolderReports(folderId: string) {
+    this.roleAclTree = this.roleAclTree.map((node) => {
+      if (node.id !== folderId) return node;
+      return {
+        ...node,
+        reports: node.reports.map((report) => ({
+          ...report,
+          useFolderInheritance: true,
+          allowed: node.allowed,
+        })),
+      };
+    });
+    this.folderBulkMenuOpenId = null;
+  }
+
+  toggleFolderBulkMenu(folderId: string) {
+    this.folderBulkMenuOpenId = this.folderBulkMenuOpenId === folderId ? null : folderId;
+  }
+
+  isFolderBulkMenuOpen(folderId: string): boolean {
+    return this.folderBulkMenuOpenId === folderId;
+  }
+
+  isReportAclException(folderNode: RoleAclNode, reportNode: RoleAclNode['reports'][number]): boolean {
+    return !reportNode.useFolderInheritance && reportNode.allowed !== folderNode.allowed;
+  }
+
   toggleRoleAclAccessFilter(filter: 'ALLOW' | 'DENY') {
     this.roleAclAccessFilter = this.roleAclAccessFilter === filter ? 'ALL' : filter;
   }
@@ -731,6 +772,23 @@ export class AdminUsersComponent implements OnInit {
     return this.groupPermissions(this.filteredSelectedPermissionsCatalog());
   }
 
+  setPermissionCategoryFilter(filter: PermissionGroupKey | 'ALL') {
+    this.selectedPermissionCategoryFilter = filter;
+  }
+
+  permissionCategoryCount(filter: PermissionGroupKey | 'ALL'): number {
+    if (filter === 'ALL') return this.permissionsCatalog.length;
+    return this.permissionsCatalog.filter((permission) => this.permissionGroupKey(permission.code) === filter).length;
+  }
+
+  permissionCategorySelectedCount(filter: PermissionGroupKey | 'ALL'): number {
+    if (filter === 'ALL') return this.selectedRolePermissionDraft.size;
+    return this.permissionsCatalog.reduce((count, permission) => {
+      if (this.permissionGroupKey(permission.code) !== filter) return count;
+      return count + (this.selectedRolePermissionDraft.has(permission.code) ? 1 : 0);
+    }, 0);
+  }
+
   selectedRolePermissionSummary(): string {
     return `${this.selectedRolePermissionDraft.size} de ${this.permissionsCatalog.length} permissões ativas`;
   }
@@ -770,11 +828,33 @@ export class AdminUsersComponent implements OnInit {
     return false;
   }
 
+  pendingRolePermissionChangesCount(): number {
+    const role = this.selectedRole();
+    if (!role || this.isSelectedAdminProfile()) return 0;
+    const current = new Set(role.permissions || []);
+    const draft = this.selectedRolePermissionDraft;
+    let count = 0;
+    for (const permission of draft) {
+      if (!current.has(permission)) count++;
+    }
+    for (const permission of current) {
+      if (!draft.has(permission)) count++;
+    }
+    return count;
+  }
+
   hasRoleAclChanges(): boolean {
     if (this.isSelectedAdminProfile()) return false;
     const role = String(this.selectedRoleName || '').trim();
     if (!role) return false;
     return this.buildRoleAclRequests(role).length > 0;
+  }
+
+  pendingRoleAclChangesCount(): number {
+    if (this.isSelectedAdminProfile()) return 0;
+    const role = String(this.selectedRoleName || '').trim();
+    if (!role) return 0;
+    return this.buildRoleAclRequests(role).length;
   }
 
   hasAnyRoleChanges(): boolean {
@@ -866,6 +946,7 @@ export class AdminUsersComponent implements OnInit {
 
   private loadRoleAclTree() {
     const role = String(this.selectedRoleName || '').trim();
+    this.folderBulkMenuOpenId = null;
     if (!role) {
       this.roleAclTree = [];
       return;
@@ -1049,12 +1130,12 @@ export class AdminUsersComponent implements OnInit {
   }
 
   private permissionGroupTitle(key: PermissionGroupKey): string {
-    if (key === 'EMAIL') return 'Email';
-    if (key === 'REPORTS') return 'Relatorios';
-    if (key === 'TEMPLATES') return 'Templates';
-    if (key === 'FOLDERS') return 'Pastas';
-    if (key === 'SQL') return 'SQL';
-    if (key === 'SCHEDULES') return 'Agendamentos';
+    if (key === 'EMAIL') return '📧 Email';
+    if (key === 'REPORTS') return '📊 Relatorios';
+    if (key === 'TEMPLATES') return '🧩 Templates';
+    if (key === 'FOLDERS') return '🗂️ Pastas';
+    if (key === 'SQL') return '⚙️ SQL';
+    if (key === 'SCHEDULES') return '⏰ Agendamentos';
     return 'Outros';
   }
 }

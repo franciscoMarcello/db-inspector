@@ -23,9 +23,18 @@
     <div class="card card-users" *ngIf="adminSection === 'USERS'">
       <div class="card-head">
         <h3>Lista de usuários</h3>
-        <app-button tone="neutral" variant="outline" (pressed)="loadAll()" [disabled]="loading">
-          {{ loading ? 'Atualizando...' : 'Atualizar' }}
-        </app-button>
+        <div class="users-head-actions">
+          <input
+            type="text"
+            [(ngModel)]="userSearchTerm"
+            [ngModelOptions]="{ standalone: true }"
+            placeholder="Filtrar por nome ou e-mail"
+            aria-label="Filtrar usuários por nome ou e-mail"
+          />
+          <app-button tone="neutral" variant="outline" (pressed)="loadAll()" [disabled]="loading">
+            {{ loading ? 'Atualizando...' : 'Atualizar' }}
+          </app-button>
+        </div>
       </div>
 
       <div class="users-table-wrap">
@@ -42,7 +51,7 @@
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let user of users; trackBy: trackUser">
+            <tr *ngFor="let user of filteredUsers(); trackBy: trackUser">
               <td>
                 <div class="user-name">{{ user.name || '-' }}</div>
               </td>
@@ -103,11 +112,12 @@
               (click)="selectRole(role.name)"
             >
               <span class="role-item__name">{{ role.name }}</span>
-              <span class="role-item__meta">
-                <span class="perm-chip">{{ rolePermissionCount(role) }}</span>
-                <span class="role-system-chip" *ngIf="isSystemRole(role.name)">sistema</span>
-              </span>
-            </button>
+                <span class="role-item__meta">
+                  <span class="perm-chip">{{ rolePermissionCount(role) }}</span>
+                  <span class="role-system-chip" *ngIf="isSystemRole(role.name)">sistema</span>
+                </span>
+              </button>
+            <div class="muted role-empty" *ngIf="!filteredRoles().length">Nenhum perfil encontrado.</div>
           </div>
         </aside>
 
@@ -210,23 +220,14 @@
             </app-button>
           </div>
 
-          <ng-container *ngIf="selectedRoleName">
+          <div *ngIf="selectedRoleName">
             <div class="admin-profile-note" *ngIf="isSelectedAdminProfile()">
               Perfil <strong>ADMIN</strong>: acesso total definido no backend. Alterações de permissão/ACL ficam desabilitadas no frontend.
             </div>
             <div class="permission-block">
               <div class="card-head">
                 <strong>Telas e ações</strong>
-                <span class="dirty-chip" *ngIf="hasSelectedRolePermissionChanges()">Não salvo</span>
-                <app-button
-                  size="sm"
-                  tone="neutral"
-                  variant="outline"
-                  [disabled]="rolePermissionsSaving || isSelectedAdminProfile() || !hasSelectedRolePermissionChanges()"
-                  (pressed)="saveSelectedRolePermissions()"
-                >
-                  {{ rolePermissionsSaving ? 'Salvando...' : 'Salvar permissões de telas' }}
-                </app-button>
+                <span class="dirty-chip" *ngIf="hasSelectedRolePermissionChanges()">Não salvo ({{ pendingRolePermissionChangesCount() }})</span>
               </div>
               <div class="permissions-filters">
                 <label class="field">
@@ -239,19 +240,36 @@
                   />
                 </label>
                 <div class="permissions-quick-filters">
-                  <app-button size="sm" [tone]="selectedPermissionCategoryFilter === 'ALL' ? 'primary' : 'neutral'" [variant]="selectedPermissionCategoryFilter === 'ALL' ? 'solid' : 'outline'" (pressed)="selectedPermissionCategoryFilter = 'ALL'">Todas</app-button>
-                  <app-button size="sm" [tone]="selectedPermissionCategoryFilter === 'EMAIL' ? 'primary' : 'neutral'" [variant]="selectedPermissionCategoryFilter === 'EMAIL' ? 'solid' : 'outline'" (pressed)="selectedPermissionCategoryFilter = 'EMAIL'">Email</app-button>
-                  <app-button size="sm" [tone]="selectedPermissionCategoryFilter === 'REPORTS' ? 'primary' : 'neutral'" [variant]="selectedPermissionCategoryFilter === 'REPORTS' ? 'solid' : 'outline'" (pressed)="selectedPermissionCategoryFilter = 'REPORTS'">Relatórios</app-button>
-                  <app-button size="sm" [tone]="selectedPermissionCategoryFilter === 'TEMPLATES' ? 'primary' : 'neutral'" [variant]="selectedPermissionCategoryFilter === 'TEMPLATES' ? 'solid' : 'outline'" (pressed)="selectedPermissionCategoryFilter = 'TEMPLATES'">Templates</app-button>
-                  <app-button size="sm" [tone]="selectedPermissionCategoryFilter === 'FOLDERS' ? 'primary' : 'neutral'" [variant]="selectedPermissionCategoryFilter === 'FOLDERS' ? 'solid' : 'outline'" (pressed)="selectedPermissionCategoryFilter = 'FOLDERS'">Pastas</app-button>
-                  <app-button size="sm" [tone]="selectedPermissionCategoryFilter === 'SQL' ? 'primary' : 'neutral'" [variant]="selectedPermissionCategoryFilter === 'SQL' ? 'solid' : 'outline'" (pressed)="selectedPermissionCategoryFilter = 'SQL'">SQL</app-button>
-                  <app-button size="sm" [tone]="selectedPermissionCategoryFilter === 'SCHEDULES' ? 'primary' : 'neutral'" [variant]="selectedPermissionCategoryFilter === 'SCHEDULES' ? 'solid' : 'outline'" (pressed)="selectedPermissionCategoryFilter = 'SCHEDULES'">Agendamentos</app-button>
-                  <app-button size="sm" [tone]="selectedPermissionOnlyMarked ? 'primary' : 'neutral'" [variant]="selectedPermissionOnlyMarked ? 'solid' : 'outline'" (pressed)="selectedPermissionOnlyMarked = !selectedPermissionOnlyMarked">Somente marcadas</app-button>
+                  <app-button size="sm" [tone]="selectedPermissionCategoryFilter === 'ALL' ? 'primary' : 'neutral'" [variant]="selectedPermissionCategoryFilter === 'ALL' ? 'solid' : 'outline'" (pressed)="setPermissionCategoryFilter('ALL')">Todas ({{ permissionCategorySelectedCount('ALL') }}/{{ permissionCategoryCount('ALL') }})</app-button>
+                  <app-button size="sm" [tone]="selectedPermissionCategoryFilter === 'EMAIL' ? 'primary' : 'neutral'" [variant]="selectedPermissionCategoryFilter === 'EMAIL' ? 'solid' : 'outline'" (pressed)="setPermissionCategoryFilter('EMAIL')">Email ({{ permissionCategorySelectedCount('EMAIL') }}/{{ permissionCategoryCount('EMAIL') }})</app-button>
+                  <app-button size="sm" [tone]="selectedPermissionCategoryFilter === 'REPORTS' ? 'primary' : 'neutral'" [variant]="selectedPermissionCategoryFilter === 'REPORTS' ? 'solid' : 'outline'" (pressed)="setPermissionCategoryFilter('REPORTS')">Relatórios ({{ permissionCategorySelectedCount('REPORTS') }}/{{ permissionCategoryCount('REPORTS') }})</app-button>
+                  <app-button size="sm" [tone]="selectedPermissionCategoryFilter === 'TEMPLATES' ? 'primary' : 'neutral'" [variant]="selectedPermissionCategoryFilter === 'TEMPLATES' ? 'solid' : 'outline'" (pressed)="setPermissionCategoryFilter('TEMPLATES')">Templates ({{ permissionCategorySelectedCount('TEMPLATES') }}/{{ permissionCategoryCount('TEMPLATES') }})</app-button>
+                  <app-button size="sm" [tone]="selectedPermissionCategoryFilter === 'FOLDERS' ? 'primary' : 'neutral'" [variant]="selectedPermissionCategoryFilter === 'FOLDERS' ? 'solid' : 'outline'" (pressed)="setPermissionCategoryFilter('FOLDERS')">Pastas ({{ permissionCategorySelectedCount('FOLDERS') }}/{{ permissionCategoryCount('FOLDERS') }})</app-button>
+                  <app-button size="sm" [tone]="selectedPermissionCategoryFilter === 'SQL' ? 'primary' : 'neutral'" [variant]="selectedPermissionCategoryFilter === 'SQL' ? 'solid' : 'outline'" (pressed)="setPermissionCategoryFilter('SQL')">SQL ({{ permissionCategorySelectedCount('SQL') }}/{{ permissionCategoryCount('SQL') }})</app-button>
+                  <app-button size="sm" [tone]="selectedPermissionCategoryFilter === 'SCHEDULES' ? 'primary' : 'neutral'" [variant]="selectedPermissionCategoryFilter === 'SCHEDULES' ? 'solid' : 'outline'" (pressed)="setPermissionCategoryFilter('SCHEDULES')">Agendamentos ({{ permissionCategorySelectedCount('SCHEDULES') }}/{{ permissionCategoryCount('SCHEDULES') }})</app-button>
                 </div>
+                <label class="check inline marked-toggle">
+                  <input
+                    type="checkbox"
+                    [(ngModel)]="selectedPermissionOnlyMarked"
+                    [ngModelOptions]="{ standalone: true }"
+                  />
+                  Somente marcadas
+                </label>
               </div>
-              <div class="permission-groups">
+              <div class="permission-groups permission-groups--selected">
                 <section class="permission-group" *ngFor="let group of groupedSelectedRolePermissions(); trackBy: trackPermissionGroup">
-                  <div class="permission-group__title">{{ group.title }}</div>
+                  <div class="permission-group__head">
+                    <div class="permission-group__title">{{ group.title }}</div>
+                    <div class="permission-group__actions">
+                      <button type="button" class="permission-group-action" [disabled]="isSelectedAdminProfile()" (click)="applyPermissionGroupSelection(group.items, 'all')">
+                        Marcar tudo
+                      </button>
+                      <button type="button" class="permission-group-action" [disabled]="isSelectedAdminProfile()" (click)="applyPermissionGroupSelection(group.items, 'none')">
+                        Desmarcar tudo
+                      </button>
+                    </div>
+                  </div>
                   <div class="roles-pick-list">
                     <label
                       class="check inline permission-option"
@@ -264,7 +282,7 @@
                         [disabled]="isSelectedAdminProfile()"
                         (change)="setSelectedRolePermission(permission.code, $any($event.target).checked)"
                       />
-                      <span class="permission-option__text">
+                      <span class="permission-option__line">
                         <span class="permission-option__label">{{ permission.label || permission.code }}</span>
                         <span class="permission-option__code">{{ permission.code }}</span>
                       </span>
@@ -274,22 +292,13 @@
               </div>
             </div>
 
-            <div class="permission-block">
+            <div class="permission-block permission-block--acl">
               <div class="card-head">
                 <strong>Pastas e relatórios</strong>
-                <span class="dirty-chip" *ngIf="hasRoleAclChanges()">Não salvo</span>
+                <span class="dirty-chip" *ngIf="hasRoleAclChanges()">Não salvo ({{ pendingRoleAclChangesCount() }})</span>
                 <div class="table-actions">
                   <app-button size="sm" tone="neutral" variant="outline" (pressed)="expandAllRoleAclFolders()">Expandir tudo</app-button>
                   <app-button size="sm" tone="neutral" variant="outline" (pressed)="collapseAllRoleAclFolders()">Recolher tudo</app-button>
-                  <app-button
-                    size="sm"
-                    tone="neutral"
-                    variant="outline"
-                    [disabled]="aclTreeSaving || aclTreeLoading || isSelectedAdminProfile() || !hasRoleAclChanges()"
-                    (pressed)="saveRoleAclTree()"
-                  >
-                    {{ aclTreeSaving ? 'Salvando ACL...' : 'Salvar ACL do perfil' }}
-                  </app-button>
                 </div>
               </div>
               <label class="field acl-search-field">
@@ -322,69 +331,92 @@
               <div class="muted" *ngIf="aclTreeLoading">Carregando ACL do perfil...</div>
               <div class="acl-tree-editor" *ngIf="!aclTreeLoading">
                 <div class="acl-tree-folder" *ngFor="let folderNode of filteredRoleAclTree(); trackBy: trackRoleAclFolder">
-                  <button type="button" class="acl-tree-folder-head" (click)="toggleRoleAclFolder(folderNode.id)">
-                    <span>{{ folderNode.expanded ? '▾' : '▸' }}</span>
-                    <span class="acl-kind-chip acl-kind-chip--folder">PASTA</span>
-                    <strong>{{ folderNode.name }}</strong>
-                    <span class="perm-chip">{{ folderNode.reports.length }} relatório(s)</span>
-                    <span class="perm-chip" [class.perm-chip--allowed]="folderNode.allowed" [class.perm-chip--denied]="!folderNode.allowed">
-                      {{ folderNode.allowed ? 'Com acesso' : 'Sem acesso' }}
-                    </span>
-                    <span class="perm-chip">
-                      {{ allowedReportsCount(folderNode) }} com acesso
-                    </span>
-                  </button>
+                  <div class="acl-tree-folder-head">
+                    <button type="button" class="acl-tree-folder-toggle" (click)="toggleRoleAclFolder(folderNode.id)">
+                      <span>{{ folderNode.expanded ? '▾' : '▸' }}</span>
+                      <span class="acl-kind-chip acl-kind-chip--folder">PASTA</span>
+                      <strong>{{ folderNode.name }}</strong>
+                      <span class="perm-chip">{{ folderNode.reports.length }} relatório(s)</span>
+                      <span class="perm-chip">
+                        {{ allowedReportsCount(folderNode) }} com acesso / {{ deniedReportsCount(folderNode) }} sem
+                      </span>
+                    </button>
 
-                  <div class="acl-tree-folder-body" *ngIf="folderNode.expanded">
-                    <div class="acl-entity-title">Permissões da pasta</div>
-                    <label class="field acl-simple-field">
-                      <span>Permissão da pasta</span>
+                    <div class="acl-tree-folder-controls">
                       <select
+                        class="acl-simple-row__select acl-simple-row__select--sm"
                         [ngModel]="folderNode.allowed ? 'ALLOW' : 'DENY'"
                         [ngModelOptions]="{ standalone: true }"
                         [disabled]="isSelectedAdminProfile()"
                         (ngModelChange)="setFolderAclAllowed(folderNode.id, $event === 'ALLOW')"
                       >
-                        <option value="ALLOW">Com acesso (ver e executar)</option>
+                        <option value="ALLOW">Ver e executar</option>
                         <option value="DENY">Sem acesso</option>
                       </select>
-                    </label>
-
-                    <div class="acl-tree-report" *ngFor="let reportNode of folderNode.reports; trackBy: trackRoleAclReport">
-                      <div class="acl-tree-report-head">
-                        <div class="acl-tree-report-title">
-                          <span class="acl-kind-chip acl-kind-chip--report">RELATÓRIO</span>
-                          {{ reportNode.name }}
-                        </div>
-                        <app-button
-                          size="sm"
-                          tone="neutral"
-                          variant="outline"
-                          [disabled]="reportNode.useFolderInheritance || isSelectedAdminProfile()"
-                          (pressed)="inheritReportAclFromFolder(folderNode.id, reportNode.id)"
-                        >
-                          Herdar pasta
-                        </app-button>
+                      <span class="perm-chip" [class.perm-chip--allowed]="customReportsCount(folderNode) === 0" [class.perm-chip--denied]="customReportsCount(folderNode) > 0">
+                        {{ customReportsCount(folderNode) === 0 ? 'Herdado' : 'Custom' }}
+                      </span>
+                      <button
+                        type="button"
+                        class="acl-menu-trigger"
+                        [disabled]="isSelectedAdminProfile()"
+                        (click)="toggleFolderBulkMenu(folderNode.id)"
+                      >
+                        ⋯
+                      </button>
+                      <div class="acl-menu" *ngIf="isFolderBulkMenuOpen(folderNode.id)">
+                        <button type="button" (click)="applyFolderPermissionToAllReports(folderNode.id)">Aplicar permissão a todos</button>
+                        <button type="button" (click)="setAllFolderReportsNoAccess(folderNode.id)">Definir todos sem acesso</button>
+                        <button type="button" (click)="inheritAllFolderReports(folderNode.id)">Herdar todos</button>
                       </div>
-                      <div class="acl-entity-title acl-entity-title--sub">Permissões do relatório</div>
-                      <label class="field acl-simple-field">
-                        <span>Permissão do relatório</span>
-                        <select
-                          [ngModel]="reportNode.allowed ? 'ALLOW' : 'DENY'"
-                          [ngModelOptions]="{ standalone: true }"
-                          [disabled]="isSelectedAdminProfile()"
-                          (ngModelChange)="setReportAclAllowed(folderNode.id, reportNode.id, $event === 'ALLOW')"
-                        >
-                          <option value="ALLOW">Com acesso (ver e executar)</option>
-                          <option value="DENY">Sem acesso</option>
-                        </select>
-                      </label>
+                    </div>
+                  </div>
+
+                  <div class="acl-tree-folder-body" *ngIf="folderNode.expanded">
+                    <div class="acl-tree-reports">
+                      <div class="acl-tree-report" [class.acl-tree-report--exception]="isReportAclException(folderNode, reportNode)" *ngFor="let reportNode of folderNode.reports; trackBy: trackRoleAclReport">
+                        <div class="acl-tree-report-line">
+                          <div class="acl-tree-report-title">
+                            <span class="acl-kind-chip acl-kind-chip--report">REL</span>
+                            <span>{{ reportNode.name }}</span>
+                          </div>
+                          <div class="acl-tree-report-controls">
+                            <span class="perm-chip" [class.perm-chip--allowed]="reportNode.useFolderInheritance" [class.perm-chip--denied]="!reportNode.useFolderInheritance">
+                              {{ reportNode.useFolderInheritance ? 'Herdado' : 'Custom' }}
+                            </span>
+                            <span class="perm-chip perm-chip--warning" *ngIf="isReportAclException(folderNode, reportNode)" title="Exceção: relatório com regra diferente da pasta">
+                              Exceção
+                            </span>
+                            <select
+                              class="acl-simple-row__select acl-simple-row__select--sm"
+                              [class.acl-simple-row__select--inherited]="reportNode.useFolderInheritance"
+                              [ngModel]="reportNode.allowed ? 'ALLOW' : 'DENY'"
+                              [ngModelOptions]="{ standalone: true }"
+                              [disabled]="isSelectedAdminProfile()"
+                              [title]="reportNode.useFolderInheritance ? 'Herdado da pasta: ao alterar vira personalizado' : 'Permissão customizada'"
+                              (ngModelChange)="setReportAclAllowed(folderNode.id, reportNode.id, $event === 'ALLOW')"
+                            >
+                              <option value="ALLOW">Ver e executar</option>
+                              <option value="DENY">Sem acesso</option>
+                            </select>
+                            <button
+                              type="button"
+                              class="acl-link-action"
+                              [title]="reportNode.useFolderInheritance ? 'Customizar permissão do relatório' : 'Reverter para herança da pasta'"
+                              [disabled]="isSelectedAdminProfile()"
+                              (click)="reportNode.useFolderInheritance ? customizeReportAcl(folderNode.id, reportNode.id) : inheritReportAclFromFolder(folderNode.id, reportNode.id)"
+                            >
+                              {{ reportNode.useFolderInheritance ? '✎' : '↺' }}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
-          </ng-container>
+          </div>
 
           <div class="muted" *ngIf="!selectedRoleName">Crie um perfil ou selecione um perfil para editar permissões e ACL.</div>
         </div>
