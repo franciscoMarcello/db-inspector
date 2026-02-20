@@ -75,6 +75,12 @@
   letter-spacing: 0.03em;
 }
 
+.field-help {
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
 input,
 select {
   min-height: 36px;

@@ -59,6 +59,8 @@ type PermissionGroup = {
   styleUrls: ['./admin-users.component.css'],
 })
 export class AdminUsersComponent implements OnInit {
+  readonly passwordRuleMessage =
+    'Senha deve ter no minimo 10 caracteres, incluindo letra maiuscula, letra minuscula, numero e caractere especial, sem espacos';
   private api = inject(AdminUserService);
   private reportApi = inject(ReportService);
   private route = inject(ActivatedRoute);
@@ -622,6 +624,11 @@ export class AdminUsersComponent implements OnInit {
       this.error = 'Informe nome, e-mail e senha para criar usuário.';
       return;
     }
+    const passwordError = this.passwordValidationError(password);
+    if (passwordError) {
+      this.error = passwordError;
+      return;
+    }
 
     const selectedRoles = Array.from(this.createForm.roles);
     if (!selectedRoles.length) {
@@ -687,7 +694,13 @@ export class AdminUsersComponent implements OnInit {
   }
 
   canSubmitCreateUser(): boolean {
-    return !!this.createForm.name.trim() && !!this.createForm.email.trim() && !!this.createForm.password && this.createForm.roles.size > 0;
+    return (
+      !!this.createForm.name.trim() &&
+      !!this.createForm.email.trim() &&
+      !!this.createForm.password &&
+      this.isPasswordStrong(this.createForm.password) &&
+      this.createForm.roles.size > 0
+    );
   }
 
   private sanitizeCreateFormRoles() {
@@ -819,8 +832,9 @@ export class AdminUsersComponent implements OnInit {
       this.error = 'Informe a nova senha.';
       return;
     }
-    if (password.length < 6) {
-      this.error = 'A nova senha deve ter no mínimo 6 caracteres.';
+    const passwordError = this.passwordValidationError(password);
+    if (passwordError) {
+      this.error = passwordError;
       return;
     }
 
@@ -871,6 +885,10 @@ export class AdminUsersComponent implements OnInit {
 
   deniedReportsCount(folderNode: RoleAclNode): number {
     return folderNode.reports.reduce((count, reportNode) => count + (!reportNode.allowed ? 1 : 0), 0);
+  }
+
+  isPasswordStrong(password: string): boolean {
+    return !this.passwordValidationError(password);
   }
 
   customReportsCount(folderNode: RoleAclNode): number {
@@ -1344,6 +1362,12 @@ export class AdminUsersComponent implements OnInit {
       (typeof err?.error === 'string' ? err.error : '') ||
       fallback
     );
+  }
+
+  private passwordValidationError(password: string): string {
+    const value = String(password || '');
+    const strongPattern = /^(?=\S{10,}$)(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\w\s]).+$/;
+    return strongPattern.test(value) ? '' : this.passwordRuleMessage;
   }
 
   private groupPermissions(items: PermissionCatalogItem[]): PermissionGroup[] {

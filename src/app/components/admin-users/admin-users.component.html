@@ -542,7 +542,14 @@
 
       <label class="field">
         <span>Senha</span>
-        <input type="password" [(ngModel)]="createForm.password" [ngModelOptions]="{ standalone: true }" placeholder="Mínimo 6 caracteres" />
+        <input
+          type="password"
+          [(ngModel)]="createForm.password"
+          [ngModelOptions]="{ standalone: true }"
+          placeholder="Mínimo 10 caracteres, com maiúscula, minúscula, número e especial"
+          autocomplete="new-password"
+        />
+        <small class="field-help">{{ passwordRuleMessage }}</small>
       </label>
 
       <label class="check">
@@ -627,11 +634,17 @@
           type="password"
           [(ngModel)]="passwordModalValue"
           [ngModelOptions]="{ standalone: true }"
-          placeholder="Mínimo 6 caracteres"
+          placeholder="Mínimo 10 caracteres, com maiúscula, minúscula, número e especial"
           autocomplete="new-password"
         />
+        <small class="field-help">{{ passwordRuleMessage }}</small>
       </label>
-      <app-button tone="primary" variant="solid" (pressed)="submitPasswordReset()" [disabled]="passwordModalSaving">
+      <app-button
+        tone="primary"
+        variant="solid"
+        (pressed)="submitPasswordReset()"
+        [disabled]="passwordModalSaving || !isPasswordStrong(passwordModalValue)"
+      >
         {{ passwordModalSaving ? 'Salvando...' : 'Redefinir senha' }}
       </app-button>
     </div>
