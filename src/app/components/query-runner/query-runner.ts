@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, HostListener, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
@@ -9,8 +9,6 @@ import { MonacoEditorModule } from 'ngx-monaco-editor-v2';
 import { DbInspectorService } from '../../services/db-inspector.service';
 import { finalize } from 'rxjs/operators';
 import { SnippetStorageService, QuerySnippet } from '../../services/snippet-storage.service';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
 import { QueryParam, QueryParamsDialog } from '../query-params-dialog/query-params-dialog';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { Router } from '@angular/router';
@@ -38,8 +36,6 @@ const REPORT_DRAFT_SQL_KEY = 'dbi.reports.pending_sql';
     MatTableModule,
     MatSnackBarModule,
     MonacoEditorModule,
-    MatFormFieldModule,
-    MatInputModule,
     MatDialogModule,
     MatIconModule,
     AppButtonComponent,
@@ -50,9 +46,11 @@ const REPORT_DRAFT_SQL_KEY = 'dbi.reports.pending_sql';
 export class QueryRunnerComponent implements OnInit, OnDestroy {
   readonly defaultPageSize = 200;
   readonly maxPageSize = 1000;
+  readonly defaultRunAllDisplayLimit = 5000;
+  readonly maxRunAllDisplayLimit = 200000;
   editorOptions = {
     language: 'sql',
-    theme: 'vs-dark',
+    theme: 'dbi-sql-dark',
     automaticLayout: true,
     minimap: { enabled: false },
     wordWrap: 'on',
@@ -69,10 +67,18 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
   rows: any[] = [];
   rowCount = 0;
   elapsedMs = 0;
-  raw: any = null;
   page = 0;
   size = this.defaultPageSize;
   usingAllMode = false;
+  cursorLine = 1;
+  cursorColumn = 1;
+  executeMenuOpen = false;
+  saveMenuOpen = false;
+  exportMenuOpen = false;
+  snippetMenuOpenId: string | null = null;
+  runAllDisplayLimit = this.defaultRunAllDisplayLimit;
+  allModeTruncated = false;
+  lastSavedQuery = '';
   private lastExecutedSql: string | null = null;
 
   constructor(
@@ -89,6 +95,7 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
   selectedSnippetId: string | null = null;
   folders: string[] = [];
   selectedFolder: string | null = null;
+  isDraggingSnippetOverEditor = false;
   private editor!: any;
   private saveTimer: any = null;
   trackSnippetId = (_: number, s: QuerySnippet) => s.id;
@@ -97,13 +104,26 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.restoreSnippetsCollapsedState();
-    // Load stored snippets immediately so the favorites bar renders without waiting for Monaco.
+    this.lastSavedQuery = this.query;
+    // Load stored snippets immediately so the snippets panel renders without waiting for Monaco.
     this.refreshSnippets();
   }
 
   onEditorInit(editor: any) {
     const monaco = (window as any).monaco;
     this.editor = editor;
+    if (monaco?.editor?.defineTheme) {
+      monaco.editor.defineTheme('dbi-sql-dark', {
+        base: 'vs-dark',
+        inherit: true,
+        rules: [],
+        colors: {
+          'editorLineNumber.foreground': '#64748b',
+          'editorLineNumber.activeForeground': '#94a3b8',
+        },
+      });
+      monaco.editor.setTheme('dbi-sql-dark');
+    }
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => this.runPaged());
 
     const saved = this.loadState();
@@ -121,6 +141,15 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
       this.updateVariableNamesFromQuery();
       this.schedulePersist();
     });
+
+    editor.onDidChangeCursorPosition((evt: any) => {
+      this.cursorLine = evt?.position?.lineNumber ?? 1;
+      this.cursorColumn = evt?.position?.column ?? 1;
+    });
+
+    const pos = editor.getPosition?.();
+    this.cursorLine = pos?.lineNumber ?? 1;
+    this.cursorColumn = pos?.column ?? 1;
   }
 
   private refreshSnippets() {
@@ -184,6 +213,7 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
         });
         this.refreshSnippets();
         this.selectedSnippetId = saved.id;
+        this.lastSavedQuery = sql;
         this.snack('Snippet salvo.');
         return;
       }
@@ -201,6 +231,7 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
         });
         this.refreshSnippets();
         this.selectedSnippetId = saved.id;
+        this.lastSavedQuery = sql;
         this.snack('Snippet atualizado.');
         return;
       }
@@ -213,6 +244,7 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
     this.selectedSnippetId = id;
     this.query = sn.sql;
     this.editor?.setValue(sn.sql);
+    this.lastSavedQuery = sn.sql;
     this.updateVariableNamesFromQuery();
     this.persistState();
     this.snack(`Carregado: ${sn.name}`);
@@ -241,10 +273,20 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
     this.saveTimer = setTimeout(() => this.persistState(), 300);
   }
 
-  onKeydown(e: KeyboardEvent) {
-    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
-      e.preventDefault();
-      this.saveCurrentAsSnippet();
+  @HostListener('window:keydown', ['$event'])
+  onWindowKeydown(event: KeyboardEvent) {
+    if (event.defaultPrevented) return;
+    const key = event.key.toLowerCase();
+
+    if ((event.ctrlKey || event.metaKey) && key === 'enter') {
+      event.preventDefault();
+      this.runPaged();
+      return;
+    }
+
+    if ((event.ctrlKey || event.metaKey) && key === 's') {
+      event.preventDefault();
+      this.saveOnSelectedSnippet();
     }
   }
 
@@ -266,10 +308,19 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
   }
 
   async runPaged() {
+    this.closeAllMenus();
     await this.runWithMode(false);
   }
 
   async runAll() {
+    const limit = this.sanitizedRunAllDisplayLimit;
+    const proceed = confirm(
+      `⚠ Pode retornar muitos registros e impactar o banco.\n\n` +
+        `Deseja continuar em /query/all?\n` +
+        `A interface exibirá no máximo ${limit} linhas.`
+    );
+    if (!proceed) return;
+    this.closeAllMenus();
     await this.runWithMode(true);
   }
 
@@ -340,9 +391,9 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
   private executeQuery(sql: string, all: boolean) {
     this.loading = true;
     this.error = null;
+    this.allModeTruncated = false;
     this.rows = [];
     this.displayedColumns = [];
-    this.raw = null;
     this.rowCount = 0;
     this.elapsedMs = 0;
 
@@ -366,12 +417,20 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
             ? res.rows
             : [];
           this.rowCount = data.length;
-          if (data.length && typeof data[0] === 'object' && !Array.isArray(data[0])) {
-            this.displayedColumns = Object.keys(data[0]);
-            this.rows = data;
+          const maxRows = this.sanitizedRunAllDisplayLimit;
+          const displayData = all && data.length > maxRows ? data.slice(0, maxRows) : data;
+          this.allModeTruncated = all && data.length > maxRows;
+          if (displayData.length && typeof displayData[0] === 'object' && !Array.isArray(displayData[0])) {
+            this.displayedColumns = Object.keys(displayData[0]);
+            this.rows = displayData;
           } else {
             this.displayedColumns = ['value'];
-            this.rows = data.map((v: any) => ({ value: v }));
+            this.rows = displayData.map((v: any) => ({ value: v }));
+          }
+          if (this.allModeTruncated) {
+            this.snack(
+              `Mostrando ${this.rows.length} de ${this.rowCount} linhas para manter a interface responsiva.`
+            );
           }
         },
         error: (err: any) => {
@@ -382,6 +441,7 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
   }
 
   async copyResultsForExcel() {
+    this.closeAllMenus();
     if (!this.rows?.length || !this.displayedColumns?.length) return;
     const blob = createXlsxBlob(this.displayedColumns, this.rows || []);
 
@@ -417,6 +477,7 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
   }
 
   async saveQueryAsSql() {
+    this.closeAllMenus();
     const q = (this.query || '').trim();
     if (!q) return;
 
@@ -429,6 +490,7 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
         const writable = await handle.createWritable();
         await writable.write(new Blob([q + '\n'], { type: 'text/sql;charset=utf-8' }));
         await writable.close();
+        this.lastSavedQuery = q;
         this.snack('Consulta salva com sucesso.');
         return;
       }
@@ -442,10 +504,12 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
     a.download = this.makeFileName('consulta', 'sql');
     a.click();
     URL.revokeObjectURL(a.href);
+    this.lastSavedQuery = q;
     this.snack('Arquivo .sql baixado.');
   }
 
   saveAsReport() {
+    this.closeAllMenus();
     const sql = (this.query || '').trim();
     if (!sql) {
       this.snack('Nada para salvar como relatório.');
@@ -472,6 +536,7 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
   }
 
   saveOnSelectedSnippet() {
+    this.closeAllMenus();
     const sql = (this.query || '').trim();
     if (!sql) {
       this.snack('Nada para salvar.');
@@ -496,10 +561,12 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
     });
 
     this.refreshSnippets();
+    this.lastSavedQuery = sql;
     this.snack(`Snippet "${existing.name}" atualizado.`);
   }
 
   openScheduleDialog() {
+    this.closeAllMenus();
     const dialogRef = this.dialog.open(EmailScheduleDialogComponent, {
       data: { sql: this.query ?? '' },
       width: '1024px',
@@ -549,6 +616,7 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
 
   selectFolder(folder: string | null) {
     this.selectedFolder = folder;
+    this.snippetMenuOpenId = null;
     this.recomputeFolders();
   }
 
@@ -570,6 +638,133 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
     this.persistSnippetsCollapsedState();
   }
 
+  toggleExecuteMenu() {
+    this.executeMenuOpen = !this.executeMenuOpen;
+    if (this.executeMenuOpen) {
+      this.saveMenuOpen = false;
+      this.exportMenuOpen = false;
+      this.snippetMenuOpenId = null;
+    }
+  }
+
+  toggleSaveMenu() {
+    this.saveMenuOpen = !this.saveMenuOpen;
+    if (this.saveMenuOpen) {
+      this.executeMenuOpen = false;
+      this.exportMenuOpen = false;
+      this.snippetMenuOpenId = null;
+    }
+  }
+
+  toggleExportMenu() {
+    this.exportMenuOpen = !this.exportMenuOpen;
+    if (this.exportMenuOpen) {
+      this.executeMenuOpen = false;
+      this.saveMenuOpen = false;
+      this.snippetMenuOpenId = null;
+    }
+  }
+
+  closeAllMenus() {
+    this.executeMenuOpen = false;
+    this.saveMenuOpen = false;
+    this.exportMenuOpen = false;
+    this.snippetMenuOpenId = null;
+  }
+
+  get editorCursorLabel(): string {
+    return `Ln ${this.cursorLine}, Col ${this.cursorColumn}`;
+  }
+
+  get runStatusLabel(): string {
+    if (this.loading) return 'Executando consulta...';
+    if (!this.lastRunAt) return 'Aguardando execução.';
+    const stamp = new Intl.DateTimeFormat('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    }).format(this.lastRunAt);
+    return (
+      `${this.rowCount} ${this.rowCount === 1 ? 'linha retornada' : 'linhas retornadas'} • ` +
+      `${this.elapsedMs} ms • Executado às ${stamp}`
+    );
+  }
+
+  get runStatusIcon(): string {
+    if (this.loading) return '⏳';
+    if (!this.lastRunAt) return '•';
+    return '✔';
+  }
+
+  get sanitizedRunAllDisplayLimit(): number {
+    const n = Number(this.runAllDisplayLimit);
+    if (!Number.isFinite(n) || n < 100) return this.defaultRunAllDisplayLimit;
+    return Math.min(this.maxRunAllDisplayLimit, Math.trunc(n));
+  }
+
+  get hasUnsavedChanges(): boolean {
+    return (this.query || '').trim() !== (this.lastSavedQuery || '').trim();
+  }
+
+  get hasExecutedAtLeastOnce(): boolean {
+    return this.lastRunAt !== null || this.lastExecutedSql !== null;
+  }
+
+  onRunAllLimitChange() {
+    const n = Number(this.runAllDisplayLimit);
+    if (!Number.isFinite(n) || n < 100) this.runAllDisplayLimit = this.defaultRunAllDisplayLimit;
+    else this.runAllDisplayLimit = Math.min(this.maxRunAllDisplayLimit, Math.trunc(n));
+  }
+
+  onSnippetDragStart(event: DragEvent, id: string) {
+    const sn = this.snippetsStore.get(id);
+    if (!sn || !event.dataTransfer) return;
+    event.dataTransfer.setData('text/plain', sn.sql || '');
+    event.dataTransfer.effectAllowed = 'copy';
+  }
+
+  onEditorDragOver(event: DragEvent) {
+    event.preventDefault();
+    this.isDraggingSnippetOverEditor = true;
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+  }
+
+  onEditorDrop(event: DragEvent) {
+    event.preventDefault();
+    this.isDraggingSnippetOverEditor = false;
+    const sql = event.dataTransfer?.getData('text/plain') ?? '';
+    if (!sql.trim()) return;
+    if (!this.editor) {
+      this.query = `${(this.query || '').trim()}\n\n${sql.trim()}\n`;
+      return;
+    }
+
+    const selection = this.editor.getSelection?.();
+    const range = selection ?? this.editor.getModel?.()?.getFullModelRange?.();
+    this.editor.executeEdits('snippet-drop', [{ range, text: sql }]);
+    this.editor.focus?.();
+    this.snack('Snippet inserido no editor.');
+  }
+
+  onEditorDragLeave(event: DragEvent) {
+    const relatedTarget = event.relatedTarget as Node | null;
+    if (!relatedTarget) {
+      this.isDraggingSnippetOverEditor = false;
+      return;
+    }
+    if (!(event.currentTarget as HTMLElement)?.contains(relatedTarget)) {
+      this.isDraggingSnippetOverEditor = false;
+    }
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent) {
+    const target = event.target as HTMLElement | null;
+    if (!target) return;
+    if (target.closest('.menu-wrap') || target.closest('.snippet-menu-wrap')) return;
+    this.closeAllMenus();
+  }
+
   private restoreSnippetsCollapsedState() {
     try {
       this.snippetsCollapsed = localStorage.getItem(SNIPPETS_COLLAPSED_KEY) === '1';
@@ -588,14 +783,79 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
     const matchesFolder =
       this.selectedFolder === null
         ? true
-        : this.normalizeFolder(sn.folder) === this.normalizeFolder(this.selectedFolder);
+        : this.folderKey(sn.folder) === this.folderKey(this.selectedFolder);
     const term = this.snippetFilter.trim().toLowerCase();
     const matchesFilter = !term || sn.name.toLowerCase().includes(term);
     return matchesFolder && matchesFilter;
   }
 
+  get filteredSnippets(): QuerySnippet[] {
+    return this.snippets.filter((sn) => this.shouldShowSnippet(sn));
+  }
+
+  folderCount(folder: string | null): number {
+    if (folder === null) return this.snippets.length;
+    const key = this.folderKey(folder);
+    return this.snippets.filter((sn) => this.folderKey(sn.folder) === key).length;
+  }
+
+  toggleSnippetMenu(event: MouseEvent, id: string) {
+    event.preventDefault();
+    event.stopPropagation();
+    this.closeAllMenus();
+    this.snippetMenuOpenId = this.snippetMenuOpenId === id ? null : id;
+  }
+
+  renameSnippetFromMenu(id: string) {
+    this.snippetMenuOpenId = null;
+    this.renameSnippet(id);
+  }
+
+  moveSnippetFromMenu(id: string) {
+    this.snippetMenuOpenId = null;
+    this.moveSnippetToFolder(id);
+  }
+
+  deleteSnippetFromMenu(id: string) {
+    this.snippetMenuOpenId = null;
+    this.deleteSnippet(id);
+  }
+
+  duplicateSnippet(id: string) {
+    const sn = this.snippetsStore.get(id);
+    if (!sn) return;
+
+    const base = `${sn.name} (cópia)`;
+    let name = base;
+    let i = 2;
+    const existingNames = new Set(this.snippets.map((s) => s.name.trim().toLowerCase()));
+    while (existingNames.has(name.trim().toLowerCase())) {
+      name = `${base} ${i++}`;
+    }
+
+    const created = this.snippetsStore.upsert({
+      name,
+      sql: sn.sql,
+      folder: sn.folder,
+    });
+    this.refreshSnippets();
+    this.selectedSnippetId = created.id;
+    this.snippetMenuOpenId = null;
+    this.snack('Snippet duplicado.');
+  }
+
+  snippetPreview(sn: QuerySnippet): string {
+    const compactSql = (sn.sql || '').replace(/\s+/g, ' ').trim();
+    const preview = compactSql.length > 160 ? `${compactSql.slice(0, 160)}...` : compactSql;
+    return `${sn.name}\n\n${preview}`;
+  }
+
   private normalizeFolder(folder: string | null | undefined): string {
     return (folder ?? '').trim();
+  }
+
+  private folderKey(folder: string | null | undefined): string {
+    return this.normalizeFolder(folder).toLowerCase();
   }
 
   exportSnippets() {
@@ -604,12 +864,12 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
       const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
       const a = document.createElement('a');
       a.href = URL.createObjectURL(blob);
-      a.download = this.makeFileName('favoritos', 'json');
+      a.download = this.makeFileName('snippets', 'json');
       a.click();
       URL.revokeObjectURL(a.href);
-      this.snack('Favoritos exportados.');
+      this.snack('Snippets exportados.');
     } catch {
-      this.snack('Falha ao exportar favoritos.');
+      this.snack('Falha ao exportar snippets.');
     }
   }
 
@@ -630,9 +890,9 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
         this.snippetsStore.import(text);
         this.selectedSnippetId = null;
         this.refreshSnippets();
-        this.snack('Favoritos importados.');
+        this.snack('Snippets importados.');
       } catch {
-        this.snack('Arquivo de favoritos inválido.');
+        this.snack('Arquivo de snippets inválido.');
       } finally {
         input.remove();
       }

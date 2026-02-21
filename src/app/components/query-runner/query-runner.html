@@ -1,162 +1,239 @@
 <h3>Executar SQL</h3>
-<div class="fav-bar">
-  <div class="fav-left">
-    <div class="fav-left-main">
-      <strong>Favoritos</strong>
-      <input
-        *ngIf="!snippetsCollapsed"
-        type="text"
-        placeholder="Filtrar..."
-        [(ngModel)]="snippetFilter"
-        [ngModelOptions]="{ standalone: true }"
-      />
-    </div>
-    <button class="snippet-toggle-btn" (click)="toggleSnippetsPanel()">
-      <mat-icon aria-hidden="true">
-        {{ snippetsCollapsed ? 'unfold_more' : 'unfold_less' }}
-      </mat-icon>
-      {{ snippetsCollapsed ? 'Mostrar snippets' : 'Ocultar snippets' }}
-    </button>
-  </div>
-
-  <div class="folder-bar" *ngIf="!snippetsCollapsed">
-    <button
-      class="chip folder-chip"
-      [class.active]="selectedFolder === null"
-      (click)="selectFolder(null)"
-    >
-      <mat-icon aria-hidden="true">folder_special</mat-icon>
-      Todas as pastas
-    </button>
-    <button
-      class="chip folder-chip"
-      *ngFor="let folder of folders; trackBy: trackFolder"
-      [class.active]="selectedFolder === folder"
-      (click)="selectFolder(folder)"
-    >
-      <mat-icon aria-hidden="true">folder</mat-icon>
-      {{ folderLabel(folder) }}
-    </button>
-    <button class="link small" (click)="createFolder()">+ nova pasta</button>
-  </div>
-
-  <div class="fav-row" *ngIf="!snippetsCollapsed">
-    <ng-container *ngIf="snippets.length; else noSnips">
-      <div class="fav-chips">
-        <button
-          class="chip"
-          *ngFor="let s of snippets; trackBy: trackSnippetId"
-          [hidden]="!shouldShowSnippet(s)"
-          (click)="loadSnippet(s.id)"
-          [class.active]="s.id === selectedSnippetId"
-          title="{{ s.name }}"
-        >
-          {{ s.name }}
-        </button>
+<div class="runner-layout" [class.snippets-hidden]="snippetsCollapsed">
+  <aside class="snippets-panel" *ngIf="!snippetsCollapsed">
+    <div class="fav-bar">
+      <div class="fav-left">
+        <div class="fav-left-main">
+          <strong>Snippets</strong>
+          <input
+            type="text"
+            placeholder="Filtrar..."
+            [(ngModel)]="snippetFilter"
+            [ngModelOptions]="{ standalone: true }"
+          />
+        </div>
       </div>
-    </ng-container>
 
-    <div class="fav-actions">
-      <button class="link" (click)="selectedSnippetId && renameSnippet(selectedSnippetId)">
-        renomear
-      </button>
-      <button class="link danger" (click)="selectedSnippetId && deleteSnippet(selectedSnippetId)">
-        excluir
-      </button>
-      <button class="link" (click)="saveOnSelectedSnippet()">salvar (Ctrl+S)</button>
-      <button class="link" (click)="selectedSnippetId && moveSnippetToFolder(selectedSnippetId)">
-        mover p/ pasta
-      </button>
-      <button class="link" (click)="exportSnippets()" [disabled]="!snippets.length">exportar</button>
-      <button class="link" (click)="importSnippets()">importar</button>
-    </div>
-  </div>
+      <div class="folder-bar">
+        <span class="panel-label">Pastas</span>
+        <button
+          class="chip folder-chip"
+          [class.active]="selectedFolder === null"
+          (click)="selectFolder(null)"
+        >
+          <mat-icon aria-hidden="true">folder_special</mat-icon>
+          Todas as pastas ({{ folderCount(null) }})
+        </button>
+        <button
+          class="chip folder-chip"
+          *ngFor="let folder of folders; trackBy: trackFolder"
+          [class.active]="selectedFolder === folder"
+          (click)="selectFolder(folder)"
+        >
+          <mat-icon aria-hidden="true">folder</mat-icon>
+          {{ folderLabel(folder) }} ({{ folderCount(folder) }})
+        </button>
+        <button class="link small" (click)="createFolder()">+ nova pasta</button>
+      </div>
 
-  <ng-template #noSnips>
-    <div class="no-snips muted">
-      Sem favoritos. Use “salvar (Ctrl+S)” ou
-      <button class="link" (click)="importSnippets()">importe um arquivo</button>.
-    </div>
-  </ng-template>
-</div>
-
-<div #editorHost class="editor-resize">
-  <ngx-monaco-editor
-    [(ngModel)]="query"
-    [options]="editorOptions"
-    (onInit)="onEditorInit($event)"
-    [ngModelOptions]="{ standalone: true }"
-  >
-  </ngx-monaco-editor>
-</div>
-
-<div class="toolbar">
-  <div class="btns">
-    <app-button tone="primary" variant="solid" (pressed)="runPaged()">Executar (Ctrl+Enter)</app-button>
-    <app-button tone="neutral" variant="outline" (pressed)="openScheduleDialog()">
-      Agendar envio por e-mail
-    </app-button>
-    <app-button tone="neutral" variant="outline" (pressed)="copyResultsForExcel()" [disabled]="rows.length === 0">
-      Exportar Excel
-    </app-button>
-    <app-button tone="neutral" variant="outline" (pressed)="saveQueryAsSql()">Salvar .sql</app-button>
-    <app-button tone="neutral" variant="outline" (pressed)="saveAsReport()">Salvar como relatório</app-button>
-    <app-button tone="neutral" variant="outline" (pressed)="saveCurrentAsSnippet()">Salvar favorito (Ctrl+S)</app-button>
-  </div>
-  <span class="meta">
-    {{ usingAllMode ? 'modo all' : 'página ' + page }} • {{ rowCount }} linhas • {{ elapsedMs }} ms
-    •
-    {{ lastRunAt ? (lastRunAt | date : 'dd/MM/yyyy HH:mm:ss') : '—' }}
-  </span>
-</div>
-
-<mat-progress-bar *ngIf="loading" mode="indeterminate"></mat-progress-bar>
-
-<div *ngIf="error" class="error">{{ error }}</div>
-
-<mat-card class="result-card" *ngIf="!loading && !error">
-  <div *ngIf="rowCount === 0; else hasData" class="muted">Sem resultados.</div>
-
-  <ng-template #hasData>
-    <div class="table-wrap">
-      <table mat-table [dataSource]="rows" class="mat-elevation-z1 result-table">
-        <ng-container *ngFor="let col of displayedColumns" [matColumnDef]="col">
-          <th mat-header-cell *matHeaderCellDef>{{ col }}</th>
-          <td mat-cell *matCellDef="let row">{{ row[col] }}</td>
+      <div class="fav-row">
+        <span class="panel-label">Snippets</span>
+        <ng-container *ngIf="filteredSnippets.length; else noSnips">
+          <div class="fav-chips">
+            <div
+              class="snippet-item"
+              *ngFor="let s of filteredSnippets; trackBy: trackSnippetId"
+            >
+              <button
+                class="chip chip-snippet-main"
+                (click)="loadSnippet(s.id)"
+                (dragstart)="onSnippetDragStart($event, s.id)"
+                draggable="true"
+                [class.active]="s.id === selectedSnippetId"
+                title="{{ snippetPreview(s) }}"
+              >
+                <mat-icon aria-hidden="true">description</mat-icon>
+                <span class="snippet-name">{{ s.name }}</span>
+              </button>
+              <div class="snippet-menu-wrap">
+                <button class="snippet-more" type="button" title="Ações" (click)="toggleSnippetMenu($event, s.id)">
+                  ⋮
+                </button>
+                <div class="snippet-menu" *ngIf="snippetMenuOpenId === s.id">
+                  <button type="button" (click)="renameSnippetFromMenu(s.id)">Renomear</button>
+                  <button type="button" (click)="duplicateSnippet(s.id)">Duplicar</button>
+                  <button type="button" (click)="moveSnippetFromMenu(s.id)">Mover</button>
+                  <button type="button" class="danger" (click)="deleteSnippetFromMenu(s.id)">Excluir</button>
+                </div>
+              </div>
+            </div>
+          </div>
         </ng-container>
 
-        <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
-        <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
-      </table>
-    </div>
-  </ng-template>
-</mat-card>
+        <div class="fav-actions">
+          <button class="link" (click)="saveCurrentAsSnippet()">novo snippet (Ctrl+S)</button>
+          <button class="link" (click)="exportSnippets()" [disabled]="!snippets.length">exportar</button>
+          <button class="link" (click)="importSnippets()">importar</button>
+        </div>
+      </div>
 
-<div class="result-controls" *ngIf="!loading && !error">
-  <div class="btns">
-    <app-button tone="neutral" variant="outline" (pressed)="runAll()">Executar tudo (/query/all)</app-button>
-    <app-button tone="neutral" variant="outline" *ngIf="!usingAllMode && canGoPrev" (pressed)="prevPage()">
-      Página anterior
-    </app-button>
-    <app-button tone="neutral" variant="outline" *ngIf="!usingAllMode && canGoNext" (pressed)="nextPage()">
-      Próxima página
-    </app-button>
-    <label class="small size-field" *ngIf="!usingAllMode">
-      size
-      <input
-        class="page-size-input"
-        type="number"
-        min="1"
-        [max]="maxPageSize"
-        [(ngModel)]="size"
+      <ng-template #noSnips>
+        <div class="no-snips muted">
+          Sem snippets nesta pasta. Use “novo snippet (Ctrl+S)” ou
+          <button class="link" (click)="importSnippets()">importe um arquivo</button>.
+        </div>
+      </ng-template>
+    </div>
+  </aside>
+
+  <section class="runner-main">
+    <div class="toolbar top-toolbar">
+      <div class="btns toolbar-group toolbar-group--execute">
+        <button class="group-btn group-btn--primary" [disabled]="loading" (click)="runPaged()">
+          <span class="btn-spinner" *ngIf="loading" aria-hidden="true"></span>
+          {{ loading ? 'Executando...' : 'Executar' }}
+        </button>
+        <div class="menu-wrap">
+          <button class="group-btn" [disabled]="loading" (click)="toggleExecuteMenu()">Mais ações ▾</button>
+          <div class="group-menu" *ngIf="executeMenuOpen">
+            <div class="runall-warning">
+              ⚠ Pode retornar muitos registros.
+              <label class="runall-limit-field">
+                Limite exibição
+                <input
+                  type="number"
+                  min="100"
+                  [max]="maxRunAllDisplayLimit"
+                  [(ngModel)]="runAllDisplayLimit"
+                  [ngModelOptions]="{ standalone: true }"
+                  (change)="onRunAllLimitChange()"
+                />
+              </label>
+            </div>
+            <button type="button" [disabled]="loading" (click)="runAll()">Executar tudo (/query/all)</button>
+            <button type="button" [disabled]="loading" (click)="openScheduleDialog()">Agendar envio por e-mail</button>
+          </div>
+        </div>
+        <div class="menu-wrap">
+          <button class="group-btn" [disabled]="loading" (click)="toggleSaveMenu()">Salvar ▾</button>
+          <div class="group-menu" *ngIf="saveMenuOpen">
+            <button type="button" [disabled]="loading" (click)="saveOnSelectedSnippet()">Salvar favorito (Ctrl+S)</button>
+            <button type="button" [disabled]="loading" (click)="saveAsReport()">Salvar como relatório</button>
+            <button type="button" [disabled]="loading" (click)="saveQueryAsSql()">Exportar .sql</button>
+          </div>
+        </div>
+        <div class="menu-wrap">
+          <button class="group-btn" [disabled]="loading" (click)="toggleExportMenu()">Exportar ▾</button>
+          <div class="group-menu" *ngIf="exportMenuOpen">
+            <button type="button" (click)="copyResultsForExcel()" [disabled]="rows.length === 0 || loading">
+              Exportar Excel
+            </button>
+            <button type="button" (click)="exportSnippets()" [disabled]="!snippets.length || loading">
+              Exportar snippets (.json)
+            </button>
+            <button type="button" [disabled]="loading" (click)="importSnippets()">Importar snippets</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="toolbar-right">
+        <button class="snippet-toggle-btn" (click)="toggleSnippetsPanel()">
+          <mat-icon aria-hidden="true">
+            {{ snippetsCollapsed ? 'unfold_more' : 'unfold_less' }}
+          </mat-icon>
+          {{ snippetsCollapsed ? 'Mostrar snippets' : 'Ocultar snippets' }}
+        </button>
+        <span class="dirty-badge" *ngIf="hasUnsavedChanges">● Não salvo</span>
+        <span class="meta">{{ editorCursorLabel }}</span>
+      </div>
+    </div>
+
+    <div class="run-status" [class.run-status--loading]="loading">
+      <span class="run-status-main">
+        <span class="run-status-icon">{{ runStatusIcon }}</span>
+        <span>{{ runStatusLabel }}</span>
+      </span>
+      <span class="meta">{{ usingAllMode ? 'modo all' : 'página ' + page }}</span>
+    </div>
+    <div class="run-warning" *ngIf="allModeTruncated">
+      Resultado truncado na interface: exibindo {{ rows.length }} de {{ rowCount }} linhas.
+    </div>
+
+    <div
+      #editorHost
+      class="editor-resize editor-section"
+      [class.editor-drop-hover]="isDraggingSnippetOverEditor"
+      (dragover)="onEditorDragOver($event)"
+      (dragleave)="onEditorDragLeave($event)"
+      (drop)="onEditorDrop($event)"
+    >
+      <ngx-monaco-editor
+        [(ngModel)]="query"
+        [options]="editorOptions"
+        (onInit)="onEditorInit($event)"
         [ngModelOptions]="{ standalone: true }"
-        (change)="onPageSizeChange()"
-      />
-    </label>
-  </div>
-  <span class="meta">
-    {{ usingAllMode ? 'modo all' : 'página ' + page }} • {{ rowCount }} linhas • {{ elapsedMs }} ms
-    •
-    {{ lastRunAt ? (lastRunAt | date : 'dd/MM/yyyy HH:mm:ss') : '—' }}
-  </span>
+      >
+      </ngx-monaco-editor>
+    </div>
+
+    <mat-progress-bar *ngIf="loading" mode="indeterminate"></mat-progress-bar>
+
+    <div *ngIf="error" class="error">{{ error }}</div>
+
+    <div class="result-skeleton" *ngIf="loading">
+      <div class="skeleton-row" *ngFor="let _ of [1,2,3,4,5]"></div>
+    </div>
+
+    <mat-card class="result-card result-section" *ngIf="!loading && !error">
+      <div *ngIf="rowCount === 0; else hasData" class="empty-state">
+        <strong>{{ hasExecutedAtLeastOnce ? 'Consulta executada com sucesso.' : 'Nenhum resultado.' }}</strong>
+        <span>{{ hasExecutedAtLeastOnce ? 'Nenhuma linha retornada.' : 'Verifique os filtros ou execute novamente.' }}</span>
+      </div>
+
+      <ng-template #hasData>
+        <div class="table-head">
+          <span class="table-head-meta">
+            Mostrando {{ rows.length }} {{ rows.length === 1 ? 'linha' : 'linhas' }}
+          </span>
+          <label class="small size-field" *ngIf="!usingAllMode">
+            Limite
+            <input
+              class="page-size-input"
+              type="number"
+              min="1"
+              [max]="maxPageSize"
+              [(ngModel)]="size"
+              [ngModelOptions]="{ standalone: true }"
+              (change)="onPageSizeChange()"
+            />
+          </label>
+        </div>
+        <div class="table-wrap">
+          <table mat-table [dataSource]="rows" class="mat-elevation-z1 result-table">
+            <ng-container *ngFor="let col of displayedColumns" [matColumnDef]="col">
+              <th mat-header-cell *matHeaderCellDef>{{ col }}</th>
+              <td mat-cell *matCellDef="let row">{{ row[col] }}</td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="displayedColumns; sticky: true"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+          </table>
+        </div>
+      </ng-template>
+    </mat-card>
+
+    <div class="result-controls" *ngIf="!loading && !error">
+      <div class="btns">
+        <app-button tone="neutral" variant="outline" *ngIf="!usingAllMode && canGoPrev" (pressed)="prevPage()">
+          Página anterior
+        </app-button>
+        <app-button tone="neutral" variant="outline" *ngIf="!usingAllMode && canGoNext" (pressed)="nextPage()">
+          Próxima página
+        </app-button>
+      </div>
+      <span class="meta">
+        {{ rowCount }} {{ rowCount === 1 ? 'linha retornada' : 'linhas retornadas' }}
+      </span>
+    </div>
+  </section>
 </div>

@@ -98,7 +98,13 @@ export class SnippetStorageService {
     }
 
     const id = crypto.randomUUID();
-    const item: QuerySnippet = { id, name, sql, updatedAt: now, folder: folderValue ?? '' };
+    const item: QuerySnippet = {
+      id,
+      name,
+      sql,
+      updatedAt: now,
+      folder: folderValue ?? '',
+    };
     s.items.push(item);
     this.write(s);
     return item;
@@ -129,6 +135,7 @@ export class SnippetStorageService {
       this.write(s);
     }
   }
+
   // util opcional
   export(): string {
     return JSON.stringify(this.list(), null, 2);
