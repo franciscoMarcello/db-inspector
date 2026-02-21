@@ -659,6 +659,8 @@ export class AdminUsersComponent implements OnInit {
         },
         error: (err) => {
           this.saving = false;
+          console.log('[admin-users][createUser] backend error:', err);
+          console.log('[admin-users][createUser] backend error payload:', err?.error);
           this.error = this.messageFromError(err, 'Falha ao criar usuário.');
         },
       });
@@ -1356,12 +1358,20 @@ export class AdminUsersComponent implements OnInit {
   }
 
   private messageFromError(err: any, fallback: string): string {
-    return (
-      err?.error?.message ||
-      err?.error?.error ||
-      (typeof err?.error === 'string' ? err.error : '') ||
-      fallback
-    );
+    const raw = err?.error;
+    let data: any = raw;
+    if (typeof raw === 'string') {
+      const trimmed = raw.trim();
+      if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+        try {
+          data = JSON.parse(trimmed);
+        } catch {
+          data = raw;
+        }
+      }
+    }
+    const message = typeof data?.message === 'string' ? data.message.trim() : '';
+    return message || fallback;
   }
 
   private passwordValidationError(password: string): string {

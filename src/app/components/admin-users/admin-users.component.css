@@ -1067,6 +1067,12 @@ select {
 
 .modal-status-row {
   margin-top: 0;
+  min-height: 44px;
+  align-content: start;
+}
+
+.modal-status-row .status {
+  margin: 0;
 }
 
 .modal-card--sm {
