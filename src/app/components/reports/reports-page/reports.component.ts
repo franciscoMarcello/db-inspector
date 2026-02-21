@@ -37,16 +37,13 @@ import { ReportsTemplateManagerModalComponent } from '../modals/template-manager
 import { AppButtonComponent } from '../../shared/app-button/app-button.component';
 import {
   buildArchivePayload,
-  buildReportValidationParams,
   buildClearedFilterState,
-  buildParamsForOptions,
   buildRunParams,
   computeVariableInputs,
   createReportDraftForCreate,
   createReportDraftForEdit,
   detectDraftVariables,
   displayVariableOption,
-  filterVariableOptionItems,
   normalizeFileName,
   rebuildFolderNodes,
   resolveRequestErrorMessage,
@@ -54,11 +51,9 @@ import {
   StatusTone,
   statusTitleFromTone,
   consumeStoredText,
-  syncOptionSearchText,
-  toReportCreatePayload,
-  toReportVariablesPayload,
-  validateReportDraft,
 } from '../core/reports.component.utils';
+import { ReportsVariableOptionsHost, ReportsVariableOptionsLogic } from '../core/reports.component.variable-options';
+import { ReportsDraftHost, ReportsDraftLogic } from '../core/reports.component.draft';
 
 @Component({
   selector: 'app-reports',
@@ -84,7 +79,8 @@ import {
     './reports.component.responsive.css',
   ],
 })
-export class ReportsComponent implements OnInit, OnDestroy, ReportsFolderTemplateHost {
+export class ReportsComponent
+  implements OnInit, OnDestroy, ReportsFolderTemplateHost, ReportsVariableOptionsHost, ReportsDraftHost {
   folders: FolderNode[] = [];
   allFolders: ReportFolder[] = [];
   reports: ReportDefinition[] = [];
@@ -134,9 +130,11 @@ export class ReportsComponent implements OnInit, OnDestroy, ReportsFolderTemplat
   private persistedFolderExpandedState: Record<string, boolean> = {};
   private pendingCreateSql: string | null = null;
   private optionsReloadTimer: ReturnType<typeof setTimeout> | null = null;
-  private optionsParamsSignatureByKey: Record<string, string> = {};
+  optionsParamsSignatureByKey: Record<string, string> = {};
   private readonly folderTemplateLogic: ReportsFolderTemplateLogic;
   private readonly treeLogic: ReportsTreeLogic;
+  private readonly variableOptionsLogic: ReportsVariableOptionsLogic;
+  private readonly draftLogic: ReportsDraftLogic;
   private statusClearTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
@@ -147,6 +145,8 @@ export class ReportsComponent implements OnInit, OnDestroy, ReportsFolderTemplat
   ) {
     this.folderTemplateLogic = new ReportsFolderTemplateLogic(this, reportService);
     this.treeLogic = new ReportsTreeLogic();
+    this.variableOptionsLogic = new ReportsVariableOptionsLogic(this, reportService);
+    this.draftLogic = new ReportsDraftLogic(this, reportService, dbService);
   }
 
   ngOnInit(): void {
@@ -322,6 +322,10 @@ export class ReportsComponent implements OnInit, OnDestroy, ReportsFolderTemplat
     this.loadData(preferredReportId, preferredFolderId);
   }
 
+  reloadReports(preferredReportId?: string, preferredFolderId?: string) {
+    this.loadData(preferredReportId, preferredFolderId);
+  }
+
   rebuildVisibleFolders(apiFolders: ReportFolder[]) {
     this.rebuildFolders(apiFolders);
   }
@@ -452,181 +456,15 @@ export class ReportsComponent implements OnInit, OnDestroy, ReportsFolderTemplat
 
   deleteTemplateFromManager() { this.folderTemplateLogic.deleteTemplateFromManager(); }
 
-  saveReportFromModal() {
-    const folder = this.folders.find((item) => item.id === this.reportDraft.folderId);
-    const validation = validateReportDraft(this.reportDraft, Boolean(folder));
-    if (validation.error) {
-      this.reportDraftError = validation.error;
-      return;
-    }
-    if (!folder) return;
-
-    const variables = toReportVariablesPayload(this.reportDraftVariables);
-    const payload = toReportCreatePayload(this.reportDraft, folder, variables);
-
-    if (this.reportModalMode === 'create') {
-      this.reportService.createReport(payload).subscribe({
-        next: (created) => {
-          this.statusMessage = `Relatorio "${created.name}" criado.`;
-          this.reportModalOpen = false;
-          this.loadData(created.id, folder.id);
-        },
-        error: (err) => {
-          this.reportDraftError = this.resolveRequestError(err, 'Falha ao criar relatorio.');
-        },
-      });
-      return;
-    }
-
-    if (!this.reportDraft.id) {
-      this.reportDraftError = 'Relatório inválido para atualização.';
-      return;
-    }
-
-    this.reportService.updateReport(this.reportDraft.id, payload).subscribe({
-      next: (updated) => {
-        this.statusMessage = `Relatorio "${updated.name}" atualizado.`;
-        this.reportModalOpen = false;
-        const nextFolder = updated.folderId ?? this.selectedFolderId;
-        this.loadData(updated.id, nextFolder ?? undefined);
-      },
-      error: (err) => {
-        this.reportDraftError = this.resolveRequestError(err, 'Falha ao atualizar relatorio.');
-      },
-    });
-  }
+  saveReportFromModal() { this.draftLogic.saveReportFromModal(); }
 
   validateReportDraftQuery(onDone?: (result: ReportValidationResponse | null) => void) {
-    const sql = this.reportDraft.sql.trim();
-    if (!sql) {
-      this.reportValidationError = 'Informe a SQL antes de validar.';
-      this.reportValidationResult = null;
-      onDone?.(null);
-      return;
-    }
-
-    const variables = toReportVariablesPayload(this.reportDraftVariables);
-    const validationParams = buildReportValidationParams(variables, this.reportValidationInputs);
-    if (validationParams.error) {
-      this.reportValidationError = validationParams.error;
-      this.reportValidationResult = null;
-      onDone?.(null);
-      return;
-    }
-
-    this.validatingReportDraft = true;
-    this.reportValidationError = '';
-    this.reportValidationResult = null;
-    this.reportService
-      .validateReportQuery({
-        sql,
-        variables,
-        params: validationParams.params,
-        validateSyntax: !validationParams.hasMissingRequired,
-        enforceRequired: true,
-        enforceReadOnly: true,
-      })
-      .subscribe({
-        next: (result) => {
-          this.validatingReportDraft = false;
-          this.reportValidationResult = result;
-          if (result?.valid === false && (!result.errors || !result.errors.length)) {
-            this.reportValidationError = 'Consulta inválida.';
-          }
-          onDone?.(result);
-        },
-        error: (err) => {
-          this.validatingReportDraft = false;
-          this.reportValidationError = this.resolveRequestError(err, 'Falha ao validar consulta.');
-          onDone?.(null);
-        },
-      });
+    this.draftLogic.validateReportDraftQuery(onDone);
   }
 
-  saveAndTestReportFromModal() {
-    this.validateReportDraftQuery((result) => {
-      if (!result?.valid) {
-        this.reportDraftError = 'Corrija a consulta antes de salvar.';
-        return;
-      }
-      this.saveReportFromModal();
-    });
-  }
+  saveAndTestReportFromModal() { this.draftLogic.saveAndTestReportFromModal(); }
 
-  executeReportDraftPreview() {
-    const sql = this.reportDraft.sql.trim();
-    if (!sql) {
-      this.reportDraftPreviewError = 'Informe a SQL antes de executar teste.';
-      this.reportDraftPreviewRows = [];
-      this.reportDraftPreviewColumns = [];
-      return;
-    }
-
-    const variables = toReportVariablesPayload(this.reportDraftVariables);
-    const validationParams = buildReportValidationParams(variables, this.reportValidationInputs);
-    if (validationParams.error) {
-      this.reportDraftPreviewError = validationParams.error;
-      this.reportDraftPreviewRows = [];
-      this.reportDraftPreviewColumns = [];
-      return;
-    }
-
-    this.loadingReportDraftPreview = true;
-    this.reportDraftPreviewError = '';
-    this.reportDraftPreviewRows = [];
-    this.reportDraftPreviewColumns = [];
-
-    this.reportService
-      .validateReportQuery({
-        sql,
-        variables,
-        params: validationParams.params,
-        validateSyntax: true,
-        enforceRequired: true,
-        enforceReadOnly: true,
-      })
-      .subscribe({
-        next: (validation) => {
-          if (!validation.valid || !validation.renderedQuery) {
-            this.loadingReportDraftPreview = false;
-            this.reportDraftPreviewError =
-              validation.errors?.[0] || 'Consulta inválida para preview.';
-            return;
-          }
-
-          this.dbService.runQuery(validation.renderedQuery, 0, 5).subscribe({
-            next: (res) => {
-              this.loadingReportDraftPreview = false;
-              const rows = Array.isArray(res?.data)
-                ? res.data
-                : Array.isArray(res?.rows)
-                ? res.rows
-                : Array.isArray(res)
-                ? res
-                : [];
-              this.reportDraftPreviewRows = rows.slice(0, 5);
-              this.reportDraftPreviewColumns = this.reportDraftPreviewRows.length
-                ? Object.keys(this.reportDraftPreviewRows[0] || {})
-                : [];
-            },
-            error: (err) => {
-              this.loadingReportDraftPreview = false;
-              this.reportDraftPreviewError = this.resolveRequestError(
-                err,
-                'Falha ao executar preview.'
-              );
-            },
-          });
-        },
-        error: (err) => {
-          this.loadingReportDraftPreview = false;
-          this.reportDraftPreviewError = this.resolveRequestError(
-            err,
-            'Falha ao validar consulta para preview.'
-          );
-        },
-      });
-  }
+  executeReportDraftPreview() { this.draftLogic.executeReportDraftPreview(); }
 
   archiveSelectedReport() { this.updateSelectedReportArchived(true); }
 
@@ -842,47 +680,31 @@ export class ReportsComponent implements OnInit, OnDestroy, ReportsFolderTemplat
 
   onVariableInputChanged() {
     if (this.optionsReloadTimer) clearTimeout(this.optionsReloadTimer);
-    this.optionsReloadTimer = setTimeout(() => this.reloadVariableOptions(), 250);
+    this.optionsReloadTimer = setTimeout(() => this.variableOptionsLogic.reloadVariableOptions(), 250);
   }
 
   hasVariableOptions(variable: ReportVariable): boolean {
-    return Boolean(variable.optionsSql && variable.optionsSql.trim());
+    return this.variableOptionsLogic.hasVariableOptions(variable);
   }
 
   variableOptionItems(variable: ReportVariable): ReportVariableOption[] {
-    return this.variableOptions[variable.key] || [];
+    return this.variableOptionsLogic.variableOptionItems(variable);
   }
 
   filteredVariableOptionItems(variable: ReportVariable): ReportVariableOption[] {
-    return filterVariableOptionItems(
-      this.variableOptionItems(variable),
-      this.variableOptionSearchText[variable.key] || ''
-    );
+    return this.variableOptionsLogic.filteredVariableOptionItems(variable);
   }
 
   variableOptionsLoading(variable: ReportVariable): boolean {
-    return Boolean(this.loadingVariableOptions[variable.key]);
+    return this.variableOptionsLogic.variableOptionsLoading(variable);
   }
 
   onVariableOptionSearchChange(variable: ReportVariable, text: string) {
-    const key = variable.key;
-    this.variableOptionSearchText = {
-      ...this.variableOptionSearchText,
-      [key]: text,
-    };
-
-    const normalized = text.trim().toLowerCase();
-    const exact = this.variableOptionItems(variable).find(
-      (opt) => String(opt.descricao ?? '').trim().toLowerCase() === normalized
-    );
-
-    this.variableInputs[key] = exact ? String(exact.valor ?? '') : '';
-    this.onVariableInputChanged();
+    this.variableOptionsLogic.onVariableOptionSearchChange(variable, text);
   }
 
   onVariableOptionSelected(variable: ReportVariable, option: ReportVariableOption | null) {
-    const key = variable.key;
-    this.setVariableOptionValue(key, String(option?.valor ?? ''), String(option?.descricao ?? ''));
+    this.variableOptionsLogic.onVariableOptionSelected(variable, option);
   }
 
   optionValueToString(value: unknown): string {
@@ -895,72 +717,26 @@ export class ReportsComponent implements OnInit, OnDestroy, ReportsFolderTemplat
   }
 
   onVariableOptionValueSelected(variable: ReportVariable, rawValue: string) {
-    const value = this.optionValueToString(rawValue);
-    const selected = this.variableOptionItems(variable).find(
-      (opt) => this.optionValueToString(opt.valor) === value
-    );
-    this.setVariableOptionValue(variable.key, value, selected?.descricao ?? '');
+    this.variableOptionsLogic.onVariableOptionValueSelected(variable, rawValue);
   }
 
   onVariableMultipleOptionValuesSelected(variable: ReportVariable, rawValues: string[] | string) {
-    const selectedValues = Array.isArray(rawValues) ? rawValues : [String(rawValues ?? '')];
-    const normalized = selectedValues
-      .map((value) => this.optionValueToString(value).trim())
-      .filter(Boolean);
-    this.variableMultiOptionSelections = {
-      ...this.variableMultiOptionSelections,
-      [variable.key]: normalized,
-    };
-    this.setVariableOptionValue(variable.key, normalized.join(','), '');
+    this.variableOptionsLogic.onVariableMultipleOptionValuesSelected(variable, rawValues);
   }
 
   variableMultiSelectOptions(variable: ReportVariable): MultiSelectOption[] {
-    return this.variableMultiSelectOptionsByKey[variable.key] || [];
+    return this.variableOptionsLogic.variableMultiSelectOptions(variable);
   }
 
   clearVariableOption(variable: ReportVariable) {
-    this.setVariableOptionValue(variable.key, '', '');
+    this.variableOptionsLogic.clearVariableOption(variable);
   }
 
   displayVariableOption(value: ReportVariableOption | string | null): string {
     return displayVariableOption(value);
   }
 
-  private reloadVariableOptions() {
-    const reportId = this.selectedReport?.id;
-    if (!reportId) {
-      this.resetVariableOptionsState();
-      return;
-    }
-
-    const optionVars = this.selectedReportVariables.filter((v) => this.hasVariableOptions(v));
-    if (!optionVars.length) {
-      this.resetVariableOptionsState();
-      return;
-    }
-
-    for (const variable of optionVars) {
-      const params = buildParamsForOptions(
-        this.selectedReportVariables,
-        this.variableInputs,
-        variable.key
-      );
-      const signature = JSON.stringify(params);
-      if (this.optionsParamsSignatureByKey[variable.key] === signature) continue;
-      this.loadingVariableOptions = {
-        ...this.loadingVariableOptions,
-        [variable.key]: true,
-      };
-      this.reportService.listVariableOptions(reportId, variable.key, params, 100).subscribe({
-        next: (options) => {
-          this.applyVariableOptionFetchResult(variable.key, signature, options);
-        },
-        error: () => {
-          this.applyVariableOptionFetchResult(variable.key, signature, []);
-        },
-      });
-    }
-  }
+  private reloadVariableOptions() { this.variableOptionsLogic.reloadVariableOptions(); }
 
   private buildRunParams(): Record<string, unknown> | null {
     const result = buildRunParams(this.selectedReportVariables, this.variableInputs);
@@ -1001,59 +777,7 @@ export class ReportsComponent implements OnInit, OnDestroy, ReportsFolderTemplat
     this.reportDraftPreviewColumns = [];
   }
 
-  private setVariableOptionValue(key: string, inputValue: string, searchValue: string) {
-    this.variableInputs[key] = inputValue;
-    this.variableOptionSearchText = {
-      ...this.variableOptionSearchText,
-      [key]: searchValue,
-    };
-    this.variableMultiOptionSelections = {
-      ...this.variableMultiOptionSelections,
-      [key]: String(inputValue ?? '')
-        .split(/[\n,]+/)
-        .map((item) => item.trim())
-        .filter(Boolean),
-    };
-    this.onVariableInputChanged();
-  }
-
-  private resetVariableOptionsState() {
-    this.variableOptions = {};
-    this.variableMultiSelectOptionsByKey = {};
-    this.loadingVariableOptions = {};
-    this.optionsParamsSignatureByKey = {};
-    this.variableMultiOptionSelections = {};
-  }
-
-  private applyVariableOptionFetchResult(
-    key: string,
-    signature: string,
-    options: ReportVariableOption[]
-  ) {
-    this.optionsParamsSignatureByKey = {
-      ...this.optionsParamsSignatureByKey,
-      [key]: signature,
-    };
-    this.variableOptions = {
-      ...this.variableOptions,
-      [key]: options,
-    };
-    this.variableMultiSelectOptionsByKey = {
-      ...this.variableMultiSelectOptionsByKey,
-      [key]: options.map((opt) => ({
-        value: this.optionValueToString(opt.valor),
-        label: String(opt.descricao ?? ''),
-      })),
-    };
-    this.variableOptionSearchText = {
-      ...this.variableOptionSearchText,
-      [key]: syncOptionSearchText(this.variableInputs[key] ?? '', options),
-    };
-    this.loadingVariableOptions = {
-      ...this.loadingVariableOptions,
-      [key]: false,
-    };
-  }
+  
 
   private updateSelectedReportArchived(archived: boolean) {
     const current = this.selectedReport;
