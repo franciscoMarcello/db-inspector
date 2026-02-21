@@ -27,10 +27,9 @@ import {
   createEmptyReportDraft,
   createEmptyTemplateDraft,
   REPORT_DRAFT_SQL_KEY,
-  REPORTS_FOLDERS_EXPANDED_KEY,
-  REPORTS_SIDEBAR_COLLAPSED_KEY,
 } from '../core/reports.component.constants';
 import { ReportsFolderTemplateHost, ReportsFolderTemplateLogic } from '../core/reports.component.folder-template';
+import { ReportsTreeLogic } from '../core/reports.component.tree';
 import { ReportsFolderManagerModalComponent } from '../modals/folder-manager-modal/reports-folder-manager-modal.component';
 import { MultiSelectOption, ReportsMultiSelectComponent } from '../controls/multi-select/reports-multi-select.component';
 import { ReportsReportModalComponent } from '../modals/report-modal/reports-report-modal.component';
@@ -42,7 +41,6 @@ import {
   buildClearedFilterState,
   buildParamsForOptions,
   buildRunParams,
-  belongsToFolder,
   computeVariableInputs,
   createReportDraftForCreate,
   createReportDraftForEdit,
@@ -51,15 +49,10 @@ import {
   filterVariableOptionItems,
   normalizeFileName,
   rebuildFolderNodes,
-  readBooleanRecord,
-  readFlag,
   resolveRequestErrorMessage,
   resolveStatusTone,
-  resolveSelection,
   StatusTone,
   statusTitleFromTone,
-  writeBooleanRecord,
-  writeFlag,
   consumeStoredText,
   syncOptionSearchText,
   toReportCreatePayload,
@@ -143,6 +136,7 @@ export class ReportsComponent implements OnInit, OnDestroy, ReportsFolderTemplat
   private optionsReloadTimer: ReturnType<typeof setTimeout> | null = null;
   private optionsParamsSignatureByKey: Record<string, string> = {};
   private readonly folderTemplateLogic: ReportsFolderTemplateLogic;
+  private readonly treeLogic: ReportsTreeLogic;
   private statusClearTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
@@ -152,6 +146,7 @@ export class ReportsComponent implements OnInit, OnDestroy, ReportsFolderTemplat
     private auth: AuthService
   ) {
     this.folderTemplateLogic = new ReportsFolderTemplateLogic(this, reportService);
+    this.treeLogic = new ReportsTreeLogic();
   }
 
   ngOnInit(): void {
@@ -245,7 +240,7 @@ export class ReportsComponent implements OnInit, OnDestroy, ReportsFolderTemplat
   }
 
   reportsByFolder(folder: FolderNode): ReportDefinition[] {
-    return this.reports.filter((report) => belongsToFolder(report, folder));
+    return this.treeLogic.reportsByFolder(this.reports, folder);
   }
 
   get hasTreeFilter(): boolean {
@@ -257,49 +252,32 @@ export class ReportsComponent implements OnInit, OnDestroy, ReportsFolderTemplat
   }
 
   get filteredFolders(): FolderNode[] {
-    const term = this.treeFilter.trim().toLowerCase();
-    if (!term) return this.folders;
-    return this.folders.filter((folder) => {
-      const folderMatch = folder.name.toLowerCase().includes(term);
-      if (folderMatch) return true;
-      return this.reportsByFolder(folder).some((report) => report.name.toLowerCase().includes(term));
-    });
+    return this.treeLogic.filteredFolders(this.folders, this.reports, this.treeFilter);
   }
 
   filteredReportsByFolder(folder: FolderNode): ReportDefinition[] {
-    const term = this.treeFilter.trim().toLowerCase();
-    const reports = this.reportsByFolder(folder);
-    if (!term) return reports;
-    const folderMatch = folder.name.toLowerCase().includes(term);
-    if (folderMatch) return reports;
-    return reports.filter((report) => report.name.toLowerCase().includes(term));
+    return this.treeLogic.filteredReportsByFolder(folder, this.reports, this.treeFilter);
   }
 
   reportCountByFolder(folder: FolderNode): number { return this.reportsByFolder(folder).length; }
 
   toggleFolder(folderId: string) {
-    this.folders = this.folders.map((folder) =>
-      folder.id === folderId ? { ...folder, expanded: !folder.expanded } : folder
-    );
+    this.folders = this.treeLogic.toggleFolder(this.folders, folderId);
     this.persistFolderExpandedState();
   }
 
   toggleAllFoldersExpanded() {
-    const shouldExpand = !this.allFilteredFoldersExpanded;
-    const targetIds = new Set(this.filteredFolders.map((folder) => folder.id));
-    this.folders = this.folders.map((folder) =>
-      targetIds.has(folder.id) ? { ...folder, expanded: shouldExpand } : folder
-    );
+    this.folders = this.treeLogic.toggleAllFoldersExpanded(this.folders, this.filteredFolders);
     this.persistFolderExpandedState();
   }
 
   clearTreeFilter() { this.treeFilter = ''; }
 
   selectFolder(folder: FolderNode) {
-    this.selectedFolderId = folder.id;
+    const next = this.treeLogic.selectFolder(folder, this.reports);
+    this.selectedFolderId = next.selectedFolderId;
+    this.selectedReportId = next.selectedReportId;
     this.renameFolderName = folder.name;
-    const first = this.reportsByFolder(folder)[0];
-    this.selectedReportId = first?.id ?? null;
     this.runResult = null;
     this.statusMessage = '';
     this.optionsParamsSignatureByKey = {};
@@ -311,16 +289,11 @@ export class ReportsComponent implements OnInit, OnDestroy, ReportsFolderTemplat
   }
 
   selectReport(reportId: string) {
-    const report = this.reports.find((item) => item.id === reportId);
-    if (report) {
-      const folder = this.folders.find((candidate) => belongsToFolder(report, candidate));
-      if (folder) {
-        this.selectedFolderId = folder.id;
-        this.folders = this.folders.map((candidate) =>
-          candidate.id === folder.id ? { ...candidate, expanded: true } : candidate
-        );
-        this.persistFolderExpandedState();
-      }
+    const selection = this.treeLogic.selectReport(reportId, this.reports, this.folders);
+    if (selection.selectedFolderId) {
+      this.selectedFolderId = selection.selectedFolderId;
+      this.folders = selection.folders;
+      this.persistFolderExpandedState();
     }
     this.selectedReportId = reportId;
     this.statusMessage = '';
@@ -794,42 +767,7 @@ export class ReportsComponent implements OnInit, OnDestroy, ReportsFolderTemplat
   }
 
   private buildTreeFolders(apiFolders: ReportFolder[], reports: ReportDefinition[]): ReportFolder[] {
-    const foldersById = new Map<string, ReportFolder>();
-    const foldersByName = new Map<string, ReportFolder>();
-    const visibleFolderIds = new Set<string>();
-    for (const folder of apiFolders) {
-      foldersById.set(String(folder.id), folder);
-      foldersByName.set(String(folder.name || '').toLowerCase(), folder);
-    }
-
-    for (const report of reports) {
-      const reportFolderId = String(report.folderId || '').trim();
-      const reportFolderName = String(report.folderName || report.templateName || '').trim();
-      const byId = reportFolderId ? foldersById.get(reportFolderId) : undefined;
-      const byName = reportFolderName ? foldersByName.get(reportFolderName.toLowerCase()) : undefined;
-      if (byId) {
-        visibleFolderIds.add(String(byId.id));
-        continue;
-      }
-      if (byName) {
-        visibleFolderIds.add(String(byName.id));
-        continue;
-      }
-
-      if (reportFolderId || reportFolderName) {
-        const virtualFolder: ReportFolder = {
-          id: reportFolderId || `virtual-${reportFolderName.toLowerCase().replace(/\s+/g, '-')}`,
-          name: reportFolderName || 'Sem pasta',
-          description: null,
-          archived: false,
-        };
-        foldersById.set(String(virtualFolder.id), virtualFolder);
-        foldersByName.set(String(virtualFolder.name || '').toLowerCase(), virtualFolder);
-        visibleFolderIds.add(String(virtualFolder.id));
-      }
-    }
-
-    return Array.from(foldersById.values()).filter((folder) => visibleFolderIds.has(String(folder.id)));
+    return this.treeLogic.buildTreeFolders(apiFolders, reports);
   }
 
   private isPrimaryVariable(variable: ReportVariable): boolean {
@@ -840,25 +778,23 @@ export class ReportsComponent implements OnInit, OnDestroy, ReportsFolderTemplat
   }
 
   private loadPersistedUiState() {
-    this.sidebarCollapsed = readFlag(REPORTS_SIDEBAR_COLLAPSED_KEY);
-    this.persistedFolderExpandedState = readBooleanRecord(REPORTS_FOLDERS_EXPANDED_KEY);
+    const state = this.treeLogic.loadPersistedUiState();
+    this.sidebarCollapsed = state.sidebarCollapsed;
+    this.persistedFolderExpandedState = state.folderExpandedState;
   }
 
   private persistSidebarCollapsedState() {
-    writeFlag(REPORTS_SIDEBAR_COLLAPSED_KEY, this.sidebarCollapsed);
+    this.treeLogic.persistSidebarCollapsedState(this.sidebarCollapsed);
   }
 
   private persistFolderExpandedState() {
-    const state: Record<string, boolean> = {};
-    for (const folder of this.folders) {
-      state[String(folder.id)] = !!folder.expanded;
-    }
+    const state = this.treeLogic.buildFolderExpandedState(this.folders);
     this.persistedFolderExpandedState = state;
-    writeBooleanRecord(REPORTS_FOLDERS_EXPANDED_KEY, state);
+    this.treeLogic.persistFolderExpandedState(state);
   }
 
   private reconcileSelection(preferredReportId?: string, preferredFolderId?: string) {
-    const next = resolveSelection(
+    const next = this.treeLogic.reconcileSelection(
       this.reports,
       this.folders,
       this.selectedFolderId,
