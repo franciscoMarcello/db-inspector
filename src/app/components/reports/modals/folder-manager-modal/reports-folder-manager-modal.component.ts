@@ -10,6 +10,7 @@ import { AppButtonComponent } from '../../../shared/app-button/app-button.compon
   imports: [CommonModule, FormsModule, AppButtonComponent],
   templateUrl: './reports-folder-manager-modal.component.html',
   styleUrls: [
+    './reports-folder-manager-modal.component.css',
     '../../reports-page/reports.component.css',
     '../../reports-page/reports.component.table.css',
     '../../reports-page/reports.component.modals.css',
@@ -32,4 +33,48 @@ export class ReportsFolderManagerModalComponent {
   @Output() renameSelectedFolder = new EventEmitter<void>();
   @Output() archiveSelectedFolder = new EventEmitter<void>();
   @Output() unarchiveSelectedFolder = new EventEmitter<void>();
+
+  renaming = false;
+
+  startRename() {
+    if (!this.selectedFolder) return;
+    this.renaming = true;
+  }
+
+  cancelRename() {
+    this.renaming = false;
+  }
+
+  confirmRename() {
+    if (!this.selectedFolder) return;
+    this.renameSelectedFolder.emit();
+    this.renaming = false;
+  }
+
+  get selectedFolderStatusLabel(): string {
+    if (!this.selectedFolder) return 'N/A';
+    return this.selectedFolder.archived ? 'Arquivada' : 'Ativa';
+  }
+
+  get selectedFolderCreatedAtLabel(): string {
+    const createdAt = this.selectedFolder?.createdAt;
+    if (!createdAt || createdAt <= 0) return 'N/A';
+    try {
+      return new Intl.DateTimeFormat('pt-BR', {
+        dateStyle: 'short',
+        timeStyle: 'short',
+      }).format(new Date(createdAt));
+    } catch {
+      return 'N/A';
+    }
+  }
+
+  onArchiveClick() {
+    if (!this.selectedFolder || this.selectedFolder.archived) return;
+    const ok = confirm(
+      `Arquivar pasta "${this.selectedFolder.name}"?\n\n` +
+        'Pastas arquivadas não aparecem na listagem principal.'
+    );
+    if (ok) this.archiveSelectedFolder.emit();
+  }
 }

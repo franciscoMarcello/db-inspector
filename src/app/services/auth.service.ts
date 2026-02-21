@@ -64,9 +64,19 @@ export class AuthService {
   }));
 
   private refreshInFlight$: Observable<AuthLoginResponse> | null = null;
+  private readonly authStorageKeys = new Set([
+    ACCESS_TOKEN_KEY,
+    REFRESH_TOKEN_KEY,
+    TOKEN_TYPE_KEY,
+    EXPIRES_AT_KEY,
+    USER_KEY,
+  ]);
 
   constructor() {
     this.restoreFromStorage();
+    if (typeof window !== 'undefined') {
+      window.addEventListener('storage', this.onStorageSync);
+    }
   }
 
   getAccessToken(): string | null {
@@ -176,8 +186,10 @@ export class AuthService {
       switchMap(() => this.me()),
       switchMap(() => this.loadPermissionCatalog()),
       map(() => void 0),
-      catchError(() => {
-        this.clearSession();
+      catchError((err) => {
+        if (this.shouldClearSessionForAuthError(err)) {
+          this.clearSession();
+        }
         return of(void 0);
       })
     );
@@ -501,15 +513,19 @@ export class AuthService {
   private tryRefreshAndMe(error: unknown): Observable<void> {
     const err = error as HttpErrorResponse;
     if (err?.status !== 401 || !this.getRefreshToken()) {
-      this.clearSession();
+      if (this.shouldClearSessionForAuthError(err)) {
+        this.clearSession();
+      }
       return of(void 0);
     }
     return this.refreshAccessToken().pipe(
       switchMap(() => this.me()),
       switchMap(() => this.loadPermissionCatalog()),
       map(() => void 0),
-      catchError(() => {
-        this.clearSession();
+      catchError((refreshErr) => {
+        if (this.shouldClearSessionForAuthError(refreshErr)) {
+          this.clearSession();
+        }
         return of(void 0);
       })
     );
@@ -522,7 +538,23 @@ export class AuthService {
       switchMap(() => this.me()),
       switchMap(() => this.loadPermissionCatalog()),
       map(() => true),
-      catchError(() => of(false))
+      catchError((refreshErr) => {
+        if (this.shouldClearSessionForAuthError(refreshErr)) {
+          this.clearSession();
+        }
+        return of(false);
+      })
     );
   }
+
+  private shouldClearSessionForAuthError(error: unknown): boolean {
+    const status = (error as HttpErrorResponse)?.status ?? 0;
+    return status === 401 || status === 403;
+  }
+
+  private onStorageSync = (event: StorageEvent): void => {
+    if (event.storageArea !== localStorage) return;
+    if (event.key && !this.authStorageKeys.has(event.key)) return;
+    this.restoreFromStorage();
+  };
 }

@@ -1,12 +1,13 @@
 <dialog class="report-modal" [open]="open">
   <div class="report-modal__panel report-modal__panel--small">
     <div class="report-modal__header">
-      <h3>Gerenciar pastas</h3>
+      <h3>Gerenciar pastas ({{ folders.length }})</h3>
       <app-button type="button" tone="neutral" variant="outline" (pressed)="close.emit()">Fechar</app-button>
     </div>
 
     <div class="report-modal__body folder-manager">
-      <div class="folder-manager__section">
+      <section class="folder-manager-card folder-manager-card--primary">
+        <h4 class="folder-manager-card__title">Criar nova pasta</h4>
         <label class="var-field">
           <span>Nova pasta</span>
           <input
@@ -18,10 +19,13 @@
             (keydown.enter)="createFolder.emit()"
           />
         </label>
-        <app-button type="button" tone="primary" variant="solid" (pressed)="createFolder.emit()">Criar pasta</app-button>
-      </div>
+        <app-button type="button" tone="primary" variant="solid" (pressed)="createFolder.emit()"
+          >Criar pasta</app-button
+        >
+      </section>
 
-      <div class="folder-manager__section">
+      <section class="folder-manager-card">
+        <h4 class="folder-manager-card__title">Gerenciar pasta existente</h4>
         <label class="var-field">
           <span>Pasta para gerenciar</span>
           <select
@@ -36,35 +40,23 @@
           </select>
         </label>
 
-        <label class="var-field">
-          <span>Novo nome da pasta</span>
-          <input
-            type="text"
-            [ngModel]="renameFolderName"
-            [ngModelOptions]="{ standalone: true }"
-            (ngModelChange)="renameFolderNameChange.emit($event)"
-            [disabled]="!selectedFolder"
-            placeholder="Novo nome"
-            (keydown.enter)="renameSelectedFolder.emit()"
-          />
-        </label>
+        <div class="folder-details-card" *ngIf="selectedFolder">
+          <div><strong>Pasta:</strong> {{ selectedFolder.name }}</div>
+          <div><strong>Status:</strong> {{ selectedFolderStatusLabel }}</div>
+          <div><strong>Criada em:</strong> {{ selectedFolderCreatedAtLabel }}</div>
+        </div>
 
-        <div class="actions">
-          <app-button
-            type="button"
-            tone="neutral"
-            variant="outline"
-            (pressed)="renameSelectedFolder.emit()"
-            [disabled]="!selectedFolder"
-          >
+        <div class="actions" *ngIf="!renaming">
+          <app-button type="button" tone="neutral" variant="outline" (pressed)="startRename()" [disabled]="!selectedFolder">
             Renomear
           </app-button>
           <app-button
             type="button"
             tone="neutral"
             variant="outline"
-            (pressed)="archiveSelectedFolder.emit()"
-            [disabled]="!selectedFolder || !!selectedFolder.archived"
+            *ngIf="selectedFolder && !selectedFolder.archived"
+            (pressed)="onArchiveClick()"
+            title="Pastas arquivadas não aparecem na listagem principal."
           >
             Arquivar
           </app-button>
@@ -72,14 +64,35 @@
             type="button"
             tone="neutral"
             variant="outline"
+            *ngIf="selectedFolder && selectedFolder.archived"
             (pressed)="unarchiveSelectedFolder.emit()"
-            [disabled]="!selectedFolder || !selectedFolder.archived"
           >
             Desarquivar
           </app-button>
         </div>
-      </div>
 
+        <div class="folder-rename-box" *ngIf="renaming && selectedFolder">
+          <label class="var-field">
+            <span>Novo nome</span>
+            <input
+              type="text"
+              [ngModel]="renameFolderName"
+              [ngModelOptions]="{ standalone: true }"
+              (ngModelChange)="renameFolderNameChange.emit($event)"
+              placeholder="Novo nome da pasta"
+              (keydown.enter)="confirmRename()"
+            />
+          </label>
+          <div class="actions">
+            <app-button type="button" tone="neutral" variant="outline" (pressed)="cancelRename()">
+              Cancelar
+            </app-button>
+            <app-button type="button" tone="primary" variant="solid" (pressed)="confirmRename()">
+              Confirmar
+            </app-button>
+          </div>
+        </div>
+      </section>
     </div>
   </div>
 </dialog>

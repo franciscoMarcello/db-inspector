@@ -50,6 +50,8 @@ export type ReportFolder = {
   name: string;
   description: string | null;
   archived: boolean;
+  createdAt?: number | null;
+  updatedAt?: number | null;
 };
 
 export type ReportFolderInput = {
@@ -347,6 +349,14 @@ export class ReportService {
           ? null
           : String(item.description),
       archived: Boolean(item?.archived),
+      createdAt:
+        item?.createdAt !== undefined || item?.created_at !== undefined
+          ? Number(item?.createdAt ?? item?.created_at ?? 0)
+          : null,
+      updatedAt:
+        item?.updatedAt !== undefined || item?.updated_at !== undefined
+          ? Number(item?.updatedAt ?? item?.updated_at ?? 0)
+          : null,
     };
   }
 

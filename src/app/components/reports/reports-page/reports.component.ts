@@ -20,6 +20,7 @@ import {
   ReportVariableOption,
 } from '../../../services/report.service';
 import { AuthService } from '../../../services/auth.service';
+import { DbInspectorService } from '../../../services/db-inspector.service';
 import { createXlsxBlob } from '../../../utils/xlsx-export';
 import { DraftVariable, FolderNode, ReportDraft, TemplateDraft } from '../core/reports.component.models';
 import {
@@ -124,6 +125,10 @@ export class ReportsComponent implements OnInit, OnDestroy, ReportsFolderTemplat
   reportValidationResult: ReportValidationResponse | null = null;
   reportValidationError = '';
   validatingReportDraft = false;
+  reportDraftPreviewRows: Record<string, unknown>[] = [];
+  reportDraftPreviewColumns: string[] = [];
+  reportDraftPreviewError = '';
+  loadingReportDraftPreview = false;
   folderManagerOpen = false;
   templateManagerOpen = false;
   selectedTemplateId: string | null = null;
@@ -142,6 +147,7 @@ export class ReportsComponent implements OnInit, OnDestroy, ReportsFolderTemplat
 
   constructor(
     private reportService: ReportService,
+    private dbService: DbInspectorService,
     private route: ActivatedRoute,
     private auth: AuthService
   ) {
@@ -398,6 +404,7 @@ export class ReportsComponent implements OnInit, OnDestroy, ReportsFolderTemplat
     this.reportModalOpen = true;
     this.reportDraftError = '';
     this.resetReportValidationState();
+    this.resetReportDraftPreviewState();
     this.reportDraft = createReportDraftForCreate(folder.id, presetSql);
     this.syncDraftVariablesFromSql();
     this.syncValidationInputsWithDraftVariables();
@@ -418,6 +425,7 @@ export class ReportsComponent implements OnInit, OnDestroy, ReportsFolderTemplat
     this.reportModalOpen = true;
     this.reportDraftError = '';
     this.resetReportValidationState();
+    this.resetReportDraftPreviewState();
     this.reportDraft = createReportDraftForEdit(current, folder.id);
     this.syncDraftVariablesFromSql(current.variables || []);
     this.syncValidationInputsWithDraftVariables();
@@ -427,12 +435,14 @@ export class ReportsComponent implements OnInit, OnDestroy, ReportsFolderTemplat
     this.reportModalOpen = false;
     this.reportDraftError = '';
     this.resetReportValidationState();
+    this.resetReportDraftPreviewState();
   }
 
   onDraftSqlChanged() {
     this.syncDraftVariablesFromSql(this.reportDraftVariables);
     this.syncValidationInputsWithDraftVariables();
     this.resetReportValidationState();
+    this.resetReportDraftPreviewState();
   }
 
   onDraftVariablesDrop(event: CdkDragDrop<DraftVariable[]>) {
@@ -450,6 +460,7 @@ export class ReportsComponent implements OnInit, OnDestroy, ReportsFolderTemplat
       [event.key]: event.value ?? '',
     };
     this.resetReportValidationState();
+    this.resetReportDraftPreviewState();
   }
 
   openTemplateManager() { this.folderTemplateLogic.openTemplateManager(); }
@@ -467,8 +478,6 @@ export class ReportsComponent implements OnInit, OnDestroy, ReportsFolderTemplat
   saveTemplateFromModal() { this.folderTemplateLogic.saveTemplateFromModal(); }
 
   deleteTemplateFromManager() { this.folderTemplateLogic.deleteTemplateFromManager(); }
-
-  applyTemplateToReport() { this.folderTemplateLogic.applyTemplateToReport(); }
 
   saveReportFromModal() {
     const folder = this.folders.find((item) => item.id === this.reportDraft.folderId);
@@ -514,11 +523,12 @@ export class ReportsComponent implements OnInit, OnDestroy, ReportsFolderTemplat
     });
   }
 
-  validateReportDraftQuery() {
+  validateReportDraftQuery(onDone?: (result: ReportValidationResponse | null) => void) {
     const sql = this.reportDraft.sql.trim();
     if (!sql) {
       this.reportValidationError = 'Informe a SQL antes de validar.';
       this.reportValidationResult = null;
+      onDone?.(null);
       return;
     }
 
@@ -527,6 +537,7 @@ export class ReportsComponent implements OnInit, OnDestroy, ReportsFolderTemplat
     if (validationParams.error) {
       this.reportValidationError = validationParams.error;
       this.reportValidationResult = null;
+      onDone?.(null);
       return;
     }
 
@@ -549,10 +560,97 @@ export class ReportsComponent implements OnInit, OnDestroy, ReportsFolderTemplat
           if (result?.valid === false && (!result.errors || !result.errors.length)) {
             this.reportValidationError = 'Consulta inválida.';
           }
+          onDone?.(result);
         },
         error: (err) => {
           this.validatingReportDraft = false;
           this.reportValidationError = this.resolveRequestError(err, 'Falha ao validar consulta.');
+          onDone?.(null);
+        },
+      });
+  }
+
+  saveAndTestReportFromModal() {
+    this.validateReportDraftQuery((result) => {
+      if (!result?.valid) {
+        this.reportDraftError = 'Corrija a consulta antes de salvar.';
+        return;
+      }
+      this.saveReportFromModal();
+    });
+  }
+
+  executeReportDraftPreview() {
+    const sql = this.reportDraft.sql.trim();
+    if (!sql) {
+      this.reportDraftPreviewError = 'Informe a SQL antes de executar teste.';
+      this.reportDraftPreviewRows = [];
+      this.reportDraftPreviewColumns = [];
+      return;
+    }
+
+    const variables = toReportVariablesPayload(this.reportDraftVariables);
+    const validationParams = buildReportValidationParams(variables, this.reportValidationInputs);
+    if (validationParams.error) {
+      this.reportDraftPreviewError = validationParams.error;
+      this.reportDraftPreviewRows = [];
+      this.reportDraftPreviewColumns = [];
+      return;
+    }
+
+    this.loadingReportDraftPreview = true;
+    this.reportDraftPreviewError = '';
+    this.reportDraftPreviewRows = [];
+    this.reportDraftPreviewColumns = [];
+
+    this.reportService
+      .validateReportQuery({
+        sql,
+        variables,
+        params: validationParams.params,
+        validateSyntax: true,
+        enforceRequired: true,
+        enforceReadOnly: true,
+      })
+      .subscribe({
+        next: (validation) => {
+          if (!validation.valid || !validation.renderedQuery) {
+            this.loadingReportDraftPreview = false;
+            this.reportDraftPreviewError =
+              validation.errors?.[0] || 'Consulta inválida para preview.';
+            return;
+          }
+
+          this.dbService.runQuery(validation.renderedQuery, 0, 5).subscribe({
+            next: (res) => {
+              this.loadingReportDraftPreview = false;
+              const rows = Array.isArray(res?.data)
+                ? res.data
+                : Array.isArray(res?.rows)
+                ? res.rows
+                : Array.isArray(res)
+                ? res
+                : [];
+              this.reportDraftPreviewRows = rows.slice(0, 5);
+              this.reportDraftPreviewColumns = this.reportDraftPreviewRows.length
+                ? Object.keys(this.reportDraftPreviewRows[0] || {})
+                : [];
+            },
+            error: (err) => {
+              this.loadingReportDraftPreview = false;
+              this.reportDraftPreviewError = this.resolveRequestError(
+                err,
+                'Falha ao executar preview.'
+              );
+            },
+          });
+        },
+        error: (err) => {
+          this.loadingReportDraftPreview = false;
+          this.reportDraftPreviewError = this.resolveRequestError(
+            err,
+            'Falha ao validar consulta para preview.'
+          );
         },
       });
   }
@@ -958,6 +1056,13 @@ export class ReportsComponent implements OnInit, OnDestroy, ReportsFolderTemplat
     this.validatingReportDraft = false;
     this.reportValidationError = '';
     this.reportValidationResult = null;
+  }
+
+  private resetReportDraftPreviewState() {
+    this.loadingReportDraftPreview = false;
+    this.reportDraftPreviewError = '';
+    this.reportDraftPreviewRows = [];
+    this.reportDraftPreviewColumns = [];
   }
 
   private setVariableOptionValue(key: string, inputValue: string, searchValue: string) {

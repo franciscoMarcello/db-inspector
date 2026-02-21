@@ -5,24 +5,48 @@
       <app-button type="button" tone="neutral" variant="outline" (pressed)="close.emit()">Fechar</app-button>
     </div>
 
-    <div class="report-modal__body template-manager">
-      <div class="template-manager__list">
-        <div class="template-manager__top">
-          <app-button type="button" tone="neutral" variant="outline" (pressed)="startNew.emit()">Novo</app-button>
+    <div class="report-modal__body template-manager-v2">
+      <aside class="template-list-card" [class.template-list-card--dim]="editorOpen">
+        <div class="template-list-card__top">
+          <h4>Templates</h4>
+          <app-button type="button" tone="neutral" variant="outline" (pressed)="startCreateTemplate()">
+            Criar novo template
+          </app-button>
         </div>
+
+        <div class="template-list-card__empty" *ngIf="!hasTemplates">
+          <p>Você ainda não possui templates.</p>
+          <p class="template-list-card__hint">Templates definem o layout do PDF exportado.</p>
+          <app-button type="button" tone="primary" variant="solid" (pressed)="startCreateTemplate()">
+            Criar primeiro template
+          </app-button>
+        </div>
+
         <button
           type="button"
           class="template-item"
           *ngFor="let template of templates"
           [class.active]="template.id === selectedTemplateId"
-          (click)="selectTemplate.emit(template.id)"
+          (click)="openTemplateEditor(template.id)"
         >
           {{ template.name }}
         </button>
-        <p class="muted" *ngIf="!templates.length">Nenhum template cadastrado.</p>
-      </div>
+      </aside>
 
-      <div class="template-manager__form">
+      <section class="template-editor-card" [class.template-editor-card--focus]="editorOpen" *ngIf="editorOpen; else editorPlaceholder">
+        <div class="template-editor-card__head">
+          <h4>{{ isEditingTemplate ? 'Editar template' : 'Criar template' }}</h4>
+          <app-button type="button" tone="neutral" variant="outline" (pressed)="closeEditorOnly()">
+            {{ isEditingTemplate ? 'Voltar' : 'Cancelar' }}
+          </app-button>
+        </div>
+
+        <div class="template-editor-card__meta" *ngIf="hasJrxmlContent">
+          <span>✔ Arquivo validado com sucesso</span>
+          <span>✔ {{ detectedParameterCount }} parâmetros detectados</span>
+          <span>✔ Tamanho: {{ jrxmlSizeLabel }}</span>
+        </div>
+
         <label class="var-field">
           <span>Nome</span>
           <input
@@ -33,7 +57,7 @@
           />
         </label>
 
-        <label class="var-field">
+        <label class="var-field template-field-secondary">
           <span>Descrição</span>
           <input
             type="text"
@@ -43,10 +67,40 @@
           />
         </label>
 
-        <label class="var-field">
+        <div class="template-mode-toggle">
+          <label>
+            <input
+              type="radio"
+              name="template-input-mode"
+              [ngModel]="inputMode"
+              [ngModelOptions]="{ standalone: true }"
+              value="upload"
+              (ngModelChange)="onInputModeChange('upload')"
+            />
+            Enviar arquivo
+          </label>
+          <label>
+            <input
+              type="radio"
+              name="template-input-mode"
+              [ngModel]="inputMode"
+              [ngModelOptions]="{ standalone: true }"
+              value="manual"
+              (ngModelChange)="onInputModeChange('manual')"
+            />
+            Colar conteúdo manualmente
+          </label>
+        </div>
+
+        <label class="var-field" *ngIf="inputMode === 'upload'">
           <span>Arquivo JRXML</span>
           <div class="file-picker">
-            <app-button type="button" class="file-picker__btn" tone="neutral" variant="outline" (pressed)="openFilePicker(templateFileInput)">
+            <app-button
+              type="button"
+              tone="neutral"
+              variant="outline"
+              (pressed)="openFilePicker(templateFileInput)"
+            >
               Escolher arquivo
             </app-button>
             <input
@@ -56,13 +110,13 @@
               accept=".jrxml,application/xml,text/xml"
               (change)="fileSelected.emit($event)"
             />
-            <span class="file-picker__name">
+            <span class="file-picker__name" [title]="templateFileName || 'Nenhum arquivo selecionado'">
               {{ templateFileName || 'Nenhum arquivo selecionado' }}
             </span>
           </div>
         </label>
 
-        <label class="var-field">
+        <label class="var-field" *ngIf="inputMode === 'manual'">
           <span>Conteúdo JRXML</span>
           <textarea
             rows="12"
@@ -75,14 +129,24 @@
         <p class="muted" *ngIf="loadingTemplate">Carregando template...</p>
         <p class="params-error" *ngIf="templateDraftError">{{ templateDraftError }}</p>
         <p class="muted" *ngIf="templateDraftStatus">{{ templateDraftStatus }}</p>
-      </div>
+      </section>
+
+      <ng-template #editorPlaceholder>
+        <section class="template-editor-placeholder">
+          <p>Selecione um template para editar ou clique em "Criar novo template".</p>
+        </section>
+      </ng-template>
     </div>
 
-    <div class="report-modal__footer report-modal__footer--spaced">
+    <div class="report-modal__footer report-modal__footer--spaced" *ngIf="editorOpen">
+      <app-button type="button" tone="neutral" variant="outline" (pressed)="closeEditorOnly()">
+        {{ isEditingTemplate ? 'Voltar' : 'Cancelar' }}
+      </app-button>
       <app-button
         type="button"
         tone="danger"
         variant="outline"
+        *ngIf="isEditingTemplate"
         (pressed)="deleteTemplate.emit()"
         [disabled]="creatingTemplate || !templateDraft.id"
       >
@@ -90,15 +154,12 @@
       </app-button>
       <app-button
         type="button"
-        tone="neutral"
-        variant="outline"
-        (pressed)="applyTemplate.emit()"
-        [disabled]="!templateDraft.id"
+        tone="primary"
+        variant="solid"
+        (pressed)="saveTemplate.emit()"
+        [disabled]="creatingTemplate"
       >
-        Vincular ao relatório
-      </app-button>
-      <app-button type="button" tone="primary" variant="solid" (pressed)="saveTemplate.emit()" [disabled]="creatingTemplate">
-        {{ creatingTemplate ? 'Salvando...' : templateDraft.id ? 'Atualizar template' : 'Criar template' }}
+        {{ saveButtonLabel }}
       </app-button>
     </div>
   </div>

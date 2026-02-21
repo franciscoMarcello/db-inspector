@@ -454,6 +454,10 @@
   [validationInputs]="reportValidationInputs"
   [validationResult]="reportValidationResult"
   [validationError]="reportValidationError"
+  [previewLoading]="loadingReportDraftPreview"
+  [previewError]="reportDraftPreviewError"
+  [previewColumns]="reportDraftPreviewColumns"
+  [previewRows]="reportDraftPreviewRows"
   [folders]="folders"
   [templates]="templates"
   (close)="closeReportModal()"
@@ -462,7 +466,8 @@
   (sqlChanged)="onDraftSqlChanged()"
   (variablesDrop)="onDraftVariablesDrop($event)"
   (validationInputChange)="onReportValidationInputChange($event)"
-  (validate)="validateReportDraftQuery()"
+  (executeTest)="executeReportDraftPreview()"
+  (saveAndTest)="saveAndTestReportFromModal()"
   (save)="saveReportFromModal()"
 ></app-reports-report-modal>
 
@@ -498,6 +503,5 @@
   (selectTemplate)="selectTemplate($event)"
   (fileSelected)="onTemplateManagerFileSelected($event)"
   (deleteTemplate)="deleteTemplateFromManager()"
-  (applyTemplate)="applyTemplateToReport()"
   (saveTemplate)="saveTemplateFromModal()"
 ></app-reports-template-manager-modal>
