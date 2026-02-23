@@ -219,6 +219,7 @@
               <app-button size="sm" tone="neutral" variant="outline" (pressed)="collapseAllRoleAclFolders()">Recolher tudo</app-button>
             </div>
           </div>
+          <div class="muted acl-help-text">Acesso a relatório concede visualização da pasta.</div>
           <label class="field acl-search-field">
             <span>Buscar pasta ou relatório</span>
             <input
@@ -235,7 +236,7 @@
               [variant]="roleAclAccessFilter === 'ALLOW' ? 'solid' : 'outline'"
               (pressed)="toggleRoleAclAccessFilter('ALLOW')"
             >
-              Com acesso
+              Com acesso ({{ roleAclAllowedCount() }})
             </app-button>
             <app-button
               size="sm"
@@ -243,20 +244,30 @@
               [variant]="roleAclAccessFilter === 'DENY' ? 'solid' : 'outline'"
               (pressed)="toggleRoleAclAccessFilter('DENY')"
             >
-              Sem acesso
+              Sem acesso ({{ roleAclDeniedCount() }})
             </app-button>
           </div>
           <div class="muted" *ngIf="aclTreeLoading">Carregando ACL do perfil...</div>
           <div class="acl-tree-editor" *ngIf="!aclTreeLoading">
-            <div class="acl-tree-folder" *ngFor="let folderNode of filteredRoleAclTree(); trackBy: trackRoleAclFolder">
+            <div
+              class="acl-tree-folder"
+              [class.acl-tree-folder--allow]="folderAccessState(folderNode) === 'allow'"
+              [class.acl-tree-folder--deny]="folderAccessState(folderNode) === 'deny'"
+              [class.acl-tree-folder--mixed]="folderAccessState(folderNode) === 'mixed'"
+              [class.acl-tree-folder--empty]="folderAccessState(folderNode) === 'empty'"
+              *ngFor="let folderNode of filteredRoleAclTree(); trackBy: trackRoleAclFolder"
+            >
               <div class="acl-tree-folder-head">
                 <button type="button" class="acl-tree-folder-toggle" (click)="toggleRoleAclFolder(folderNode.id)">
                   <span>{{ folderNode.expanded ? '▾' : '▸' }}</span>
                   <span class="acl-kind-chip acl-kind-chip--folder">PASTA</span>
                   <strong>{{ folderNode.name }}</strong>
                   <span class="perm-chip">{{ folderNode.reports.length }} relatório(s)</span>
-                  <span class="perm-chip">
-                    {{ allowedReportsCount(folderNode) }} com acesso / {{ deniedReportsCount(folderNode) }} sem
+                  <span class="perm-chip acl-counter-chip acl-counter-chip--allowed" title="Com acesso">
+                    Com {{ allowedReportsCount(folderNode) }}
+                  </span>
+                  <span class="perm-chip acl-counter-chip acl-counter-chip--denied" title="Sem acesso">
+                    Sem {{ deniedReportsCount(folderNode) }}
                   </span>
                 </button>
 
@@ -268,12 +279,9 @@
                     [disabled]="isSelectedAdminProfile()"
                     (ngModelChange)="setFolderAclAllowed(folderNode.id, $event === 'ALLOW')"
                   >
-                    <option value="ALLOW">Ver e executar</option>
-                    <option value="DENY">Sem acesso</option>
+                    <option value="ALLOW">Visualizar + executar</option>
+                    <option value="DENY">Sem permissão</option>
                   </select>
-                  <span class="perm-chip" [class.perm-chip--allowed]="customReportsCount(folderNode) === 0" [class.perm-chip--denied]="customReportsCount(folderNode) > 0">
-                    {{ customReportsCount(folderNode) === 0 ? 'Herdado' : 'Custom' }}
-                  </span>
                   <button
                     type="button"
                     class="acl-menu-trigger"
@@ -283,49 +291,31 @@
                     ⋯
                   </button>
                   <div class="acl-menu" *ngIf="isFolderBulkMenuOpen(folderNode.id)">
-                    <button type="button" (click)="applyFolderPermissionToAllReports(folderNode.id)">Aplicar permissão a todos</button>
-                    <button type="button" (click)="setAllFolderReportsNoAccess(folderNode.id)">Definir todos sem acesso</button>
-                    <button type="button" (click)="inheritAllFolderReports(folderNode.id)">Herdar todos</button>
+                    <button type="button" (click)="setAllFolderReportsAccess(folderNode.id)">Liberar para todos</button>
+                    <button type="button" (click)="setAllFolderReportsNoAccess(folderNode.id)">Remover acesso de todos</button>
                   </div>
                 </div>
               </div>
 
               <div class="acl-tree-folder-body" *ngIf="folderNode.expanded">
                 <div class="acl-tree-reports">
-                  <div class="acl-tree-report" [class.acl-tree-report--exception]="isReportAclException(folderNode, reportNode)" *ngFor="let reportNode of folderNode.reports; trackBy: trackRoleAclReport">
+                  <div class="acl-tree-report" *ngFor="let reportNode of folderNode.reports; trackBy: trackRoleAclReport">
                     <div class="acl-tree-report-line">
                       <div class="acl-tree-report-title">
                         <span class="acl-kind-chip acl-kind-chip--report">REL</span>
                         <span>{{ reportNode.name }}</span>
                       </div>
                       <div class="acl-tree-report-controls">
-                        <span class="perm-chip" [class.perm-chip--allowed]="reportNode.useFolderInheritance" [class.perm-chip--denied]="!reportNode.useFolderInheritance">
-                          {{ reportNode.useFolderInheritance ? 'Herdado' : 'Custom' }}
-                        </span>
-                        <span class="perm-chip perm-chip--warning" *ngIf="isReportAclException(folderNode, reportNode)" title="Exceção: relatório com regra diferente da pasta">
-                          Exceção
-                        </span>
                         <select
                           class="acl-simple-row__select acl-simple-row__select--sm"
-                          [class.acl-simple-row__select--inherited]="reportNode.useFolderInheritance"
                           [ngModel]="reportNode.allowed ? 'ALLOW' : 'DENY'"
                           [ngModelOptions]="{ standalone: true }"
                           [disabled]="isSelectedAdminProfile()"
-                          [title]="reportNode.useFolderInheritance ? 'Herdado da pasta: ao alterar vira personalizado' : 'Permissão customizada'"
                           (ngModelChange)="setReportAclAllowed(folderNode.id, reportNode.id, $event === 'ALLOW')"
                         >
-                          <option value="ALLOW">Ver e executar</option>
-                          <option value="DENY">Sem acesso</option>
+                          <option value="ALLOW">Visualizar + executar</option>
+                          <option value="DENY">Sem permissão</option>
                         </select>
-                        <button
-                          type="button"
-                          class="acl-link-action"
-                          [title]="reportNode.useFolderInheritance ? 'Customizar permissão do relatório' : 'Reverter para herança da pasta'"
-                          [disabled]="isSelectedAdminProfile()"
-                          (click)="reportNode.useFolderInheritance ? customizeReportAcl(folderNode.id, reportNode.id) : inheritReportAclFromFolder(folderNode.id, reportNode.id)"
-                        >
-                          {{ reportNode.useFolderInheritance ? '✎' : '↺' }}
-                        </button>
                       </div>
                     </div>
                   </div>
@@ -340,4 +330,3 @@
     </div>
   </div>
 </div>
-

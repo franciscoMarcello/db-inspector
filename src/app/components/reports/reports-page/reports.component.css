@@ -1,6 +1,6 @@
 .reports-shell {
   display: grid;
-  grid-template-columns: 300px minmax(0, 1fr);
+  grid-template-columns: 332px minmax(0, 1fr);
   gap: 12px;
   min-width: 0;
   color: var(--text-primary);
@@ -101,7 +101,7 @@
 
 .tree-list {
   position: relative;
-  padding: 10px 8px 12px;
+  padding: 8px 6px 10px;
   overflow: auto;
   min-height: 0;
 }
@@ -159,13 +159,13 @@
 }
 
 .tree-folder + .tree-folder {
-  margin-top: 8px;
+  margin-top: 6px;
 }
 
 .folder-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 6px;
+  gap: 4px;
   align-items: center;
 }
 
@@ -217,8 +217,8 @@
 .folder-btn {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 0 10px;
+  gap: 6px;
+  padding: 0 8px;
   font-weight: 600;
 }
 
@@ -275,7 +275,7 @@
 }
 
 .tree-reports {
-  margin-left: 18px;
+  margin-left: 12px;
   margin-top: 4px;
   display: grid;
   gap: 4px;
@@ -288,7 +288,7 @@
   gap: 6px;
   font-size: 12px;
   color: var(--text-primary);
-  padding: 0 10px;
+  padding: 0 8px;
   min-height: 28px;
   border-left: 3px solid transparent;
   font-weight: 400;
@@ -588,9 +588,9 @@
 
 :host ::ng-deep app-button.icon-btn .app-btn,
 :host ::ng-deep app-button.folder-plus .app-btn {
-  min-width: 30px;
-  width: 30px;
-  height: 30px;
+  min-width: 28px;
+  width: 28px;
+  height: 28px;
   padding: 0;
 }
 

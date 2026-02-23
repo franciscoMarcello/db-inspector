@@ -535,10 +535,15 @@ export class ReportsComponent
       next: ({ folders, reports, templates }) => {
         const apiFolders = folders || [];
         const apiReports = reports || [];
+        const visibleReportsByAcl = this.manageMode ? apiReports : apiReports.filter((report) => this.hasReportAccess(report));
         this.allFolders = apiFolders;
-        this.reports = this.manageMode ? apiReports : apiReports.filter((r) => !r.archived);
+        this.reports = this.manageMode
+          ? apiReports
+          : visibleReportsByAcl.filter((r) => !r.archived);
         this.templates = (templates || []).filter((t) => !t.archived);
-        const baseFolders = this.manageMode ? apiFolders : apiFolders.filter((f) => !f.archived);
+        const baseFolders = this.manageMode
+          ? apiFolders
+          : apiFolders.filter((f) => !f.archived);
         const visibleFolders = this.manageMode
           ? baseFolders
           : this.buildTreeFolders(baseFolders, this.reports);
@@ -606,6 +611,14 @@ export class ReportsComponent
 
   private buildTreeFolders(apiFolders: ReportFolder[], reports: ReportDefinition[]): ReportFolder[] {
     return this.treeLogic.buildTreeFolders(apiFolders, reports);
+  }
+
+  private hasReportAccess(report: ReportDefinition): boolean {
+    const canView = report.canView;
+    const canRun = report.canRun;
+    if (canView === undefined && canRun === undefined) return true;
+    if (canView === true || canRun === true) return true;
+    return false;
   }
 
   private isPrimaryVariable(variable: ReportVariable): boolean {

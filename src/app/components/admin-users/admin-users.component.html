@@ -1,5 +1,5 @@
 <section class="admin-shell">
-  <div class="admin-grid">
+  <div class="admin-grid" [class.permissions-mode]="adminSection === 'PERMISSIONS'">
     <div class="card card-header">
       <div class="card-head">
         <div>
@@ -181,6 +181,7 @@
     </div>
 
     <app-admin-users-permissions-acl
+      class="card-permissions-host"
       *ngIf="adminSection === 'PERMISSIONS'"
       (errorChange)="error = $event"
       (statusChange)="status = $event"

@@ -8,6 +8,10 @@
   grid-template-columns: 1fr;
 }
 
+.card-permissions-host {
+  min-width: 0;
+}
+
 .card {
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
@@ -52,6 +56,8 @@
   margin-top: 10px;
   display: grid;
   gap: 8px;
+  min-height: 40px;
+  align-content: start;
 }
 
 .card-header {
@@ -476,6 +482,13 @@ select {
     align-items: stretch;
   }
 
+  .admin-grid.permissions-mode {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      'header'
+      'permissions';
+  }
+
   .card-header { grid-area: header; }
   .card-users {
     grid-area: users;
@@ -487,5 +500,10 @@ select {
   .card-users .users-table-wrap {
     max-height: none;
     min-height: 0;
+  }
+
+  .admin-grid.permissions-mode .card-permissions-host {
+    grid-area: permissions;
+    width: 100%;
   }
 }

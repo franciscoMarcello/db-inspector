@@ -50,6 +50,8 @@ export type ReportFolder = {
   name: string;
   description: string | null;
   archived: boolean;
+  canView?: boolean;
+  canRun?: boolean;
   createdAt?: number | null;
   updatedAt?: number | null;
 };
@@ -88,6 +90,8 @@ export type ReportDefinition = {
   description: string | null;
   variables: ReportVariable[];
   archived: boolean;
+  canView?: boolean;
+  canRun?: boolean;
   createdAt: number;
   updatedAt: number;
 };
@@ -341,6 +345,8 @@ export class ReportService {
   }
 
   private normalizeFolder(item: any): ReportFolder {
+    const canView = this.extractAclFlag(item, 'view');
+    const canRun = this.extractAclFlag(item, 'run');
     return {
       id: String(item?.id ?? item?.folderId ?? item?.folder_id ?? ''),
       name: String(item?.name ?? ''),
@@ -349,6 +355,8 @@ export class ReportService {
           ? null
           : String(item.description),
       archived: Boolean(item?.archived),
+      ...(canView === undefined ? {} : { canView }),
+      ...(canRun === undefined ? {} : { canRun }),
       createdAt:
         item?.createdAt !== undefined || item?.created_at !== undefined
           ? Number(item?.createdAt ?? item?.created_at ?? 0)
@@ -368,6 +376,8 @@ export class ReportService {
   }
 
   private normalizeReport(item: any): ReportDefinition {
+    const canView = this.extractAclFlag(item, 'view');
+    const canRun = this.extractAclFlag(item, 'run');
     const jasperTemplate = this.normalizeTemplateSummary(item?.jasperTemplate ?? item?.jasper_template);
     return {
       id: String(item?.id ?? ''),
@@ -391,9 +401,61 @@ export class ReportService {
         ? item.variables.map((v: any) => this.normalizeVariable(v))
         : [],
       archived: Boolean(item?.archived),
+      ...(canView === undefined ? {} : { canView }),
+      ...(canRun === undefined ? {} : { canRun }),
       createdAt: Number(item?.createdAt ?? item?.created_at ?? 0),
       updatedAt: Number(item?.updatedAt ?? item?.updated_at ?? 0),
     };
+  }
+
+  private readOptionalBoolean(value: unknown): boolean | undefined {
+    if (value === null || value === undefined) return undefined;
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'number') {
+      if (value === 1) return true;
+      if (value === 0) return false;
+      return undefined;
+    }
+    const text = String(value).trim().toLowerCase();
+    if (text === 'true' || text === '1') return true;
+    if (text === 'false' || text === '0') return false;
+    return undefined;
+  }
+
+  private extractAclFlag(item: any, kind: 'view' | 'run'): boolean | undefined {
+    const key = kind === 'view' ? 'View' : 'Run';
+    const lower = kind;
+    const aliases: unknown[] = [
+      item?.[`can${key}`],
+      item?.[`can_${lower}`],
+      item?.[`${lower}Allowed`],
+      item?.[`${lower}_allowed`],
+      item?.[`is${key}Allowed`],
+      item?.[`is_${lower}_allowed`],
+      item?.[`${lower}`],
+      item?.[`allow${key}`],
+      item?.[`allow_${lower}`],
+      item?.[`aclCan${key}`],
+      item?.acl?.[`can${key}`],
+      item?.acl?.[`can_${lower}`],
+      item?.acl?.[`${lower}`],
+      item?.permissions?.[`can${key}`],
+      item?.permissions?.[`can_${lower}`],
+      item?.permissions?.[`${lower}`],
+      item?.access?.[`can${key}`],
+      item?.access?.[`can_${lower}`],
+      item?.access?.[`${lower}`],
+      item?.effective?.[`can${key}`],
+      item?.effective?.[`can_${lower}`],
+      item?.effective?.[`${lower}`],
+    ];
+
+    for (const candidate of aliases) {
+      const parsed = this.readOptionalBoolean(candidate);
+      if (parsed !== undefined) return parsed;
+    }
+
+    return undefined;
   }
 
   private normalizeTemplates(res: any): JasperTemplateResponse[] {

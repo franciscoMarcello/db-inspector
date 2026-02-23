@@ -23,7 +23,6 @@ type RoleAclNode = {
     id: string;
     name: string;
     originalRule: AccessControlRule | null;
-    useFolderInheritance: boolean;
     allowed: boolean;
   }>;
 };
@@ -182,7 +181,6 @@ export class AdminUsersPermissionsAclComponent implements OnInit {
 
     this.savingAllRoleChanges = true;
     this.setError('');
-    this.setStatus('');
     forkJoin(requests).subscribe({
       next: () => {
         this.savingAllRoleChanges = false;
@@ -215,9 +213,7 @@ export class AdminUsersPermissionsAclComponent implements OnInit {
   setFolderAclAllowed(folderId: string, value: boolean) {
     this.roleAclTree = this.roleAclTree.map((node) => {
       if (node.id !== folderId) return node;
-      const reports = node.reports.map((report) =>
-        report.useFolderInheritance ? { ...report, allowed: value } : report
-      );
+      const reports = node.reports.map((report) => ({ ...report, allowed: value }));
       return { ...node, allowed: value, reports };
     });
   }
@@ -225,36 +221,18 @@ export class AdminUsersPermissionsAclComponent implements OnInit {
   setReportAclAllowed(folderId: string, reportId: string, value: boolean) {
     this.roleAclTree = this.roleAclTree.map((node) => {
       if (node.id !== folderId) return node;
-      return {
+      const nextNode: RoleAclNode = {
         ...node,
         reports: node.reports.map((report) =>
           report.id !== reportId
             ? report
             : {
                 ...report,
-                useFolderInheritance: false,
                 allowed: value,
               }
         ),
       };
-    });
-  }
-
-  inheritReportAclFromFolder(folderId: string, reportId: string) {
-    this.roleAclTree = this.roleAclTree.map((node) => {
-      if (node.id !== folderId) return node;
-      return {
-        ...node,
-        reports: node.reports.map((report) =>
-          report.id !== reportId
-            ? report
-            : {
-                ...report,
-                useFolderInheritance: true,
-                allowed: node.allowed,
-              }
-        ),
-      };
+      return this.enforceFolderAccessConsistency(nextNode);
     });
   }
 
@@ -284,36 +262,31 @@ export class AdminUsersPermissionsAclComponent implements OnInit {
     return folderNode.reports.reduce((count, reportNode) => count + (!reportNode.allowed ? 1 : 0), 0);
   }
 
-  customReportsCount(folderNode: RoleAclNode): number {
-    return folderNode.reports.reduce((count, reportNode) => count + (reportNode.useFolderInheritance ? 0 : 1), 0);
+  roleAclAllowedCount(): number {
+    return this.roleAclTree.reduce((count, folder) => count + (folder.allowed ? 1 : 0), 0);
   }
 
-  customizeReportAcl(folderId: string, reportId: string) {
+  roleAclDeniedCount(): number {
+    return this.roleAclTree.reduce((count, folder) => count + (!folder.allowed ? 1 : 0), 0);
+  }
+
+  folderAccessState(folderNode: RoleAclNode): 'allow' | 'deny' | 'mixed' | 'empty' {
+    if (!folderNode.reports.length) return 'empty';
+    const allowedCount = this.allowedReportsCount(folderNode);
+    if (allowedCount === 0) return 'deny';
+    if (allowedCount === folderNode.reports.length) return 'allow';
+    return 'mixed';
+  }
+
+  setAllFolderReportsAccess(folderId: string) {
     this.roleAclTree = this.roleAclTree.map((node) => {
       if (node.id !== folderId) return node;
       return {
         ...node,
-        reports: node.reports.map((report) =>
-          report.id !== reportId
-            ? report
-            : {
-                ...report,
-                useFolderInheritance: false,
-              }
-        ),
-      };
-    });
-  }
-
-  applyFolderPermissionToAllReports(folderId: string) {
-    this.roleAclTree = this.roleAclTree.map((node) => {
-      if (node.id !== folderId) return node;
-      return {
-        ...node,
+        allowed: true,
         reports: node.reports.map((report) => ({
           ...report,
-          useFolderInheritance: false,
-          allowed: node.allowed,
+          allowed: true,
         })),
       };
     });
@@ -325,25 +298,10 @@ export class AdminUsersPermissionsAclComponent implements OnInit {
       if (node.id !== folderId) return node;
       return {
         ...node,
+        allowed: false,
         reports: node.reports.map((report) => ({
           ...report,
-          useFolderInheritance: false,
           allowed: false,
-        })),
-      };
-    });
-    this.folderBulkMenuOpenId = null;
-  }
-
-  inheritAllFolderReports(folderId: string) {
-    this.roleAclTree = this.roleAclTree.map((node) => {
-      if (node.id !== folderId) return node;
-      return {
-        ...node,
-        reports: node.reports.map((report) => ({
-          ...report,
-          useFolderInheritance: true,
-          allowed: node.allowed,
         })),
       };
     });
@@ -356,10 +314,6 @@ export class AdminUsersPermissionsAclComponent implements OnInit {
 
   isFolderBulkMenuOpen(folderId: string): boolean {
     return this.folderBulkMenuOpenId === folderId;
-  }
-
-  isReportAclException(folderNode: RoleAclNode, reportNode: RoleAclNode['reports'][number]): boolean {
-    return !reportNode.useFolderInheritance && reportNode.allowed !== folderNode.allowed;
   }
 
   toggleRoleAclAccessFilter(filter: 'ALLOW' | 'DENY') {
@@ -655,16 +609,16 @@ export class AdminUsersPermissionsAclComponent implements OnInit {
                 id: report.id,
                 name: report.name,
                 originalRule: reportRule,
-                useFolderInheritance: !reportRule,
                 allowed: reportAllowed,
               };
             });
+          const hasAllowedReport = reports.some((report) => report.allowed);
           return {
             id: folder.id,
             name: folder.name,
             expanded: true,
             originalRule: folderRule,
-            allowed: folderAllowed,
+            allowed: folderAllowed || hasAllowedReport,
             reports,
           };
         });
@@ -719,7 +673,9 @@ export class AdminUsersPermissionsAclComponent implements OnInit {
       desired.canDelete !== current.canDelete;
     if (!changed) return [];
 
-    if (!allowed) {
+    const shouldPersistExplicitDeny = targetType === 'REPORT';
+
+    if (!allowed && !shouldPersistExplicitDeny) {
       if (!originalRule) return [];
       return [
         targetType === 'FOLDER'
@@ -746,17 +702,18 @@ export class AdminUsersPermissionsAclComponent implements OnInit {
   private buildRoleAclRequests(role: string): Observable<unknown>[] {
     const requests: Observable<unknown>[] = [];
     for (const folderNode of this.roleAclTree) {
-      requests.push(...this.buildAclRequestsForTarget('FOLDER', folderNode.id, role, folderNode.originalRule, folderNode.allowed));
-      for (const reportNode of folderNode.reports) {
-        if (reportNode.useFolderInheritance) {
-          if (reportNode.originalRule) {
-            requests.push(this.reportApi.deleteReportAcl(reportNode.id, 'ROLE', role));
-          }
-          continue;
-        }
+      const hasAllowedReport = folderNode.reports.some((report) => report.allowed);
+      const folderIsOnlyImplicitVisibility =
+        !folderNode.originalRule &&
+        folderNode.allowed === hasAllowedReport;
+
+      if (!folderIsOnlyImplicitVisibility) {
         requests.push(
-          ...this.buildAclRequestsForTarget('REPORT', reportNode.id, role, reportNode.originalRule, reportNode.allowed)
+          ...this.buildAclRequestsForTarget('FOLDER', folderNode.id, role, folderNode.originalRule, folderNode.allowed)
         );
+      }
+      for (const reportNode of folderNode.reports) {
+        requests.push(...this.buildAclRequestsForTarget('REPORT', reportNode.id, role, reportNode.originalRule, reportNode.allowed));
       }
     }
     return requests;
@@ -765,6 +722,14 @@ export class AdminUsersPermissionsAclComponent implements OnInit {
   private matchesAccessFilter(allowed: boolean): boolean {
     if (this.roleAclAccessFilter === 'ALL') return true;
     return this.roleAclAccessFilter === 'ALLOW' ? allowed : !allowed;
+  }
+
+  private enforceFolderAccessConsistency(node: RoleAclNode): RoleAclNode {
+    if (!node.reports.length) return node;
+    const hasAllowedReport = node.reports.some((report) => report.allowed);
+    const nextAllowed = hasAllowedReport;
+    if (node.allowed === nextAllowed) return node;
+    return { ...node, allowed: nextAllowed };
   }
 
   private messageFromError(err: any, fallback: string): string {
