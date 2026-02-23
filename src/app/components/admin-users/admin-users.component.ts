@@ -18,7 +18,7 @@ import { AdminRole, AdminUser, AdminUserService } from '../../services/admin-use
 })
 export class AdminUsersComponent implements OnInit {
   readonly passwordRuleMessage =
-    'Senha deve ter no minimo 10 caracteres, incluindo letra maiuscula, letra minuscula, numero e caractere especial, sem espacos';
+    'Senha deve ter no minimo 8 caracteres, incluindo letra maiuscula, letra minuscula, numero e caractere especial, sem espacos';
 
   private api = inject(AdminUserService);
   private route = inject(ActivatedRoute);
@@ -642,7 +642,7 @@ export class AdminUsersComponent implements OnInit {
 
   private passwordValidationError(password: string): string {
     const value = String(password || '');
-    const strongPattern = /^(?=\S{10,}$)(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\w\s]).+$/;
+    const strongPattern = /^(?=\S{8,}$)(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^\w\s]).+$/;
     return strongPattern.test(value) ? '' : this.passwordRuleMessage;
   }
 }
