@@ -1,61 +1,144 @@
-<div class="app-shell" [class.dark-theme]="theme === 'dark'">
-  <mat-toolbar class="app-toolbar">
-    <span class="title">AgroReport</span>
-    @if (activeNameValue) {
-    <span class="env">Ambiente: {{ activeNameValue }}</span>
-    }
+<div class="app-shell" [class.dark-theme]="theme === 'dark'" [class.side-collapsed]="sideMenuCollapsed">
+  @if (isLoggedIn) {
+    <aside class="side-nav">
+      <div class="side-header">
+        <div class="side-top">
+          <div class="title">AgroReport</div>
+        </div>
+        <div class="user-welcome" [title]="'Bem-vindo, ' + (userName || userDisplayName)">
+          Bem-vindo, {{ userName || userDisplayName || 'Usuário' }}
+        </div>
+        <div class="user-email" [title]="userEmail">{{ userEmail }}</div>
+        <app-button class="nav-btn side-logout-btn" tone="neutral" variant="ghost" icon="logout" (pressed)="logout()">
+          Sair
+        </app-button>
+      </div>
 
-    <span class="spacer"></span>
+      <nav class="side-menu">
+        @if (canViewSchemas) {
+          <app-button class="nav-btn" [class.active]="isRoute('/schemas')" tone="neutral" variant="ghost" icon="schema" (pressed)="go('/schemas')">
+            Esquemas
+          </app-button>
+        }
+        @if (canExecuteSql) {
+          <app-button class="nav-btn" [class.active]="isRoute('/query')" tone="neutral" variant="ghost" icon="terminal" (pressed)="go('/query')">
+            Executar SQL
+          </app-button>
+        }
+        @if (canViewSchedules) {
+          <app-button class="nav-btn" [class.active]="isRoute('/schedules')" tone="neutral" variant="ghost" icon="event" (pressed)="go('/schedules')">
+            Agendamentos
+          </app-button>
+        }
+        <app-button
+          class="nav-btn"
+          [class.active]="isRoute('/reports', true)"
+          tone="neutral"
+          variant="ghost"
+          icon="description"
+          (pressed)="go('/reports')"
+        >
+          Relatorios
+        </app-button>
+        @if (canManageReports) {
+          <app-button
+            class="nav-btn"
+            [class.active]="isRoute('/reports/manage', true)"
+            tone="neutral"
+            variant="ghost"
+            icon="settings"
+            (pressed)="go('/reports/manage')"
+          >
+            Gerenciar Relatorios
+          </app-button>
+        }
+        @if (isAdmin) {
+          <div class="nav-group">
+            <app-button
+              class="nav-btn nav-group-toggle"
+              [class.active]="isRoute('/admin/users') || isRoute('/admin/permissions')"
+              tone="neutral"
+              variant="ghost"
+              icon="group"
+              (pressed)="toggleAdminMenu()"
+            >
+              Gerenciar usuários {{ adminMenuExpanded ? '▾' : '▸' }}
+            </app-button>
 
-    <button mat-button class="nav-btn" routerLink="/schemas" routerLinkActive="active">
-      Esquemas
-    </button>
+            @if (adminMenuExpanded) {
+              <div class="nav-group-children">
+                <app-button
+                  class="nav-btn nav-btn--child"
+                  [class.active]="isRoute('/admin/users', true)"
+                  tone="neutral"
+                  variant="ghost"
+                  icon="person"
+                  (pressed)="go('/admin/users')"
+                >
+                  Usuários
+                </app-button>
+                <app-button
+                  class="nav-btn nav-btn--child"
+                  [class.active]="isRoute('/admin/permissions', true)"
+                  tone="neutral"
+                  variant="ghost"
+                  icon="shield"
+                  (pressed)="go('/admin/permissions')"
+                >
+                  Permissões
+                </app-button>
+              </div>
+            }
+          </div>
+        }
+      </nav>
+    </aside>
+  }
 
-    <button mat-button class="nav-btn" routerLink="/query" routerLinkActive="active">
-      Executar SQL
-    </button>
+  <div class="main-area">
+    <div class="top-lite">
+      @if (isLoggedIn) {
+        <div class="top-lite-left">
+          <app-button
+            class="collapse-btn collapse-btn-main icon-only"
+            tone="neutral"
+            variant="outline"
+            [icon]="sideMenuCollapsed ? 'menu' : 'menu_open'"
+            aria-label="Mostrar menu"
+            (pressed)="toggleSideMenu()"
+          ></app-button>
+          <div class="top-title">AgroReport</div>
+        </div>
+        <div class="top-lite-actions">
+          <app-button
+            class="theme-toggle icon-only"
+            tone="neutral"
+            variant="outline"
+            [icon]="theme === 'dark' ? 'dark_mode' : 'light_mode'"
+            aria-label="Alternar tema"
+            (pressed)="toggleTheme()"
+          ></app-button>
+        </div>
+      } @else {
+        <div class="title">AgroReport</div>
+        <app-button
+          class="theme-toggle icon-only"
+          tone="neutral"
+          variant="outline"
+          [icon]="theme === 'dark' ? 'dark_mode' : 'light_mode'"
+          aria-label="Alternar tema"
+          (pressed)="toggleTheme()"
+        ></app-button>
+      }
+    </div>
 
-    <button mat-button class="nav-btn" routerLink="/schedules" routerLinkActive="active">
-      Agendamentos
-    </button>
+    <div class="page">
+      <router-outlet></router-outlet>
+    </div>
 
-    <button
-      mat-button
-      class="nav-btn"
-      routerLink="/reports"
-      routerLinkActive="active"
-      [routerLinkActiveOptions]="{ exact: true }"
-    >
-      Relatorios
-    </button>
-
-    <button
-      mat-button
-      class="nav-btn"
-      routerLink="/reports/manage"
-      routerLinkActive="active"
-      [routerLinkActiveOptions]="{ exact: true }"
-    >
-      Gerenciar Relatorios
-    </button>
-
-    <button mat-button class="nav-btn" (click)="openEnv()">Ambientes</button>
-
-    <button mat-icon-button class="theme-toggle" (click)="toggleTheme()" aria-label="Alternar tema">
-      <mat-icon>
-        {{ theme === 'dark' ? 'dark_mode' : 'light_mode' }}
-      </mat-icon>
-    </button>
-  </mat-toolbar>
-
-  <div class="page">
-    <router-outlet></router-outlet>
+    <footer class="app-footer">
+      <span>Versão {{ appVersion }}</span>
+      <span class="footer-center">Developed by PowerRov</span>
+    </footer>
   </div>
-
-  <footer class="app-footer">
-    <span>Versão {{ appVersion }}</span>
-    <span class="footer-center">Developed by PowerRov</span>
-  </footer>
-
-  <app-modal #envModal (saved)="onSaved($event)"></app-modal>
 </div>

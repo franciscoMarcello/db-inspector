@@ -1,0 +1,48 @@
+.folder-manager {
+  gap: 14px;
+}
+
+.folder-manager-card {
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 12px;
+  background: color-mix(in srgb, var(--bg-surface-alt) 82%, transparent);
+  display: grid;
+  gap: 10px;
+}
+
+.folder-manager-card--primary {
+  border-color: color-mix(in srgb, var(--chip-bg-active) 45%, var(--border-subtle));
+  background: color-mix(in srgb, var(--bg-surface-alt) 70%, var(--chip-bg-active) 10%);
+}
+
+.folder-manager-card__title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.folder-details-card {
+  border: 1px dashed var(--border-subtle);
+  border-radius: 8px;
+  padding: 10px;
+  display: grid;
+  gap: 4px;
+  background: color-mix(in srgb, var(--bg-surface) 85%, transparent);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.folder-manager .actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.folder-rename-box {
+  border-top: 1px dashed var(--border-subtle);
+  padding-top: 10px;
+  display: grid;
+  gap: 10px;
+}

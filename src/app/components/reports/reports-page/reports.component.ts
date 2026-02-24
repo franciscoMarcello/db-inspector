@@ -1,13 +1,14 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { HttpErrorResponse } from '@angular/common/http';
 import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 import { ActivatedRoute } from '@angular/router';
-import { forkJoin } from 'rxjs';
+import { catchError, forkJoin, of } from 'rxjs';
 import {
   JasperTemplateResponse,
   ReportDefinition,
@@ -18,50 +19,41 @@ import {
   ReportVariable,
   ReportVariableOption,
 } from '../../../services/report.service';
+import { AuthService } from '../../../services/auth.service';
+import { DbInspectorService } from '../../../services/db-inspector.service';
 import { createXlsxBlob } from '../../../utils/xlsx-export';
 import { DraftVariable, FolderNode, ReportDraft, TemplateDraft } from '../core/reports.component.models';
 import {
   createEmptyReportDraft,
   createEmptyTemplateDraft,
   REPORT_DRAFT_SQL_KEY,
-  REPORTS_FOLDERS_EXPANDED_KEY,
-  REPORTS_SIDEBAR_COLLAPSED_KEY,
 } from '../core/reports.component.constants';
 import { ReportsFolderTemplateHost, ReportsFolderTemplateLogic } from '../core/reports.component.folder-template';
+import { ReportsTreeLogic } from '../core/reports.component.tree';
 import { ReportsFolderManagerModalComponent } from '../modals/folder-manager-modal/reports-folder-manager-modal.component';
 import { MultiSelectOption, ReportsMultiSelectComponent } from '../controls/multi-select/reports-multi-select.component';
 import { ReportsReportModalComponent } from '../modals/report-modal/reports-report-modal.component';
 import { ReportsTemplateManagerModalComponent } from '../modals/template-manager-modal/reports-template-manager-modal.component';
+import { AppButtonComponent } from '../../shared/app-button/app-button.component';
 import {
   buildArchivePayload,
-  buildReportValidationParams,
   buildClearedFilterState,
-  buildParamsForOptions,
   buildRunParams,
-  belongsToFolder,
   computeVariableInputs,
   createReportDraftForCreate,
   createReportDraftForEdit,
   detectDraftVariables,
   displayVariableOption,
-  filterVariableOptionItems,
   normalizeFileName,
   rebuildFolderNodes,
-  readBooleanRecord,
-  readFlag,
   resolveRequestErrorMessage,
   resolveStatusTone,
-  resolveSelection,
   StatusTone,
   statusTitleFromTone,
-  writeBooleanRecord,
-  writeFlag,
   consumeStoredText,
-  syncOptionSearchText,
-  toReportCreatePayload,
-  toReportVariablesPayload,
-  validateReportDraft,
 } from '../core/reports.component.utils';
+import { ReportsVariableOptionsHost, ReportsVariableOptionsLogic } from '../core/reports.component.variable-options';
+import { ReportsDraftHost, ReportsDraftLogic } from '../core/reports.component.draft';
 
 @Component({
   selector: 'app-reports',
@@ -77,6 +69,7 @@ import {
     ReportsFolderManagerModalComponent,
     ReportsTemplateManagerModalComponent,
     ReportsMultiSelectComponent,
+    AppButtonComponent,
   ],
   templateUrl: './reports.component.html',
   styleUrls: [
@@ -86,7 +79,8 @@ import {
     './reports.component.responsive.css',
   ],
 })
-export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
+export class ReportsComponent
+  implements OnInit, OnDestroy, ReportsFolderTemplateHost, ReportsVariableOptionsHost, ReportsDraftHost {
   folders: FolderNode[] = [];
   allFolders: ReportFolder[] = [];
   reports: ReportDefinition[] = [];
@@ -100,9 +94,9 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
   treeFilter = '';
   statusMessage = '';
   paramsError = '';
-  loadingList = false;
   loadingRun = false;
   loadingPdf = false;
+  exportMenuOpen = false;
   manageMode = false;
   sidebarCollapsed = false;
   variableInputs: Record<string, string> = {};
@@ -120,6 +114,10 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
   reportValidationResult: ReportValidationResponse | null = null;
   reportValidationError = '';
   validatingReportDraft = false;
+  reportDraftPreviewRows: Record<string, unknown>[] = [];
+  reportDraftPreviewColumns: string[] = [];
+  reportDraftPreviewError = '';
+  loadingReportDraftPreview = false;
   folderManagerOpen = false;
   templateManagerOpen = false;
   selectedTemplateId: string | null = null;
@@ -132,14 +130,23 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
   private persistedFolderExpandedState: Record<string, boolean> = {};
   private pendingCreateSql: string | null = null;
   private optionsReloadTimer: ReturnType<typeof setTimeout> | null = null;
-  private optionsParamsSignatureByKey: Record<string, string> = {};
+  optionsParamsSignatureByKey: Record<string, string> = {};
   private readonly folderTemplateLogic: ReportsFolderTemplateLogic;
+  private readonly treeLogic: ReportsTreeLogic;
+  private readonly variableOptionsLogic: ReportsVariableOptionsLogic;
+  private readonly draftLogic: ReportsDraftLogic;
+  private statusClearTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(
     private reportService: ReportService,
-    private route: ActivatedRoute
+    private dbService: DbInspectorService,
+    private route: ActivatedRoute,
+    private auth: AuthService
   ) {
     this.folderTemplateLogic = new ReportsFolderTemplateLogic(this, reportService);
+    this.treeLogic = new ReportsTreeLogic();
+    this.variableOptionsLogic = new ReportsVariableOptionsLogic(this, reportService);
+    this.draftLogic = new ReportsDraftLogic(this, reportService, dbService);
   }
 
   ngOnInit(): void {
@@ -147,6 +154,10 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
     this.loadPersistedUiState();
     this.pendingCreateSql = this.manageMode ? this.consumePendingSql() : null;
     this.loadData();
+  }
+
+  ngOnDestroy(): void {
+    if (this.statusClearTimer) clearTimeout(this.statusClearTimer);
   }
 
   get selectedReport(): ReportDefinition | null {
@@ -174,6 +185,14 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
     return Boolean(this.selectedReport?.jasperTemplateId);
   }
 
+  get canRunReport(): boolean {
+    return !!this.selectedReport && !this.loadingRun;
+  }
+
+  get canWriteReports(): boolean {
+    return this.auth.hasPermission('REPORT_WRITE') || this.auth.isAdmin();
+  }
+
   get hasRequiredParamsForRun(): boolean {
     const vars = this.selectedReportVariables;
     for (const v of vars) {
@@ -197,6 +216,21 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
     return [...(this.selectedReport?.variables ?? [])].sort((a, b) => a.orderIndex - b.orderIndex);
   }
 
+  get primaryReportVariables(): ReportVariable[] {
+    const variables = this.selectedReportVariables;
+    if (!variables.length) return [];
+
+    const primary = variables.filter((variable) => this.isPrimaryVariable(variable));
+    if (primary.length) return primary;
+
+    return variables.slice(0, Math.min(2, variables.length));
+  }
+
+  get additionalReportVariables(): ReportVariable[] {
+    const primaryKeys = new Set(this.primaryReportVariables.map((variable) => variable.key));
+    return this.selectedReportVariables.filter((variable) => !primaryKeys.has(variable.key));
+  }
+
   get statusToneClass(): string {
     return resolveStatusTone(this.statusMessage);
   }
@@ -206,7 +240,7 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
   }
 
   reportsByFolder(folder: FolderNode): ReportDefinition[] {
-    return this.reports.filter((report) => belongsToFolder(report, folder));
+    return this.treeLogic.reportsByFolder(this.reports, folder);
   }
 
   get hasTreeFilter(): boolean {
@@ -218,49 +252,32 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
   }
 
   get filteredFolders(): FolderNode[] {
-    const term = this.treeFilter.trim().toLowerCase();
-    if (!term) return this.folders;
-    return this.folders.filter((folder) => {
-      const folderMatch = folder.name.toLowerCase().includes(term);
-      if (folderMatch) return true;
-      return this.reportsByFolder(folder).some((report) => report.name.toLowerCase().includes(term));
-    });
+    return this.treeLogic.filteredFolders(this.folders, this.reports, this.treeFilter);
   }
 
   filteredReportsByFolder(folder: FolderNode): ReportDefinition[] {
-    const term = this.treeFilter.trim().toLowerCase();
-    const reports = this.reportsByFolder(folder);
-    if (!term) return reports;
-    const folderMatch = folder.name.toLowerCase().includes(term);
-    if (folderMatch) return reports;
-    return reports.filter((report) => report.name.toLowerCase().includes(term));
+    return this.treeLogic.filteredReportsByFolder(folder, this.reports, this.treeFilter);
   }
 
   reportCountByFolder(folder: FolderNode): number { return this.reportsByFolder(folder).length; }
 
   toggleFolder(folderId: string) {
-    this.folders = this.folders.map((folder) =>
-      folder.id === folderId ? { ...folder, expanded: !folder.expanded } : folder
-    );
+    this.folders = this.treeLogic.toggleFolder(this.folders, folderId);
     this.persistFolderExpandedState();
   }
 
   toggleAllFoldersExpanded() {
-    const shouldExpand = !this.allFilteredFoldersExpanded;
-    const targetIds = new Set(this.filteredFolders.map((folder) => folder.id));
-    this.folders = this.folders.map((folder) =>
-      targetIds.has(folder.id) ? { ...folder, expanded: shouldExpand } : folder
-    );
+    this.folders = this.treeLogic.toggleAllFoldersExpanded(this.folders, this.filteredFolders);
     this.persistFolderExpandedState();
   }
 
   clearTreeFilter() { this.treeFilter = ''; }
 
   selectFolder(folder: FolderNode) {
-    this.selectedFolderId = folder.id;
+    const next = this.treeLogic.selectFolder(folder, this.reports);
+    this.selectedFolderId = next.selectedFolderId;
+    this.selectedReportId = next.selectedReportId;
     this.renameFolderName = folder.name;
-    const first = this.reportsByFolder(folder)[0];
-    this.selectedReportId = first?.id ?? null;
     this.runResult = null;
     this.statusMessage = '';
     this.optionsParamsSignatureByKey = {};
@@ -272,6 +289,12 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
   }
 
   selectReport(reportId: string) {
+    const selection = this.treeLogic.selectReport(reportId, this.reports, this.folders);
+    if (selection.selectedFolderId) {
+      this.selectedFolderId = selection.selectedFolderId;
+      this.folders = selection.folders;
+      this.persistFolderExpandedState();
+    }
     this.selectedReportId = reportId;
     this.statusMessage = '';
     this.paramsError = '';
@@ -286,7 +309,20 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
     this.persistSidebarCollapsedState();
   }
 
+  toggleExportMenu(event?: Event) {
+    event?.stopPropagation();
+    this.exportMenuOpen = !this.exportMenuOpen;
+  }
+
+  closeExportMenu() {
+    this.exportMenuOpen = false;
+  }
+
   loadDataFromAdmin(preferredReportId?: string, preferredFolderId?: string) {
+    this.loadData(preferredReportId, preferredFolderId);
+  }
+
+  reloadReports(preferredReportId?: string, preferredFolderId?: string) {
     this.loadData(preferredReportId, preferredFolderId);
   }
 
@@ -294,9 +330,13 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
     this.rebuildFolders(apiFolders);
   }
 
-  openFolderManager() { this.folderTemplateLogic.openFolderManager(); }
+  openFolderManager() {
+    this.folderTemplateLogic.openFolderManager();
+  }
 
-  closeFolderManager() { this.folderTemplateLogic.closeFolderManager(); }
+  closeFolderManager() {
+    this.folderTemplateLogic.closeFolderManager();
+  }
 
   onFolderManagerSelectionChange(folderId: string) {
     this.folderTemplateLogic.onFolderManagerSelectionChange(folderId);
@@ -313,7 +353,11 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
   unarchiveSelectedFolder() { this.folderTemplateLogic.unarchiveSelectedFolder(); }
 
   applyFilters() {
-    this.statusMessage = 'Consulta executada.';
+    if (!this.selectedReport) {
+      this.statusMessage = 'Selecione um relatório para executar.';
+      this.runResult = null;
+      return;
+    }
     this.runSelectedReport();
   }
 
@@ -337,6 +381,7 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
     this.reportModalOpen = true;
     this.reportDraftError = '';
     this.resetReportValidationState();
+    this.resetReportDraftPreviewState();
     this.reportDraft = createReportDraftForCreate(folder.id, presetSql);
     this.syncDraftVariablesFromSql();
     this.syncValidationInputsWithDraftVariables();
@@ -357,6 +402,7 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
     this.reportModalOpen = true;
     this.reportDraftError = '';
     this.resetReportValidationState();
+    this.resetReportDraftPreviewState();
     this.reportDraft = createReportDraftForEdit(current, folder.id);
     this.syncDraftVariablesFromSql(current.variables || []);
     this.syncValidationInputsWithDraftVariables();
@@ -366,12 +412,14 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
     this.reportModalOpen = false;
     this.reportDraftError = '';
     this.resetReportValidationState();
+    this.resetReportDraftPreviewState();
   }
 
   onDraftSqlChanged() {
     this.syncDraftVariablesFromSql(this.reportDraftVariables);
     this.syncValidationInputsWithDraftVariables();
     this.resetReportValidationState();
+    this.resetReportDraftPreviewState();
   }
 
   onDraftVariablesDrop(event: CdkDragDrop<DraftVariable[]>) {
@@ -389,6 +437,7 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
       [event.key]: event.value ?? '',
     };
     this.resetReportValidationState();
+    this.resetReportDraftPreviewState();
   }
 
   openTemplateManager() { this.folderTemplateLogic.openTemplateManager(); }
@@ -407,115 +456,38 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
 
   deleteTemplateFromManager() { this.folderTemplateLogic.deleteTemplateFromManager(); }
 
-  applyTemplateToReport() { this.folderTemplateLogic.applyTemplateToReport(); }
+  saveReportFromModal() { this.draftLogic.saveReportFromModal(); }
 
-  saveReportFromModal() {
-    const folder = this.folders.find((item) => item.id === this.reportDraft.folderId);
-    const validation = validateReportDraft(this.reportDraft, Boolean(folder));
-    if (validation.error) {
-      this.reportDraftError = validation.error;
-      return;
-    }
-    if (!folder) return;
-
-    const variables = toReportVariablesPayload(this.reportDraftVariables);
-    const payload = toReportCreatePayload(this.reportDraft, folder, variables);
-
-    if (this.reportModalMode === 'create') {
-      this.reportService.createReport(payload).subscribe({
-        next: (created) => {
-          this.statusMessage = `Relatorio "${created.name}" criado.`;
-          this.reportModalOpen = false;
-          this.loadData(created.id, folder.id);
-        },
-        error: (err) => {
-          this.reportDraftError = this.resolveRequestError(err, 'Falha ao criar relatorio.');
-        },
-      });
-      return;
-    }
-
-    if (!this.reportDraft.id) {
-      this.reportDraftError = 'Relatório inválido para atualização.';
-      return;
-    }
-
-    this.reportService.updateReport(this.reportDraft.id, payload).subscribe({
-      next: (updated) => {
-        this.statusMessage = `Relatorio "${updated.name}" atualizado.`;
-        this.reportModalOpen = false;
-        const nextFolder = updated.folderId ?? this.selectedFolderId;
-        this.loadData(updated.id, nextFolder ?? undefined);
-      },
-      error: (err) => {
-        this.reportDraftError = this.resolveRequestError(err, 'Falha ao atualizar relatorio.');
-      },
-    });
+  validateReportDraftQuery(onDone?: (result: ReportValidationResponse | null) => void) {
+    this.draftLogic.validateReportDraftQuery(onDone);
   }
 
-  validateReportDraftQuery() {
-    const sql = this.reportDraft.sql.trim();
-    if (!sql) {
-      this.reportValidationError = 'Informe a SQL antes de validar.';
-      this.reportValidationResult = null;
-      return;
-    }
+  saveAndTestReportFromModal() { this.draftLogic.saveAndTestReportFromModal(); }
 
-    const variables = toReportVariablesPayload(this.reportDraftVariables);
-    const validationParams = buildReportValidationParams(variables, this.reportValidationInputs);
-    if (validationParams.error) {
-      this.reportValidationError = validationParams.error;
-      this.reportValidationResult = null;
-      return;
-    }
-
-    this.validatingReportDraft = true;
-    this.reportValidationError = '';
-    this.reportValidationResult = null;
-    this.reportService
-      .validateReportQuery({
-        sql,
-        variables,
-        params: validationParams.params,
-        validateSyntax: !validationParams.hasMissingRequired,
-        enforceRequired: true,
-        enforceReadOnly: true,
-      })
-      .subscribe({
-        next: (result) => {
-          this.validatingReportDraft = false;
-          this.reportValidationResult = result;
-          if (result?.valid === false && (!result.errors || !result.errors.length)) {
-            this.reportValidationError = 'Consulta inválida.';
-          }
-        },
-        error: (err) => {
-          this.validatingReportDraft = false;
-          this.reportValidationError = this.resolveRequestError(err, 'Falha ao validar consulta.');
-        },
-      });
-  }
+  executeReportDraftPreview() { this.draftLogic.executeReportDraftPreview(); }
 
   archiveSelectedReport() { this.updateSelectedReportArchived(true); }
 
   unarchiveSelectedReport() { this.updateSelectedReportArchived(false); }
 
   exportExcel() {
+    this.closeExportMenu();
     const result = this.runResult;
     if (!result) return;
     const blob = createXlsxBlob(result.columns, result.rows || []);
     this.downloadBlob(blob, `${normalizeFileName(result.name)}.xlsx`);
-    this.statusMessage = `Exportacao Excel concluida para "${result.name}".`;
+    this.setStatusMessage(`Exportacao Excel concluida para "${result.name}".`, 2500);
   }
 
   exportPdf() {
+    this.closeExportMenu();
     const report = this.selectedReport;
     if (!report?.id) {
-      this.statusMessage = 'Selecione um relatório para exportar PDF.';
+      this.setStatusMessage('Selecione um relatório para exportar PDF.');
       return;
     }
     if (!report.jasperTemplateId) {
-      this.statusMessage = 'Este relatório não possui template Jasper vinculado.';
+      this.setStatusMessage('Este relatório não possui template Jasper vinculado.');
       return;
     }
 
@@ -527,36 +499,66 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
       next: (blob) => {
         this.loadingPdf = false;
         this.downloadBlob(blob, `${normalizeFileName(report.name)}.pdf`);
-        this.statusMessage = `Exportacao PDF concluida para "${report.name}".`;
+        this.setStatusMessage(`Exportacao PDF concluida para "${report.name}".`, 2500);
       },
       error: (err) => {
         this.loadingPdf = false;
-        this.statusMessage = this.resolveRequestError(err, 'Falha ao exportar PDF.');
+        this.setStatusMessage(this.resolveRequestError(err, 'Falha ao exportar PDF.'));
       },
     });
   }
 
   private loadData(preferredReportId?: string, preferredFolderId?: string) {
-    this.loadingList = true;
+    let templatesDenied = false;
+    let foldersDenied = false;
     forkJoin({
-      folders: this.reportService.listFolders(),
+      folders: this.reportService.listFolders().pipe(
+        catchError((err: HttpErrorResponse) => {
+          if (Number(err?.status ?? 0) === 403) {
+            foldersDenied = true;
+            return of<ReportFolder[]>([]);
+          }
+          throw err;
+        })
+      ),
       reports: this.reportService.listReports(),
-      templates: this.reportService.listTemplates(),
+      templates: this.reportService.listTemplates().pipe(
+        catchError((err: HttpErrorResponse) => {
+          if (Number(err?.status ?? 0) === 403) {
+            templatesDenied = true;
+            return of<JasperTemplateResponse[]>([]);
+          }
+          throw err;
+        })
+      ),
     }).subscribe({
       next: ({ folders, reports, templates }) => {
-        this.allFolders = folders || [];
-        this.reports = this.manageMode ? reports || [] : (reports || []).filter((r) => !r.archived);
+        const apiFolders = folders || [];
+        const apiReports = reports || [];
+        const visibleReportsByAcl = this.manageMode ? apiReports : apiReports.filter((report) => this.hasReportAccess(report));
+        this.allFolders = apiFolders;
+        this.reports = this.manageMode
+          ? apiReports
+          : visibleReportsByAcl.filter((r) => !r.archived);
         this.templates = (templates || []).filter((t) => !t.archived);
+        const baseFolders = this.manageMode
+          ? apiFolders
+          : apiFolders.filter((f) => !f.archived);
+        const visibleFolders = this.manageMode
+          ? baseFolders
+          : this.buildTreeFolders(baseFolders, this.reports);
         this.rebuildFolders(
-          this.manageMode ? folders || [] : (folders || []).filter((f) => !f.archived)
+          visibleFolders
         );
         this.reconcileSelection(preferredReportId, preferredFolderId);
+        if (foldersDenied || templatesDenied) {
+          this.statusMessage = '';
+        }
         if (this.manageMode && this.pendingCreateSql) {
           const sql = this.pendingCreateSql;
           this.pendingCreateSql = null;
           this.openCreateReportModal(sql);
         }
-        this.loadingList = false;
       },
       error: (err) => {
         this.reports = [];
@@ -565,8 +567,7 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
         this.runResult = null;
         this.selectedFolderId = null;
         this.selectedReportId = null;
-        this.loadingList = false;
-        this.statusMessage = this.resolveRequestError(err, 'Falha ao carregar relatorios/pastas.');
+        this.statusMessage = this.resolveAclAwareError(err, 'Falha ao carregar relatorios/pastas.');
       },
     });
   }
@@ -593,7 +594,7 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
       error: (err) => {
         this.runResult = null;
         this.loadingRun = false;
-        this.statusMessage = this.resolveRequestError(err, 'Falha ao executar relatorio.');
+        this.statusMessage = this.resolveAclAwareError(err, 'Falha ao executar relatorio.');
       },
     });
   }
@@ -608,26 +609,43 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
     this.persistFolderExpandedState();
   }
 
+  private buildTreeFolders(apiFolders: ReportFolder[], reports: ReportDefinition[]): ReportFolder[] {
+    return this.treeLogic.buildTreeFolders(apiFolders, reports);
+  }
+
+  private hasReportAccess(report: ReportDefinition): boolean {
+    const canView = report.canView;
+    const canRun = report.canRun;
+    if (canView === undefined && canRun === undefined) return true;
+    if (canView === true || canRun === true) return true;
+    return false;
+  }
+
+  private isPrimaryVariable(variable: ReportVariable): boolean {
+    const text = `${variable.key} ${variable.label || ''}`.toLowerCase();
+    const isDateLike = variable.type === 'date' || variable.type === 'datetime';
+    const isTimeRangeLike = /(data|date|periodo|period|inicial|final|inicio|fim|from|to)/i.test(text);
+    return isDateLike || isTimeRangeLike;
+  }
+
   private loadPersistedUiState() {
-    this.sidebarCollapsed = readFlag(REPORTS_SIDEBAR_COLLAPSED_KEY);
-    this.persistedFolderExpandedState = readBooleanRecord(REPORTS_FOLDERS_EXPANDED_KEY);
+    const state = this.treeLogic.loadPersistedUiState();
+    this.sidebarCollapsed = state.sidebarCollapsed;
+    this.persistedFolderExpandedState = state.folderExpandedState;
   }
 
   private persistSidebarCollapsedState() {
-    writeFlag(REPORTS_SIDEBAR_COLLAPSED_KEY, this.sidebarCollapsed);
+    this.treeLogic.persistSidebarCollapsedState(this.sidebarCollapsed);
   }
 
   private persistFolderExpandedState() {
-    const state: Record<string, boolean> = {};
-    for (const folder of this.folders) {
-      state[String(folder.id)] = !!folder.expanded;
-    }
+    const state = this.treeLogic.buildFolderExpandedState(this.folders);
     this.persistedFolderExpandedState = state;
-    writeBooleanRecord(REPORTS_FOLDERS_EXPANDED_KEY, state);
+    this.treeLogic.persistFolderExpandedState(state);
   }
 
   private reconcileSelection(preferredReportId?: string, preferredFolderId?: string) {
-    const next = resolveSelection(
+    const next = this.treeLogic.reconcileSelection(
       this.reports,
       this.folders,
       this.selectedFolderId,
@@ -675,47 +693,31 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
 
   onVariableInputChanged() {
     if (this.optionsReloadTimer) clearTimeout(this.optionsReloadTimer);
-    this.optionsReloadTimer = setTimeout(() => this.reloadVariableOptions(), 250);
+    this.optionsReloadTimer = setTimeout(() => this.variableOptionsLogic.reloadVariableOptions(), 250);
   }
 
   hasVariableOptions(variable: ReportVariable): boolean {
-    return Boolean(variable.optionsSql && variable.optionsSql.trim());
+    return this.variableOptionsLogic.hasVariableOptions(variable);
   }
 
   variableOptionItems(variable: ReportVariable): ReportVariableOption[] {
-    return this.variableOptions[variable.key] || [];
+    return this.variableOptionsLogic.variableOptionItems(variable);
   }
 
   filteredVariableOptionItems(variable: ReportVariable): ReportVariableOption[] {
-    return filterVariableOptionItems(
-      this.variableOptionItems(variable),
-      this.variableOptionSearchText[variable.key] || ''
-    );
+    return this.variableOptionsLogic.filteredVariableOptionItems(variable);
   }
 
   variableOptionsLoading(variable: ReportVariable): boolean {
-    return Boolean(this.loadingVariableOptions[variable.key]);
+    return this.variableOptionsLogic.variableOptionsLoading(variable);
   }
 
   onVariableOptionSearchChange(variable: ReportVariable, text: string) {
-    const key = variable.key;
-    this.variableOptionSearchText = {
-      ...this.variableOptionSearchText,
-      [key]: text,
-    };
-
-    const normalized = text.trim().toLowerCase();
-    const exact = this.variableOptionItems(variable).find(
-      (opt) => String(opt.descricao ?? '').trim().toLowerCase() === normalized
-    );
-
-    this.variableInputs[key] = exact ? String(exact.valor ?? '') : '';
-    this.onVariableInputChanged();
+    this.variableOptionsLogic.onVariableOptionSearchChange(variable, text);
   }
 
   onVariableOptionSelected(variable: ReportVariable, option: ReportVariableOption | null) {
-    const key = variable.key;
-    this.setVariableOptionValue(key, String(option?.valor ?? ''), String(option?.descricao ?? ''));
+    this.variableOptionsLogic.onVariableOptionSelected(variable, option);
   }
 
   optionValueToString(value: unknown): string {
@@ -728,72 +730,26 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
   }
 
   onVariableOptionValueSelected(variable: ReportVariable, rawValue: string) {
-    const value = this.optionValueToString(rawValue);
-    const selected = this.variableOptionItems(variable).find(
-      (opt) => this.optionValueToString(opt.valor) === value
-    );
-    this.setVariableOptionValue(variable.key, value, selected?.descricao ?? '');
+    this.variableOptionsLogic.onVariableOptionValueSelected(variable, rawValue);
   }
 
   onVariableMultipleOptionValuesSelected(variable: ReportVariable, rawValues: string[] | string) {
-    const selectedValues = Array.isArray(rawValues) ? rawValues : [String(rawValues ?? '')];
-    const normalized = selectedValues
-      .map((value) => this.optionValueToString(value).trim())
-      .filter(Boolean);
-    this.variableMultiOptionSelections = {
-      ...this.variableMultiOptionSelections,
-      [variable.key]: normalized,
-    };
-    this.setVariableOptionValue(variable.key, normalized.join(','), '');
+    this.variableOptionsLogic.onVariableMultipleOptionValuesSelected(variable, rawValues);
   }
 
   variableMultiSelectOptions(variable: ReportVariable): MultiSelectOption[] {
-    return this.variableMultiSelectOptionsByKey[variable.key] || [];
+    return this.variableOptionsLogic.variableMultiSelectOptions(variable);
   }
 
   clearVariableOption(variable: ReportVariable) {
-    this.setVariableOptionValue(variable.key, '', '');
+    this.variableOptionsLogic.clearVariableOption(variable);
   }
 
   displayVariableOption(value: ReportVariableOption | string | null): string {
     return displayVariableOption(value);
   }
 
-  private reloadVariableOptions() {
-    const reportId = this.selectedReport?.id;
-    if (!reportId) {
-      this.resetVariableOptionsState();
-      return;
-    }
-
-    const optionVars = this.selectedReportVariables.filter((v) => this.hasVariableOptions(v));
-    if (!optionVars.length) {
-      this.resetVariableOptionsState();
-      return;
-    }
-
-    for (const variable of optionVars) {
-      const params = buildParamsForOptions(
-        this.selectedReportVariables,
-        this.variableInputs,
-        variable.key
-      );
-      const signature = JSON.stringify(params);
-      if (this.optionsParamsSignatureByKey[variable.key] === signature) continue;
-      this.loadingVariableOptions = {
-        ...this.loadingVariableOptions,
-        [variable.key]: true,
-      };
-      this.reportService.listVariableOptions(reportId, variable.key, params, 100).subscribe({
-        next: (options) => {
-          this.applyVariableOptionFetchResult(variable.key, signature, options);
-        },
-        error: () => {
-          this.applyVariableOptionFetchResult(variable.key, signature, []);
-        },
-      });
-    }
-  }
+  private reloadVariableOptions() { this.variableOptionsLogic.reloadVariableOptions(); }
 
   private buildRunParams(): Record<string, unknown> | null {
     const result = buildRunParams(this.selectedReportVariables, this.variableInputs);
@@ -827,59 +783,14 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
     this.reportValidationResult = null;
   }
 
-  private setVariableOptionValue(key: string, inputValue: string, searchValue: string) {
-    this.variableInputs[key] = inputValue;
-    this.variableOptionSearchText = {
-      ...this.variableOptionSearchText,
-      [key]: searchValue,
-    };
-    this.variableMultiOptionSelections = {
-      ...this.variableMultiOptionSelections,
-      [key]: String(inputValue ?? '')
-        .split(/[\n,]+/)
-        .map((item) => item.trim())
-        .filter(Boolean),
-    };
-    this.onVariableInputChanged();
+  private resetReportDraftPreviewState() {
+    this.loadingReportDraftPreview = false;
+    this.reportDraftPreviewError = '';
+    this.reportDraftPreviewRows = [];
+    this.reportDraftPreviewColumns = [];
   }
 
-  private resetVariableOptionsState() {
-    this.variableOptions = {};
-    this.variableMultiSelectOptionsByKey = {};
-    this.loadingVariableOptions = {};
-    this.optionsParamsSignatureByKey = {};
-    this.variableMultiOptionSelections = {};
-  }
-
-  private applyVariableOptionFetchResult(
-    key: string,
-    signature: string,
-    options: ReportVariableOption[]
-  ) {
-    this.optionsParamsSignatureByKey = {
-      ...this.optionsParamsSignatureByKey,
-      [key]: signature,
-    };
-    this.variableOptions = {
-      ...this.variableOptions,
-      [key]: options,
-    };
-    this.variableMultiSelectOptionsByKey = {
-      ...this.variableMultiSelectOptionsByKey,
-      [key]: options.map((opt) => ({
-        value: this.optionValueToString(opt.valor),
-        label: String(opt.descricao ?? ''),
-      })),
-    };
-    this.variableOptionSearchText = {
-      ...this.variableOptionSearchText,
-      [key]: syncOptionSearchText(this.variableInputs[key] ?? '', options),
-    };
-    this.loadingVariableOptions = {
-      ...this.loadingVariableOptions,
-      [key]: false,
-    };
-  }
+  
 
   private updateSelectedReportArchived(archived: boolean) {
     const current = this.selectedReport;
@@ -908,6 +819,28 @@ export class ReportsComponent implements OnInit, ReportsFolderTemplateHost {
 
   resolveRequestError(error: unknown, fallback: string): string {
     return resolveRequestErrorMessage(error, fallback, this.manageMode);
+  }
+
+  private resolveAclAwareError(error: unknown, fallback: string): string {
+    const status = Number((error as any)?.status ?? 0);
+    if (status === 403) {
+      return 'Acesso negado. Se o ACL padrão deny estiver ativo, solicite ao administrador a liberação de pasta/relatório para seu usuário ou perfil.';
+    }
+    return this.resolveRequestError(error, fallback);
+  }
+
+  private setStatusMessage(message: string, autoClearMs?: number) {
+    if (this.statusClearTimer) {
+      clearTimeout(this.statusClearTimer);
+      this.statusClearTimer = null;
+    }
+    this.statusMessage = message;
+    if (autoClearMs && autoClearMs > 0) {
+      this.statusClearTimer = setTimeout(() => {
+        this.statusMessage = '';
+        this.statusClearTimer = null;
+      }, autoClearMs);
+    }
   }
 
   private consumePendingSql(): string | null {

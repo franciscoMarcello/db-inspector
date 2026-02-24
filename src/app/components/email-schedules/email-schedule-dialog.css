@@ -28,18 +28,17 @@
 .wrap {
   box-sizing: border-box;
   width: 100%;
-  max-width: min(1100px, calc(100vw - 32px));
+  max-width: min(1120px, calc(100vw - 32px));
   background: var(--bg-surface);
   color: var(--text-primary);
   border-radius: 18px;
   box-shadow: 0 28px 80px rgba(15, 23, 42, 0.55);
   display: grid;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 10px;
   padding: 18px clamp(14px, 2vw, 24px) 14px;
   max-height: calc(100vh - 40px);
-  overflow: auto;
-  overflow-x: hidden;
+  overflow: hidden;
   margin: 0 auto;
 }
 
@@ -85,7 +84,6 @@
 }
 
 .icon-btn:hover {
-  background: var(--bg-surface-alt);
   border-color: var(--chip-bg-active);
 }
 
@@ -98,6 +96,45 @@
 .body {
   display: grid;
   gap: 12px;
+  overflow: auto;
+  padding-right: 6px;
+}
+
+.section {
+  display: grid;
+  gap: 10px;
+  background: color-mix(in srgb, var(--bg-surface-alt) 34%, transparent);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 10px;
+}
+
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.section-head h4 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.link-btn {
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface-alt);
+  color: var(--text-primary);
+  border-radius: 8px;
+  min-height: 30px;
+  padding: 0 10px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.link-btn:hover {
+  border-color: var(--chip-bg-active);
 }
 
 .field {
@@ -123,7 +160,7 @@ input {
 }
 
 textarea {
-  min-height: 120px;
+  min-height: 96px;
   resize: vertical;
 }
 
@@ -134,21 +171,129 @@ textarea:focus {
   box-shadow: 0 0 0 3px rgba(76, 111, 255, 0.2);
 }
 
-small {
-  color: var(--text-muted);
-  font-size: 12px;
-}
-
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 14px;
 }
 
+.sql-preview {
+  border: 1px dashed var(--border-subtle);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: var(--bg-surface-alt);
+}
+
+.sql-preview code {
+  color: var(--text-muted);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+
+.chips-input {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 6px;
+  background: var(--bg-surface-alt);
+}
+
+.chips-input:focus-within {
+  border-color: var(--chip-bg-active);
+  box-shadow: 0 0 0 3px rgba(76, 111, 255, 0.2);
+}
+
+.chips-input.error {
+  border-color: rgba(239, 68, 68, 0.6);
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.16);
+}
+
+.chips-input input {
+  border: 0;
+  box-shadow: none;
+  background: transparent;
+  min-width: 180px;
+  flex: 1;
+  padding: 5px 6px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: color-mix(in srgb, var(--chip-bg-active) 28%, transparent);
+  color: var(--text-primary);
+  border: 1px solid color-mix(in srgb, var(--chip-bg-active) 45%, transparent);
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 12px;
+}
+
+.chip button {
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.chip button:hover {
+  background: color-mix(in srgb, var(--chip-bg-active) 45%, transparent);
+}
+
+small {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.error-text {
+  color: #ef4444;
+}
+
+.days-preset {
+  display: inline-flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.preset {
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-primary);
+  padding: 0 10px;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.preset:hover {
+  border-color: var(--chip-bg-active);
+  background: color-mix(in srgb, var(--chip-bg-active) 12%, transparent);
+}
+
+.preset.active {
+  border-color: var(--chip-bg-active);
+  background: color-mix(in srgb, var(--chip-bg-active) 20%, transparent);
+  color: var(--text-primary);
+}
+
 .days {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
-  gap: 10px;
+  gap: 8px;
 }
 
 .day {
@@ -159,32 +304,38 @@ small {
   color: var(--text-primary);
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.15s;
 }
 
 .day.active {
   background: var(--chip-bg-active);
   color: #fff;
   border-color: var(--chip-bg-active);
-  box-shadow: 0 10px 30px rgba(37, 99, 235, 0.25);
 }
 
-.day:hover {
-  filter: brightness(1.05);
+.next-run-preview {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px dashed var(--border-subtle);
+  border-radius: 10px;
+  padding: 9px 12px;
+  background: color-mix(in srgb, var(--bg-surface-alt) 45%, transparent);
+}
+
+.tz-note {
+  color: var(--text-muted);
+  font-size: 11px;
 }
 
 .actions {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  margin-top: 6px;
+  margin-top: 4px;
 }
 
 button {
   font: inherit;
-  border: 0;
-  padding: 0;
-  background: none;
 }
 
 .btn {
@@ -212,19 +363,35 @@ button {
   cursor: not-allowed;
 }
 
-.btn--primary:not(:disabled):hover {
-  filter: brightness(1.05);
-  box-shadow: 0 10px 30px rgba(37, 99, 235, 0.25);
-}
-
 .btn--secondary {
   background: transparent;
   color: var(--text-primary);
   border-color: var(--border-subtle);
 }
 
-.btn--secondary:hover {
+.btn--test {
+  border-color: color-mix(in srgb, var(--chip-bg-active) 45%, var(--border-subtle));
+}
+
+.btn--ghost {
+  background: transparent;
+  color: var(--text-muted);
+  border-color: transparent;
+}
+
+.btn--ghost:hover:not(:disabled) {
+  color: var(--text-primary);
   background: var(--bg-surface-alt);
+  border-color: var(--border-subtle);
+}
+
+.btn--secondary:hover:not(:disabled) {
+  background: var(--bg-surface-alt);
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 @media (max-width: 560px) {
@@ -234,5 +401,9 @@ button {
 
   .grid {
     grid-template-columns: 1fr;
+  }
+
+  .actions {
+    flex-wrap: wrap;
   }
 }

@@ -65,10 +65,9 @@ export class ReportsFolderTemplateLogic {
   }
 
   createFolderFromReportModal() {
-    const name = (prompt('Nome da nova pasta:', '') || '').trim();
-    if (!name) return;
-    if (!this.ensureFolderNameAvailable(name, true)) return;
-    this.createFolderByName(name, true);
+    this.host.reportDraftError = '';
+    this.openFolderManager();
+    this.host.statusMessage = 'Crie a pasta no gerenciador e depois selecione-a no relatório.';
   }
 
   renameSelectedFolder() {
@@ -246,15 +245,6 @@ export class ReportsFolderTemplateLogic {
         this.host.templateDraftError = this.host.resolveRequestError(err, fallback);
       },
     });
-  }
-
-  applyTemplateToReport() {
-    if (!this.host.templateDraft.id) {
-      this.host.templateDraftError = 'Selecione um template para vincular.';
-      return;
-    }
-    this.host.reportDraft.jasperTemplateId = this.host.templateDraft.id;
-    this.host.templateDraftStatus = `Template "${this.host.templateDraft.name}" vinculado ao relatório.`;
   }
 
   private refreshTemplates(preferredId?: string) {

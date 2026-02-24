@@ -1,0 +1,87 @@
+:host.app-button-host {
+  display: inline-flex;
+  vertical-align: middle;
+}
+
+:host.app-button-host--full {
+  display: flex;
+  width: 100%;
+}
+
+.app-btn {
+  min-height: 36px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+  letter-spacing: 0;
+  transition: background-color 0.16s ease, border-color 0.16s ease, color 0.16s ease, filter 0.16s ease;
+}
+
+.app-btn--sm {
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+.app-btn--full {
+  width: 100%;
+}
+
+.app-btn__icon {
+  width: 18px;
+  height: 18px;
+  font-size: 18px;
+}
+
+.app-btn--primary.app-btn--solid {
+  background: var(--chip-bg-active);
+  border-color: var(--chip-bg-active);
+  color: #fff;
+}
+
+.app-btn--primary.app-btn--solid:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+.app-btn--neutral.app-btn--outline {
+  background: var(--bg-surface-alt);
+  border-color: var(--border-subtle);
+  color: var(--text-primary);
+}
+
+.app-btn--neutral.app-btn--outline:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--bg-surface-alt) 76%, var(--chip-bg-active));
+}
+
+.app-btn--danger.app-btn--outline {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.45);
+  color: #ef4444;
+}
+
+.app-btn--danger.app-btn--outline:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.16);
+}
+
+.app-btn--neutral.app-btn--ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-muted);
+}
+
+.app-btn--neutral.app-btn--ghost:hover:not(:disabled) {
+  color: var(--text-primary);
+  background: rgba(148, 163, 184, 0.16);
+}
+
+.app-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

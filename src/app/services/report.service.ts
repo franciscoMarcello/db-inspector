@@ -5,6 +5,26 @@ import { map } from 'rxjs/operators';
 import { EnvStorageService } from './env-storage.service';
 
 export type ReportVariableType = 'string' | 'number' | 'date' | 'datetime' | 'boolean';
+export type AclSubjectType = 'USER' | 'ROLE';
+
+export type AccessControlRule = {
+  id: string;
+  subjectType: AclSubjectType;
+  subject: string;
+  canView: boolean;
+  canRun: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
+};
+
+export type AccessControlRuleInput = {
+  subjectType: AclSubjectType;
+  subject: string;
+  canView: boolean;
+  canRun: boolean;
+  canEdit: boolean;
+  canDelete: boolean;
+};
 export type JasperTemplateInput = {
   name: string;
   description: string | null;
@@ -30,6 +50,10 @@ export type ReportFolder = {
   name: string;
   description: string | null;
   archived: boolean;
+  canView?: boolean;
+  canRun?: boolean;
+  createdAt?: number | null;
+  updatedAt?: number | null;
 };
 
 export type ReportFolderInput = {
@@ -66,6 +90,8 @@ export type ReportDefinition = {
   description: string | null;
   variables: ReportVariable[];
   archived: boolean;
+  canView?: boolean;
+  canRun?: boolean;
   createdAt: number;
   updatedAt: number;
 };
@@ -129,6 +155,11 @@ export class ReportService {
 
   private get base(): string {
     return this.env.getActive()?.backend || '/api/db';
+  }
+
+  private get adminBase(): string {
+    const backend = this.env.getActive()?.backend || '/api/db';
+    return backend.replace(/\/api\/db\/?$/i, '/api/admin');
   }
 
   listFolders(): Observable<ReportFolder[]> {
@@ -258,6 +289,54 @@ export class ReportService {
     return this.http.post<ReportValidationResponse>(`${this.base}/reports/validate`, payload);
   }
 
+  listFolderAcl(folderId: string): Observable<AccessControlRule[]> {
+    return this.http
+      .get<any>(`${this.adminBase}/report-folders/${encodeURIComponent(folderId)}/acl`)
+      .pipe(map((res) => this.normalizeAclRules(res)));
+  }
+
+  upsertFolderAcl(folderId: string, payload: AccessControlRuleInput): Observable<AccessControlRule> {
+    return this.http
+      .put<any>(`${this.adminBase}/report-folders/${encodeURIComponent(folderId)}/acl`, payload)
+      .pipe(map((res) => this.normalizeAclRule(res)));
+  }
+
+  deleteFolderAcl(folderId: string, subjectType: AclSubjectType, subject: string): Observable<void> {
+    return this.http.delete<void>(
+      `${this.adminBase}/report-folders/${encodeURIComponent(folderId)}/acl`,
+      {
+        params: {
+          subjectType,
+          subject,
+        },
+      }
+    );
+  }
+
+  listReportAcl(reportId: string): Observable<AccessControlRule[]> {
+    return this.http
+      .get<any>(`${this.adminBase}/reports/${encodeURIComponent(reportId)}/acl`)
+      .pipe(map((res) => this.normalizeAclRules(res)));
+  }
+
+  upsertReportAcl(reportId: string, payload: AccessControlRuleInput): Observable<AccessControlRule> {
+    return this.http
+      .put<any>(`${this.adminBase}/reports/${encodeURIComponent(reportId)}/acl`, payload)
+      .pipe(map((res) => this.normalizeAclRule(res)));
+  }
+
+  deleteReportAcl(reportId: string, subjectType: AclSubjectType, subject: string): Observable<void> {
+    return this.http.delete<void>(
+      `${this.adminBase}/reports/${encodeURIComponent(reportId)}/acl`,
+      {
+        params: {
+          subjectType,
+          subject,
+        },
+      }
+    );
+  }
+
   private normalizeFolders(res: any): ReportFolder[] {
     const data = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
     return data
@@ -266,6 +345,8 @@ export class ReportService {
   }
 
   private normalizeFolder(item: any): ReportFolder {
+    const canView = this.extractAclFlag(item, 'view');
+    const canRun = this.extractAclFlag(item, 'run');
     return {
       id: String(item?.id ?? item?.folderId ?? item?.folder_id ?? ''),
       name: String(item?.name ?? ''),
@@ -274,6 +355,16 @@ export class ReportService {
           ? null
           : String(item.description),
       archived: Boolean(item?.archived),
+      ...(canView === undefined ? {} : { canView }),
+      ...(canRun === undefined ? {} : { canRun }),
+      createdAt:
+        item?.createdAt !== undefined || item?.created_at !== undefined
+          ? Number(item?.createdAt ?? item?.created_at ?? 0)
+          : null,
+      updatedAt:
+        item?.updatedAt !== undefined || item?.updated_at !== undefined
+          ? Number(item?.updatedAt ?? item?.updated_at ?? 0)
+          : null,
     };
   }
 
@@ -285,6 +376,8 @@ export class ReportService {
   }
 
   private normalizeReport(item: any): ReportDefinition {
+    const canView = this.extractAclFlag(item, 'view');
+    const canRun = this.extractAclFlag(item, 'run');
     const jasperTemplate = this.normalizeTemplateSummary(item?.jasperTemplate ?? item?.jasper_template);
     return {
       id: String(item?.id ?? ''),
@@ -308,9 +401,61 @@ export class ReportService {
         ? item.variables.map((v: any) => this.normalizeVariable(v))
         : [],
       archived: Boolean(item?.archived),
+      ...(canView === undefined ? {} : { canView }),
+      ...(canRun === undefined ? {} : { canRun }),
       createdAt: Number(item?.createdAt ?? item?.created_at ?? 0),
       updatedAt: Number(item?.updatedAt ?? item?.updated_at ?? 0),
     };
+  }
+
+  private readOptionalBoolean(value: unknown): boolean | undefined {
+    if (value === null || value === undefined) return undefined;
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'number') {
+      if (value === 1) return true;
+      if (value === 0) return false;
+      return undefined;
+    }
+    const text = String(value).trim().toLowerCase();
+    if (text === 'true' || text === '1') return true;
+    if (text === 'false' || text === '0') return false;
+    return undefined;
+  }
+
+  private extractAclFlag(item: any, kind: 'view' | 'run'): boolean | undefined {
+    const key = kind === 'view' ? 'View' : 'Run';
+    const lower = kind;
+    const aliases: unknown[] = [
+      item?.[`can${key}`],
+      item?.[`can_${lower}`],
+      item?.[`${lower}Allowed`],
+      item?.[`${lower}_allowed`],
+      item?.[`is${key}Allowed`],
+      item?.[`is_${lower}_allowed`],
+      item?.[`${lower}`],
+      item?.[`allow${key}`],
+      item?.[`allow_${lower}`],
+      item?.[`aclCan${key}`],
+      item?.acl?.[`can${key}`],
+      item?.acl?.[`can_${lower}`],
+      item?.acl?.[`${lower}`],
+      item?.permissions?.[`can${key}`],
+      item?.permissions?.[`can_${lower}`],
+      item?.permissions?.[`${lower}`],
+      item?.access?.[`can${key}`],
+      item?.access?.[`can_${lower}`],
+      item?.access?.[`${lower}`],
+      item?.effective?.[`can${key}`],
+      item?.effective?.[`can_${lower}`],
+      item?.effective?.[`${lower}`],
+    ];
+
+    for (const candidate of aliases) {
+      const parsed = this.readOptionalBoolean(candidate);
+      if (parsed !== undefined) return parsed;
+    }
+
+    return undefined;
   }
 
   private normalizeTemplates(res: any): JasperTemplateResponse[] {
@@ -343,6 +488,25 @@ export class ReportService {
       id,
       name: String(item?.name ?? ''),
       archived: Boolean(item?.archived),
+    };
+  }
+
+  private normalizeAclRules(res: any): AccessControlRule[] {
+    const data = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
+    return data
+      .map((item: any) => this.normalizeAclRule(item))
+      .filter((item: AccessControlRule | null): item is AccessControlRule => !!item);
+  }
+
+  private normalizeAclRule(item: any): AccessControlRule {
+    return {
+      id: String(item?.id ?? ''),
+      subjectType: String(item?.subjectType ?? item?.subject_type ?? 'ROLE').toUpperCase() as AclSubjectType,
+      subject: String(item?.subject ?? ''),
+      canView: Boolean(item?.canView ?? item?.can_view),
+      canRun: Boolean(item?.canRun ?? item?.can_run),
+      canEdit: Boolean(item?.canEdit ?? item?.can_edit),
+      canDelete: Boolean(item?.canDelete ?? item?.can_delete),
     };
   }
 

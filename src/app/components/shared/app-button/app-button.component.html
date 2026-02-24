@@ -1,0 +1,19 @@
+<button
+  class="app-btn"
+  [class.app-btn--primary]="tone === 'primary'"
+  [class.app-btn--neutral]="tone === 'neutral'"
+  [class.app-btn--danger]="tone === 'danger'"
+  [class.app-btn--solid]="variant === 'solid'"
+  [class.app-btn--outline]="variant === 'outline'"
+  [class.app-btn--ghost]="variant === 'ghost'"
+  [class.app-btn--sm]="size === 'sm'"
+  [class.app-btn--full]="fullWidth"
+  [attr.type]="type"
+  [disabled]="disabled"
+  (click)="onClick($event)"
+>
+  <mat-icon *ngIf="icon && iconPosition === 'left'" class="app-btn__icon">{{ icon }}</mat-icon>
+  <span class="app-btn__label"><ng-content></ng-content></span>
+  <mat-icon *ngIf="icon && iconPosition === 'right'" class="app-btn__icon">{{ icon }}</mat-icon>
+</button>
+

@@ -1,22 +1,22 @@
-<div class="reports-shell" [class.sidebar-collapsed]="sidebarCollapsed">
+<div class="reports-shell" [class.sidebar-collapsed]="sidebarCollapsed" (click)="closeExportMenu()">
   <aside class="tree-panel" *ngIf="!sidebarCollapsed">
     <div class="tree-header">
       <div class="tree-header__row">
         <h3>Visualizador de Relatorios</h3>
-        <button type="button" class="btn btn--neutral btn--icon" (click)="toggleSidebar()">
+        <app-button type="button" class="icon-btn" tone="neutral" variant="outline" size="sm" (pressed)="toggleSidebar()">
           ◀
-        </button>
+        </app-button>
       </div>
       <p>{{ manageMode ? 'Gestão de pastas e consultas' : 'Pastas e consultas' }}</p>
     </div>
 
     <div class="folder-create" *ngIf="manageMode">
-      <button type="button" class="btn btn--primary" (click)="openFolderManager()">
+      <app-button type="button" tone="primary" variant="solid" [fullWidth]="true" (pressed)="openFolderManager()">
         Gerenciar pastas
-      </button>
-      <button type="button" class="btn btn--neutral" (click)="openTemplateManager()">
+      </app-button>
+      <app-button type="button" tone="neutral" variant="outline" [fullWidth]="true" (pressed)="openTemplateManager()">
         Gerenciar templates PDF
-      </button>
+      </app-button>
     </div>
 
     <div class="tree-filter">
@@ -26,17 +26,28 @@
         [ngModelOptions]="{ standalone: true }"
         placeholder="Filtrar relatório ou pasta"
       />
-      <button
+      <app-button
         *ngIf="treeFilter"
         type="button"
-        class="btn btn--neutral tree-clear-filter"
-        (click)="clearTreeFilter()"
+        class="tree-clear-filter"
+        tone="neutral"
+        variant="outline"
+        [fullWidth]="true"
+        (pressed)="clearTreeFilter()"
       >
         Limpar filtro
-      </button>
-      <button type="button" class="btn btn--secondary tree-toggle-all" (click)="toggleAllFoldersExpanded()">
+      </app-button>
+      <app-button
+        type="button"
+        class="tree-toggle-all"
+        tone="neutral"
+        variant="outline"
+        [fullWidth]="true"
+        (pressed)="toggleAllFoldersExpanded()"
+      >
+        <span class="tree-toggle-all__icon" aria-hidden="true">{{ allFilteredFoldersExpanded ? '⤡' : '⤢' }}</span>
         {{ allFilteredFoldersExpanded ? 'Recolher tudo' : 'Expandir tudo' }}
-      </button>
+      </app-button>
     </div>
 
     <div class="tree-list">
@@ -49,23 +60,30 @@
             [class.active]="selectedFolderId === folder.id"
             (click)="selectFolder(folder)"
           >
-            <span class="arrow mini" (click)="$event.stopPropagation(); toggleFolder(folder.id)">
-              {{ folder.expanded ? '▾' : '▸' }}
+            <span
+              class="arrow mini"
+              [class.expanded]="folder.expanded"
+              (click)="$event.stopPropagation(); toggleFolder(folder.id)"
+            >
+              ▸
             </span>
             <span class="folder-name">{{ folder.name }}</span>
             <span class="archived-badge" *ngIf="folder.archived">Arquivado</span>
             <span class="folder-count">{{ reportCountByFolder(folder) }}</span>
           </button>
-          <button
+          <app-button
             *ngIf="manageMode"
             type="button"
-            class="btn btn--neutral btn--icon folder-plus"
-            (click)="openCreateReportForFolder(folder, $event)"
+            class="folder-plus"
+            tone="neutral"
+            variant="outline"
+            size="sm"
+            (pressed)="openCreateReportForFolder(folder, $event)"
             title="Novo relatório nesta pasta"
             aria-label="Novo relatório nesta pasta"
           >
             ＋
-          </button>
+          </app-button>
         </div>
 
         <div class="tree-reports" *ngIf="folder.expanded || hasTreeFilter">
@@ -83,7 +101,19 @@
           <div class="tree-empty" *ngIf="filteredReportsByFolder(folder).length === 0">Sem relatórios</div>
         </div>
       </div>
-      <div class="tree-empty" *ngIf="filteredFolders.length === 0">Nenhum resultado para o filtro.</div>
+      <div class="tree-empty tree-empty--filter" *ngIf="filteredFolders.length === 0">
+        <span>Nenhum relatório encontrado.</span>
+        <app-button
+          *ngIf="treeFilter"
+          type="button"
+          tone="neutral"
+          variant="ghost"
+          size="sm"
+          (pressed)="clearTreeFilter()"
+        >
+          Limpar filtro
+        </app-button>
+      </div>
     </div>
   </aside>
 
@@ -93,14 +123,17 @@
         <div class="title-row">
           <h2>{{ runResult?.name || selectedReport?.name || 'Relatorio' }}</h2>
           <div class="title-actions">
-            <button
+            <app-button
               *ngIf="sidebarCollapsed"
               type="button"
-              class="btn btn--show-sidebar btn--sm"
-              (click)="toggleSidebar()"
+              class="show-sidebar-btn"
+              tone="neutral"
+              variant="outline"
+              size="sm"
+              (pressed)="toggleSidebar()"
             >
               ▶ Mostrar pastas
-            </button>
+            </app-button>
           </div>
         </div>
         <p>{{ selectedReport?.description || 'Selecione um relatorio na arvore.' }}</p>
@@ -108,215 +141,258 @@
 
       <div class="vars-panel" *ngIf="selectedReportVariables.length">
         <div class="vars-title">Parâmetros da consulta</div>
-        <div class="vars-grid">
-          <label class="var-field" *ngFor="let v of selectedReportVariables">
-            <span>{{ v.label || v.key }} <em *ngIf="v.required">*</em></span>
-            <ng-container *ngIf="hasVariableOptions(v); else freeInput">
-              <ng-container *ngIf="!v.multiple; else multipleOptionsSelect">
-                <div class="var-autocomplete-wrap">
-                  <input
-                    matInput
-                    class="var-autocomplete"
-                    type="text"
-                    placeholder="Selecione ou digite para filtrar"
-                    [matAutocomplete]="varAuto"
-                    [ngModel]="variableOptionSearchText[v.key] || ''"
-                    [ngModelOptions]="{ standalone: true }"
-                    (ngModelChange)="onVariableOptionSearchChange(v, $event)"
-                  />
-                  <span
-                    *ngIf="variableOptionsLoading(v)"
-                    class="var-input-loading"
-                    aria-hidden="true"
-                    title="Carregando opções"
-                  ></span>
-                  <button
-                    *ngIf="
-                      !variableOptionsLoading(v) &&
-                      ((variableOptionSearchText[v.key] || '').trim() || (variableInputs[v.key] || '').trim())
-                    "
-                    type="button"
-                    class="var-input-clear"
-                    (mousedown)="$event.preventDefault()"
-                    (click)="clearVariableOption(v)"
-                    title="Limpar seleção"
-                    aria-label="Limpar seleção"
-                  >
-                    ×
-                  </button>
-                </div>
-                <mat-autocomplete
-                  #varAuto="matAutocomplete"
-                  class="report-var-options-panel"
-                  [displayWith]="displayVariableOption"
-                  (optionSelected)="onVariableOptionSelected(v, $event.option.value)"
-                >
-                  <mat-option *ngFor="let opt of filteredVariableOptionItems(v)" [value]="opt">
-                    {{ opt.descricao }}
-                  </mat-option>
-                  <mat-option *ngIf="!filteredVariableOptionItems(v).length" disabled>
-                    Sem opções
-                  </mat-option>
-                </mat-autocomplete>
-              </ng-container>
-              <ng-template #multipleOptionsSelect>
-                <app-reports-multi-select
-                  [options]="variableMultiSelectOptions(v)"
-                  [selectedValues]="variableMultiOptionSelections[v.key] || []"
-                  [placeholder]="'Selecione opções'"
-                  [loading]="variableOptionsLoading(v)"
-                  [disabled]="variableOptionsLoading(v)"
-                  (selectedValuesChange)="onVariableMultipleOptionValuesSelected(v, $event)"
-                ></app-reports-multi-select>
-              </ng-template>
+        <div class="vars-group" *ngIf="primaryReportVariables.length">
+          <div class="vars-group__title">Filtros principais</div>
+          <div class="vars-grid">
+            <ng-container *ngFor="let v of primaryReportVariables">
+              <ng-container *ngTemplateOutlet="variableField; context: { $implicit: v }"></ng-container>
             </ng-container>
-            <ng-template #freeInput>
-              <ng-container *ngIf="v.multiple; else singleValueInput">
-                <textarea
-                  class="var-multi-input"
-                  rows="2"
+          </div>
+        </div>
+        <div class="vars-group" *ngIf="additionalReportVariables.length">
+          <div class="vars-group__title">Filtros adicionais</div>
+          <div class="vars-grid">
+            <ng-container *ngFor="let v of additionalReportVariables">
+              <ng-container *ngTemplateOutlet="variableField; context: { $implicit: v }"></ng-container>
+            </ng-container>
+          </div>
+        </div>
+      </div>
+
+      <ng-template #variableField let-v>
+        <label class="var-field">
+          <span>{{ v.label || v.key }} <em *ngIf="v.required">*</em></span>
+          <ng-container *ngIf="hasVariableOptions(v); else freeInput">
+            <ng-container *ngIf="!v.multiple; else multipleOptionsSelect">
+              <div class="var-autocomplete-wrap">
+                <input
+                  matInput
+                  class="var-autocomplete"
+                  type="text"
+                  placeholder="Selecione ou digite para filtrar"
+                  [matAutocomplete]="varAuto"
+                  [ngModel]="variableOptionSearchText[v.key] || ''"
+                  [ngModelOptions]="{ standalone: true }"
+                  (ngModelChange)="onVariableOptionSearchChange(v, $event)"
+                />
+                <span
+                  *ngIf="variableOptionsLoading(v)"
+                  class="var-input-loading"
+                  aria-hidden="true"
+                  title="Carregando opções"
+                ></span>
+                <button
+                  *ngIf="
+                    !variableOptionsLoading(v) &&
+                    ((variableOptionSearchText[v.key] || '').trim() || (variableInputs[v.key] || '').trim())
+                  "
+                  type="button"
+                  class="var-input-clear"
+                  (mousedown)="$event.preventDefault()"
+                  (click)="clearVariableOption(v)"
+                  title="Limpar seleção"
+                  aria-label="Limpar seleção"
+                >
+                  ×
+                </button>
+              </div>
+              <mat-autocomplete
+                #varAuto="matAutocomplete"
+                class="report-var-options-panel"
+                [displayWith]="displayVariableOption"
+                (optionSelected)="onVariableOptionSelected(v, $event.option.value)"
+              >
+                <mat-option *ngFor="let opt of filteredVariableOptionItems(v)" [value]="opt">
+                  {{ opt.descricao }}
+                </mat-option>
+                <mat-option *ngIf="!filteredVariableOptionItems(v).length" disabled>
+                  Sem opções
+                </mat-option>
+              </mat-autocomplete>
+            </ng-container>
+            <ng-template #multipleOptionsSelect>
+              <app-reports-multi-select
+                [options]="variableMultiSelectOptions(v)"
+                [selectedValues]="variableMultiOptionSelections[v.key] || []"
+                [placeholder]="'Selecione opções'"
+                [loading]="variableOptionsLoading(v)"
+                [disabled]="variableOptionsLoading(v)"
+                (selectedValuesChange)="onVariableMultipleOptionValuesSelected(v, $event)"
+              ></app-reports-multi-select>
+            </ng-template>
+          </ng-container>
+          <ng-template #freeInput>
+            <ng-container *ngIf="v.multiple; else singleValueInput">
+              <textarea
+                class="var-multi-input"
+                rows="2"
+                [(ngModel)]="variableInputs[v.key]"
+                [ngModelOptions]="{ standalone: true }"
+                (ngModelChange)="onVariableInputChanged()"
+                placeholder="Informe múltiplos valores separados por vírgula"
+              ></textarea>
+            </ng-container>
+            <ng-template #singleValueInput>
+              <ng-container [ngSwitch]="v.type">
+                <input
+                  *ngSwitchCase="'date'"
+                  type="date"
                   [(ngModel)]="variableInputs[v.key]"
                   [ngModelOptions]="{ standalone: true }"
                   (ngModelChange)="onVariableInputChanged()"
-                  placeholder="Informe múltiplos valores separados por vírgula"
-                ></textarea>
+                />
+                <input
+                  *ngSwitchCase="'datetime'"
+                  type="datetime-local"
+                  [(ngModel)]="variableInputs[v.key]"
+                  [ngModelOptions]="{ standalone: true }"
+                  (ngModelChange)="onVariableInputChanged()"
+                />
+                <input
+                  *ngSwitchCase="'number'"
+                  type="number"
+                  [(ngModel)]="variableInputs[v.key]"
+                  [ngModelOptions]="{ standalone: true }"
+                  (ngModelChange)="onVariableInputChanged()"
+                />
+                <select
+                  *ngSwitchCase="'boolean'"
+                  [(ngModel)]="variableInputs[v.key]"
+                  [ngModelOptions]="{ standalone: true }"
+                  (ngModelChange)="onVariableInputChanged()"
+                >
+                  <option value="">(padrão)</option>
+                  <option value="true">true</option>
+                  <option value="false">false</option>
+                </select>
+                <input
+                  *ngSwitchDefault
+                  type="text"
+                  [(ngModel)]="variableInputs[v.key]"
+                  [ngModelOptions]="{ standalone: true }"
+                  (ngModelChange)="onVariableInputChanged()"
+                />
               </ng-container>
-              <ng-template #singleValueInput>
-                <ng-container [ngSwitch]="v.type">
-                  <input
-                    *ngSwitchCase="'date'"
-                    type="date"
-                    [(ngModel)]="variableInputs[v.key]"
-                    [ngModelOptions]="{ standalone: true }"
-                    (ngModelChange)="onVariableInputChanged()"
-                  />
-                  <input
-                    *ngSwitchCase="'datetime'"
-                    type="datetime-local"
-                    [(ngModel)]="variableInputs[v.key]"
-                    [ngModelOptions]="{ standalone: true }"
-                    (ngModelChange)="onVariableInputChanged()"
-                  />
-                  <input
-                    *ngSwitchCase="'number'"
-                    type="number"
-                    [(ngModel)]="variableInputs[v.key]"
-                    [ngModelOptions]="{ standalone: true }"
-                    (ngModelChange)="onVariableInputChanged()"
-                  />
-                  <select
-                    *ngSwitchCase="'boolean'"
-                    [(ngModel)]="variableInputs[v.key]"
-                    [ngModelOptions]="{ standalone: true }"
-                    (ngModelChange)="onVariableInputChanged()"
-                  >
-                    <option value="">(padrão)</option>
-                    <option value="true">true</option>
-                    <option value="false">false</option>
-                  </select>
-                  <input
-                    *ngSwitchDefault
-                    type="text"
-                    [(ngModel)]="variableInputs[v.key]"
-                    [ngModelOptions]="{ standalone: true }"
-                    (ngModelChange)="onVariableInputChanged()"
-                  />
-                </ng-container>
-              </ng-template>
             </ng-template>
-          </label>
-        </div>
-      </div>
+          </ng-template>
+        </label>
+      </ng-template>
 
       <p class="params-error" *ngIf="paramsError">{{ paramsError }}</p>
 
       <div class="actions" *ngIf="manageMode">
-        <button type="button" class="btn btn--primary" (click)="applyFilters()">
-          <span class="btn-icon">▶</span> Executar
-        </button>
-        <button type="button" class="btn btn--secondary" (click)="clearAllFilters()">
+        <app-button type="button" tone="primary" variant="solid" (pressed)="applyFilters()" [disabled]="!canRunReport">
+          <span class="btn-icon">▶</span> {{ loadingRun ? 'Executando...' : 'Executar' }}
+        </app-button>
+        <app-button type="button" tone="neutral" variant="ghost" (pressed)="clearAllFilters()">
           Limpar filtros
-        </button>
-        <button type="button" class="btn btn--neutral" (click)="openCreateReportModal()">
-          <span class="btn-icon">＋</span> Novo relatorio
-        </button>
-        <button
+        </app-button>
+        <app-button
+          *ngIf="canWriteReports"
           type="button"
-          class="btn btn--edit"
-          (click)="openEditReportModal()"
+          tone="neutral"
+          variant="outline"
+          (pressed)="openCreateReportModal()"
+        >
+          <span class="btn-icon">＋</span> Novo relatorio
+        </app-button>
+        <app-button
+          *ngIf="canWriteReports"
+          type="button"
+          tone="primary"
+          variant="solid"
+          (pressed)="openEditReportModal()"
           [disabled]="!selectedReport"
         >
           <span class="btn-icon">✎</span> Editar
-        </button>
-        <button
+        </app-button>
+        <app-button
+          *ngIf="canWriteReports"
           type="button"
-          class="btn btn--archive"
-          (click)="archiveSelectedReport()"
+          class="action-archive"
+          tone="neutral"
+          variant="outline"
+          (pressed)="archiveSelectedReport()"
           [disabled]="!selectedReport || !!selectedReport.archived"
         >
           <span class="btn-icon">🗂</span> Arquivar
-        </button>
-        <button
+        </app-button>
+        <app-button
+          *ngIf="canWriteReports"
           type="button"
-          class="btn btn--neutral"
-          (click)="unarchiveSelectedReport()"
+          class="action-unarchive"
+          tone="neutral"
+          variant="outline"
+          (pressed)="unarchiveSelectedReport()"
           [disabled]="!selectedReport || !selectedReport.archived"
         >
           <span class="btn-icon">↺</span> Desarquivar
-        </button>
-        <button
-          type="button"
-          class="btn btn--excel"
-          (click)="exportExcel()"
-          [disabled]="!hasResultRows"
-        >
-          <span class="btn-icon">⤓</span> Exportar Excel
-        </button>
-        <button
-          *ngIf="canExportPdf"
-          type="button"
-          class="btn btn--pdf"
-          (click)="exportPdf()"
-          [disabled]="loadingPdf || !hasRequiredParamsForRun"
-        >
-          <mat-icon class="btn-icon btn-icon--pdf" aria-hidden="true">picture_as_pdf</mat-icon>
-          {{ loadingPdf ? 'Gerando PDF...' : 'Exportar PDF' }}
-        </button>
+        </app-button>
+        <div class="export-menu-wrap" (click)="$event.stopPropagation()">
+          <app-button
+            type="button"
+            class="action-export"
+            tone="neutral"
+            variant="outline"
+            (pressed)="toggleExportMenu($event)"
+            [disabled]="!hasResultRows && !canExportPdf"
+          >
+            <span class="btn-icon">⤓</span> Exportar ▾
+          </app-button>
+          <div class="export-menu" *ngIf="exportMenuOpen">
+            <button type="button" (click)="exportExcel()" [disabled]="!hasResultRows">Excel (.xlsx)</button>
+            <button
+              *ngIf="canExportPdf"
+              type="button"
+              (click)="exportPdf()"
+              [disabled]="loadingPdf || !hasRequiredParamsForRun"
+            >
+              {{ loadingPdf ? 'Gerando PDF...' : 'PDF' }}
+            </button>
+          </div>
+        </div>
       </div>
 
       <div class="actions" *ngIf="!manageMode">
-        <button type="button" class="btn btn--primary" (click)="applyFilters()">
-          <span class="btn-icon">▶</span> Executar
-        </button>
-        <button type="button" class="btn btn--secondary" (click)="clearAllFilters()">
+        <app-button type="button" tone="primary" variant="solid" (pressed)="applyFilters()" [disabled]="!canRunReport">
+          <span class="btn-icon">▶</span> {{ loadingRun ? 'Executando...' : 'Executar' }}
+        </app-button>
+        <app-button type="button" tone="neutral" variant="ghost" (pressed)="clearAllFilters()">
           Limpar filtros
-        </button>
-        <button
-          type="button"
-          class="btn btn--excel"
-          (click)="exportExcel()"
-          [disabled]="!hasResultRows"
-        >
-          <span class="btn-icon">⤓</span> Exportar Excel
-        </button>
-        <button
-          *ngIf="canExportPdf"
-          type="button"
-          class="btn btn--pdf"
-          (click)="exportPdf()"
-          [disabled]="loadingPdf || !hasRequiredParamsForRun"
-        >
-          <mat-icon class="btn-icon btn-icon--pdf" aria-hidden="true">picture_as_pdf</mat-icon>
-          {{ loadingPdf ? 'Gerando PDF...' : 'Exportar PDF' }}
-        </button>
+        </app-button>
+        <div class="export-menu-wrap" (click)="$event.stopPropagation()">
+          <app-button
+            type="button"
+            class="action-export"
+            tone="neutral"
+            variant="outline"
+            (pressed)="toggleExportMenu($event)"
+            [disabled]="!hasResultRows && !canExportPdf"
+          >
+            <span class="btn-icon">⤓</span> Exportar ▾
+          </app-button>
+          <div class="export-menu" *ngIf="exportMenuOpen">
+            <button type="button" (click)="exportExcel()" [disabled]="!hasResultRows">Excel (.xlsx)</button>
+            <button
+              *ngIf="canExportPdf"
+              type="button"
+              (click)="exportPdf()"
+              [disabled]="loadingPdf || !hasRequiredParamsForRun"
+            >
+              {{ loadingPdf ? 'Gerando PDF...' : 'PDF' }}
+            </button>
+          </div>
+        </div>
       </div>
     </section>
 
     <section class="card table-card" *ngIf="runResult as result; else emptyState">
       <div class="table-meta">
-        <span>Total de linhas: <strong>{{ result.meta.rowCount }}</strong></span>
-        <span>Exibindo: <strong>{{ displayedRows.length }}</strong></span>
-        <span *ngIf="result.meta.elapsedMs">Tempo: <strong>{{ result.meta.elapsedMs }} ms</strong></span>
+        <span class="metric-chip">🧾 <strong>{{ result.meta.rowCount }}</strong> linhas</span>
+        <span class="metric-chip" *ngIf="displayedRows.length !== result.meta.rowCount"
+          >📄 exibindo <strong>{{ displayedRows.length }}</strong></span
+        >
+        <span class="metric-chip" *ngIf="result.meta.elapsedMs">⚡ <strong>{{ result.meta.elapsedMs }} ms</strong></span>
       </div>
       <div class="table-wrap">
         <div class="result-loading-overlay" *ngIf="loadingRun" aria-live="polite" aria-busy="true">
@@ -348,7 +424,10 @@
       <span>Executando relatório...</span>
     </div>
     <ng-template #noResultYet>
-      <p class="muted">Nenhum resultado para exibir.</p>
+      <div class="result-empty-state">
+        <strong>🔍 Nenhum resultado ainda.</strong>
+        <p>Ajuste os filtros e clique em <b>Executar</b> para carregar os dados.</p>
+      </div>
     </ng-template>
   </section>
 </ng-template>
@@ -360,10 +439,8 @@
   </div>
   <div class="status-meta" *ngIf="runResult?.meta as meta">
     <span>Ambiente: {{ meta.environment || 'N/A' }}</span>
-    <span>Gerado em: {{ meta.generatedAt || 'N/A' }}</span>
     <span>Última execução: {{ meta.lastRunAt || 'N/A' }}</span>
-    <span>Linhas: {{ meta.rowCount }}</span>
-    <span>Tempo: {{ meta.elapsedMs }} ms</span>
+    <span *ngIf="meta.elapsedMs">Tempo: {{ meta.elapsedMs }} ms</span>
   </div>
 </section>
 
@@ -377,6 +454,10 @@
   [validationInputs]="reportValidationInputs"
   [validationResult]="reportValidationResult"
   [validationError]="reportValidationError"
+  [previewLoading]="loadingReportDraftPreview"
+  [previewError]="reportDraftPreviewError"
+  [previewColumns]="reportDraftPreviewColumns"
+  [previewRows]="reportDraftPreviewRows"
   [folders]="folders"
   [templates]="templates"
   (close)="closeReportModal()"
@@ -385,7 +466,8 @@
   (sqlChanged)="onDraftSqlChanged()"
   (variablesDrop)="onDraftVariablesDrop($event)"
   (validationInputChange)="onReportValidationInputChange($event)"
-  (validate)="validateReportDraftQuery()"
+  (executeTest)="executeReportDraftPreview()"
+  (saveAndTest)="saveAndTestReportFromModal()"
   (save)="saveReportFromModal()"
 ></app-reports-report-modal>
 
@@ -421,6 +503,5 @@
   (selectTemplate)="selectTemplate($event)"
   (fileSelected)="onTemplateManagerFileSelected($event)"
   (deleteTemplate)="deleteTemplateFromManager()"
-  (applyTemplate)="applyTemplateToReport()"
   (saveTemplate)="saveTemplateFromModal()"
 ></app-reports-template-manager-modal>

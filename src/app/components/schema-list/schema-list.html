@@ -7,15 +7,15 @@
   </div>
 
   <div class="schema-buttons">
-    <button
+    <app-button
       *ngFor="let s of schemas"
-      mat-stroked-button
       class="schema-btn"
-      [class.schema-active]="s === selectedSchema"
-      (click)="selectSchema(s)"
+      [tone]="s === selectedSchema ? 'primary' : 'neutral'"
+      [variant]="s === selectedSchema ? 'solid' : 'outline'"
+      (pressed)="selectSchema(s)"
     >
       {{ s }}
-    </button>
+    </app-button>
   </div>
 
   <app-table-list *ngIf="selectedSchema" [schema]="selectedSchema"></app-table-list>

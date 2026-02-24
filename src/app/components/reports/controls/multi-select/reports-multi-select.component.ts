@@ -57,6 +57,14 @@ export class ReportsMultiSelectComponent {
     this.emitSelection([...current]);
   }
 
+  toggleOptionByClick(value: string, event: MouseEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (this.disabled) return;
+    const nextChecked = !this.isChecked(value);
+    this.toggleOption(value, nextChecked);
+  }
+
   selectAllFiltered() {
     const current = new Set(this.selectedValues);
     for (const opt of this.filteredOptions) current.add(opt.value);

@@ -1,7 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
@@ -10,6 +9,7 @@ import {
   EmailScheduleResult,
 } from './email-schedule-dialog';
 import { DbInspectorService, ApiEmailSchedule } from '../../services/db-inspector.service';
+import { AppButtonComponent } from '../shared/app-button/app-button.component';
 
 type EmailSchedule = {
   id: string;
@@ -20,9 +20,7 @@ type EmailSchedule = {
   time: string;
   days: string[];
   active: boolean;
-  createdAt?: string;
   status?: string;
-  cron?: string;
   nextRun?: string;
 };
 
@@ -32,10 +30,10 @@ type EmailSchedule = {
   imports: [
     CommonModule,
     FormsModule,
-    MatButtonModule,
     MatIconModule,
     MatDialogModule,
     MatSnackBarModule,
+    AppButtonComponent,
   ],
   templateUrl: './email-schedules.component.html',
   styleUrls: ['./email-schedules.component.css'],
@@ -43,8 +41,10 @@ type EmailSchedule = {
 export class EmailSchedulesComponent implements OnInit {
   schedules: EmailSchedule[] = [];
   filter = '';
-  loading = false;
-  private expandedSql = new Set<string>();
+  sendingNowIds = new Set<string>();
+  sortBy: 'nextRun' | 'name' | 'status' = 'nextRun';
+  sortDirection: 'asc' | 'desc' = 'asc';
+  openMenuId: string | null = null;
 
   dayLabels: Record<string, string> = {
     mon: 'Seg',
@@ -68,8 +68,9 @@ export class EmailSchedulesComponent implements OnInit {
 
   get filtered(): EmailSchedule[] {
     const q = this.filter.trim().toLowerCase();
-    if (!q) return this.schedules;
-    return this.schedules.filter((s) => {
+    const filtered = !q
+      ? this.schedules
+      : this.schedules.filter((s) => {
       return (
         s.to.toLowerCase().includes(q) ||
         s.cc.toLowerCase().includes(q) ||
@@ -79,21 +80,30 @@ export class EmailSchedulesComponent implements OnInit {
         this.formatDays(s.days).toLowerCase().includes(q)
       );
     });
+
+    const dir = this.sortDirection === 'asc' ? 1 : -1;
+    return [...filtered].sort((a, b) => {
+      if (this.sortBy === 'name') {
+        const left = String(a.subject || '').toLowerCase();
+        const right = String(b.subject || '').toLowerCase();
+        if (left < right) return -1 * dir;
+        if (left > right) return 1 * dir;
+        return 0;
+      }
+      if (this.sortBy === 'status') {
+        const left = this.statusLabel(a).toUpperCase();
+        const right = this.statusLabel(b).toUpperCase();
+        if (left < right) return -1 * dir;
+        if (left > right) return 1 * dir;
+        return 0;
+      }
+      const left = this.nextRunTimestamp(a);
+      const right = this.nextRunTimestamp(b);
+      return (left - right) * dir;
+    });
   }
 
   trackId = (_: number, s: EmailSchedule) => s.id;
-
-  isSqlExpanded(schedule: EmailSchedule): boolean {
-    return this.expandedSql.has(schedule.id);
-  }
-
-  toggleSql(schedule: EmailSchedule) {
-    if (this.expandedSql.has(schedule.id)) {
-      this.expandedSql.delete(schedule.id);
-    } else {
-      this.expandedSql.add(schedule.id);
-    }
-  }
 
   startNew() {
     const dialogRef = this.dialog.open(EmailScheduleDialogComponent, {
@@ -118,7 +128,6 @@ export class EmailSchedulesComponent implements OnInit {
         .subscribe({
           next: (schedule) => {
             this.schedules = [this.toUiSchedule(schedule), ...this.schedules];
-            this.pruneExpandedSql();
             this.snack('Agendado com sucesso.');
           },
           error: () => this.snack('Falha ao agendar.'),
@@ -148,6 +157,7 @@ export class EmailSchedulesComponent implements OnInit {
   }
 
   edit(schedule: EmailSchedule) {
+    this.closeMenu();
     const dialogRef = this.dialog.open(EmailScheduleDialogComponent, {
       width: '1024px',
       maxWidth: '98vw',
@@ -169,7 +179,6 @@ export class EmailSchedulesComponent implements OnInit {
           next: (updated) => {
             const mapped = this.toUiSchedule(updated);
             this.schedules = this.schedules.map((s) => (s.id === updated.id ? mapped : s));
-            this.pruneExpandedSql();
             this.snack('Agendamento atualizado.');
           },
           error: () => this.snack('Falha ao atualizar agendamento.'),
@@ -178,6 +187,7 @@ export class EmailSchedulesComponent implements OnInit {
   }
 
   toggleActive(schedule: EmailSchedule) {
+    this.closeMenu();
     const request = schedule.active
       ? this.api.pauseEmailSchedule(schedule.id)
       : this.api.resumeEmailSchedule(schedule.id);
@@ -198,6 +208,9 @@ export class EmailSchedulesComponent implements OnInit {
   }
 
   sendNow(schedule: EmailSchedule) {
+    if (this.sendingNowIds.has(schedule.id)) return;
+    this.closeMenu();
+    this.sendingNowIds.add(schedule.id);
     this.api
       .sendEmail({
         sql: schedule.sql,
@@ -208,17 +221,23 @@ export class EmailSchedulesComponent implements OnInit {
         withDescription: true,
       })
       .subscribe({
-        next: () => this.snack(`Envio disparado para ${schedule.to}.`),
-        error: () => this.snack('Falha ao enviar agora.'),
+        next: () => {
+          this.sendingNowIds.delete(schedule.id);
+          this.snack(`Envio disparado para ${schedule.to}.`);
+        },
+        error: () => {
+          this.sendingNowIds.delete(schedule.id);
+          this.snack('Falha ao enviar agora.');
+        },
       });
   }
 
   remove(schedule: EmailSchedule) {
+    this.closeMenu();
     if (!confirm('Remover este agendamento?')) return;
     this.api.deleteEmailSchedule(schedule.id).subscribe({
       next: () => {
         this.schedules = this.schedules.filter((s) => s.id !== schedule.id);
-        this.pruneExpandedSql();
         this.snack('Agendamento removido.');
       },
       error: () => this.snack('Falha ao remover agendamento.'),
@@ -233,17 +252,72 @@ export class EmailSchedulesComponent implements OnInit {
       .join(', ');
   }
 
+  formatDaysCompact(days: string[]): string {
+    const order = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+    const normalized = (days || []).filter((d) => order.includes(d));
+    if (!normalized.length) return '-';
+    const weekdays = ['mon', 'tue', 'wed', 'thu', 'fri'];
+    const isWeekdays = weekdays.every((d) => normalized.includes(d)) && normalized.length === weekdays.length;
+    if (isWeekdays) return 'Seg-Sex';
+    const isEveryday = order.every((d) => normalized.includes(d)) && normalized.length === order.length;
+    if (isEveryday) return 'Todos os dias';
+    return this.formatDays(normalized);
+  }
+
+  toggleMenu(id: string) {
+    this.openMenuId = this.openMenuId === id ? null : id;
+  }
+
+  isMenuOpen(id: string): boolean {
+    return this.openMenuId === id;
+  }
+
+  closeMenu() {
+    this.openMenuId = null;
+  }
+
+  statusLabel(s: EmailSchedule): string {
+    const raw = String(s.status || '').toUpperCase();
+    if (raw.includes('RUNNING')) return 'Executando';
+    if (!s.active) return 'Pausado';
+    if (raw.includes('ERROR') || raw.includes('FAILED')) return 'Falhou';
+    const nextRun = this.nextRunTimestamp(s);
+    if (Number.isFinite(nextRun) && nextRun < Date.now() - 60_000) return 'Atrasado';
+    return 'Ativo';
+  }
+
+  formatNextRunShort(value?: string): string {
+    const parsedDate = this.parseScheduleDate(value);
+    if (!parsedDate) return '-';
+    const day = parsedDate.toLocaleDateString('pt-BR', { day: '2-digit' });
+    const month = parsedDate.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '').toLowerCase();
+    const time = parsedDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    return `${day} ${month} ${time}`;
+  }
+
+  nextRunTimezone(value?: string): string {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    const zoneMatch = raw.match(/\[([^\]]+)\]\s*$/);
+    return zoneMatch ? zoneMatch[1] : '';
+  }
+
+  isSendingNow(scheduleId: string): boolean {
+    return this.sendingNowIds.has(scheduleId);
+  }
+
+  private nextRunTimestamp(s: EmailSchedule): number {
+    const parsedDate = this.parseScheduleDate(s.nextRun);
+    return parsedDate ? parsedDate.getTime() : Number.MAX_SAFE_INTEGER;
+  }
+
   private load() {
-    this.loading = true;
     this.api.listEmailSchedules().subscribe({
       next: (schedules) => {
         this.schedules = (schedules || []).map((s) => this.toUiSchedule(s));
-        this.pruneExpandedSql();
-        this.loading = false;
       },
       error: () => {
         this.schedules = [];
-        this.loading = false;
         this.snack('Falha ao carregar agendamentos.');
       },
     });
@@ -262,9 +336,7 @@ export class EmailSchedulesComponent implements OnInit {
       time: api.time,
       days: this.fromApiDays(api.days || []),
       active: this.isActive(api.status),
-      createdAt: api.nextRun || undefined,
       status: api.status,
-      cron: api.cron,
       nextRun: api.nextRun,
     };
   }
@@ -273,15 +345,6 @@ export class EmailSchedulesComponent implements OnInit {
     const value = (status || '').toUpperCase();
     if (!value) return true;
     return value !== 'PAUSED' && value !== 'DISABLED';
-  }
-
-  private pruneExpandedSql() {
-    const ids = new Set(this.schedules.map((s) => s.id));
-    this.expandedSql.forEach((id) => {
-      if (!ids.has(id)) {
-        this.expandedSql.delete(id);
-      }
-    });
   }
 
   private toApiDays(days: string[]): string[] {
@@ -322,5 +385,14 @@ export class EmailSchedulesComponent implements OnInit {
 
   private snack(msg: string) {
     this.snackBar.open(msg, 'OK', { duration: 1800 });
+  }
+
+  private parseScheduleDate(value?: string): Date | null {
+    const raw = String(value || '').trim();
+    if (!raw) return null;
+    const noZoneName = raw.replace(/\[[^\]]+\]\s*$/, '');
+    const parsed = Date.parse(noZoneName);
+    if (Number.isNaN(parsed)) return null;
+    return new Date(parsed);
   }
 }

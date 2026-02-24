@@ -2,7 +2,7 @@
   <header class="header">
     <div>
       <p class="eyebrow">Agenda por SQL</p>
-      <h3>Criar agendamento</h3>
+      <h3>{{ modalTitle }}</h3>
       <p class="muted">Defina quando e para quem enviar o resultado desta consulta.</p>
     </div>
     <button type="button" class="icon-btn" (click)="cancel()" aria-label="Fechar">
@@ -15,82 +15,140 @@
   </header>
 
   <div class="body">
-    <label class="field">
-      <span>SQL</span>
-      <textarea [(ngModel)]="sql" rows="6" placeholder="SELECT * FROM pedidos WHERE status = 'PENDING';"></textarea>
-    </label>
-
-    <div class="grid">
-      <label class="field">
-        <span>Enviar para</span>
-        <input
-          type="text"
-          [(ngModel)]="to"
-          placeholder="email@empresa.com, outro@empresa.com"
-          autocomplete="off"
-        />
-        <small>Separe múltiplos e-mails com vírgula.</small>
-      </label>
-
-      <label class="field">
-        <span>CC (cópia)</span>
-        <input
-          type="text"
-          [(ngModel)]="cc"
-          placeholder="cc@empresa.com, gestor@empresa.com"
-          autocomplete="off"
-        />
-        <small>Opcional: quem deve receber em cópia.</small>
-      </label>
-    </div>
-
-
-    <div class="grid">
-      <label class="field">
-        <span>Assunto</span>
-        <input
-          type="text"
-          [(ngModel)]="subject"
-          placeholder="Relatorio - SQL"
-          autocomplete="off"
-        />
-        <small>Use um texto claro para identificar o relatorio.</small>
-      </label>
-    </div>
-
-    <div class="grid">
-      <label class="field">
-        <span>Horário</span>
-        <input type="time" [(ngModel)]="time" />
-      </label>
-
-      <div class="field">
-        <span>Dias da semana</span>
-        <div class="days">
-          <button
-            type="button"
-            class="day"
-            *ngFor="let d of daysOptions"
-            [class.active]="days.has(d.id)"
-            (click)="toggleDay(d.id)"
-          >
-            {{ d.label }}
-          </button>
-        </div>
-        <small>Escolha em quais dias o SQL será executado.</small>
+    <section class="section">
+      <div class="section-head">
+        <h4>1. Consulta</h4>
+        <button type="button" class="link-btn" (click)="toggleSqlExpanded()">
+          {{ sqlExpanded ? 'Recolher SQL' : 'Expandir SQL' }}
+        </button>
       </div>
-    </div>
+      <div class="sql-preview" *ngIf="!sqlExpanded">
+        <code>{{ sqlSnippet }}</code>
+      </div>
+      <label class="field" *ngIf="sqlExpanded">
+        <span>SQL</span>
+        <textarea [(ngModel)]="sql" rows="5" placeholder="SELECT * FROM pedidos WHERE status = 'PENDING';"></textarea>
+      </label>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h4>2. Destinatários</h4>
+      </div>
+      <div class="grid">
+        <label class="field">
+          <span>Enviar para</span>
+          <div class="chips-input" [class.error]="!!recipientError">
+            <span class="chip" *ngFor="let email of toChips; let i = index">
+              {{ email }}
+              <button type="button" (click)="removeChip('to', i)" aria-label="Remover e-mail">×</button>
+            </span>
+            <input
+              type="text"
+              [(ngModel)]="toInput"
+              placeholder="Digite e-mail e pressione Enter"
+              autocomplete="off"
+              (keydown)="onChipInputKeydown($event, 'to')"
+              (blur)="addToChipFromInput()"
+              (paste)="onChipInputPaste($event, 'to')"
+            />
+          </div>
+          <small class="error-text" *ngIf="recipientError">{{ recipientError }}</small>
+          <small *ngIf="!recipientError">Obrigatório. Você pode adicionar múltiplos e-mails.</small>
+        </label>
+
+        <label class="field">
+          <span>CC (cópia)</span>
+          <div class="chips-input" [class.error]="!!ccError">
+            <span class="chip" *ngFor="let email of ccChips; let i = index">
+              {{ email }}
+              <button type="button" (click)="removeChip('cc', i)" aria-label="Remover e-mail">×</button>
+            </span>
+            <input
+              type="text"
+              [(ngModel)]="ccInput"
+              placeholder="Opcional"
+              autocomplete="off"
+              (keydown)="onChipInputKeydown($event, 'cc')"
+              (blur)="addCcChipFromInput()"
+              (paste)="onChipInputPaste($event, 'cc')"
+            />
+          </div>
+          <small class="error-text" *ngIf="ccError">{{ ccError }}</small>
+          <small *ngIf="!ccError">Opcional: destinatários em cópia.</small>
+        </label>
+      </div>
+
+      <div class="grid">
+        <label class="field">
+          <span>Assunto</span>
+          <input
+            type="text"
+            [(ngModel)]="subject"
+            placeholder="Relatorio - SQL"
+            autocomplete="off"
+          />
+          <small>Use um texto claro para identificar o relatorio.</small>
+        </label>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h4>3. Agendamento</h4>
+      </div>
+      <div class="grid">
+        <label class="field">
+          <span>Horário</span>
+          <input type="time" [(ngModel)]="time" />
+        </label>
+
+        <div class="field">
+          <span>Dias da semana</span>
+          <div class="days-preset">
+            <button type="button" class="preset" [class.active]="currentDayPreset === 'workdays'" (click)="applyDayPreset('workdays')">Dias úteis</button>
+            <button type="button" class="preset" [class.active]="currentDayPreset === 'everyday'" (click)="applyDayPreset('everyday')">Todos os dias</button>
+            <button type="button" class="preset" [class.active]="currentDayPreset === 'weekend'" (click)="applyDayPreset('weekend')">Fins de semana</button>
+          </div>
+          <div class="days">
+            <button
+              type="button"
+              class="day"
+              *ngFor="let d of daysOptions"
+              [class.active]="days.has(d.id)"
+              (click)="toggleDay(d.id)"
+            >
+              {{ d.label }}
+            </button>
+          </div>
+          <small>Selecione os dias em que a consulta será executada.</small>
+        </div>
+      </div>
+
+      <div class="next-run-preview">
+        <strong>Próxima execução:</strong>
+        <span>{{ nextRunPreview }}</span>
+        <small *ngIf="nextRunRelative">({{ nextRunRelative }})</small>
+      </div>
+      <small class="tz-note">Fuso horário: {{ browserTimezone }}</small>
+    </section>
   </div>
 
   <footer class="actions">
-    <button type="button" class="btn btn--secondary" (click)="sendTest()" [disabled]="sendingTest">
-      Enviar teste
-    </button>
-    <button type="button" class="btn btn--secondary" (click)="cancel()">
-      Cancelar
-    </button>
     <button type="button" class="btn btn--primary" [disabled]="!canSave" (click)="save()">
       Salvar agendamento
+    </button>
+    <button
+      type="button"
+      class="btn btn--secondary btn--test"
+      (click)="sendTest()"
+      [disabled]="sendingTest || !canSendTest"
+      title="Envia um e-mail de teste para validar destinatários e assunto"
+    >
+      {{ sendingTest ? 'Enviando teste...' : '✉ Enviar teste' }}
+    </button>
+    <button type="button" class="btn btn--ghost" (click)="cancel()">
+      Cancelar
     </button>
   </footer>
 </div>
