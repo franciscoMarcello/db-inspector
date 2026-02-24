@@ -95,6 +95,10 @@ select {
   margin-bottom: 2px;
 }
 
+.role-empty {
+  padding: 8px 4px;
+}
+
 .role-list {
   display: grid;
   gap: 8px;
@@ -241,7 +245,6 @@ select {
 
 .roles-pick-list {
   display: grid;
-  grid-template-columns: 1fr;
   gap: 2px;
   max-height: 340px;
   overflow: auto;
@@ -326,17 +329,14 @@ select {
   background: transparent;
   border-radius: 6px;
   padding: 1px 6px;
-  margin-right: 0;
   min-width: 0;
   min-height: 32px;
-  line-height: 1;
   column-gap: 6px;
 }
 
 .permission-option input[type='checkbox'] {
   margin: 0;
   flex: 0 0 auto;
-  min-width: 0;
 }
 
 .permission-option:hover {
@@ -355,9 +355,7 @@ select {
   align-items: center;
   gap: 6px;
   width: 100%;
-  flex: 1;
   min-width: 0;
-  line-height: 1;
 }
 
 .permission-option__label {
@@ -558,18 +556,6 @@ select {
   align-items: center;
   justify-content: space-between;
   gap: 6px;
-}
-
-.acl-tree-folder--allow .acl-tree-folder-head {
-  background: color-mix(in srgb, var(--brand) 10%, var(--bg-surface));
-}
-
-.acl-tree-folder--deny .acl-tree-folder-head {
-  background: color-mix(in srgb, var(--brand) 10%, var(--bg-surface));
-}
-
-.acl-tree-folder--mixed .acl-tree-folder-head {
-  background: color-mix(in srgb, var(--brand) 10%, var(--bg-surface));
 }
 
 .acl-tree-folder-toggle {
@@ -778,14 +764,6 @@ select {
   border-top-color: #d7dde8;
 }
 
-:host-context(.light-theme) .permission-group__title {
-  color: #0f172a;
-}
-
-:host-context(.light-theme) .permission-group__title::after {
-  border-top-color: #d7dde8;
-}
-
 :host-context(.light-theme) .permission-group-action {
   background: #f8fafc;
   border-color: #cbd5e1;
@@ -807,15 +785,6 @@ select {
 :host-context(.light-theme) .permission-option:hover {
   border-color: #cbd5e1;
   background: #f8fafc;
-}
-
-:host-context(.light-theme) .permission-option__label {
-  color: #0f172a;
-}
-
-:host-context(.light-theme) .permission-option__code {
-  color: #475569;
-  opacity: 0.88;
 }
 
 @media (max-width: 900px) {
