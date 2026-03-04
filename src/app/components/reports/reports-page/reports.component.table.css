@@ -120,6 +120,19 @@ tbody tr:hover {
   font-size: 13px;
 }
 
+.table-more-actions {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.table-more-hint {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
 .status-line {
   display: flex;
   gap: 12px;
