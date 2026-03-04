@@ -8,7 +8,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 import { ActivatedRoute } from '@angular/router';
-import { catchError, forkJoin, of } from 'rxjs';
+import { catchError, firstValueFrom, forkJoin, of } from 'rxjs';
 import {
   JasperTemplateResponse,
   ReportDefinition,
@@ -95,7 +95,10 @@ export class ReportsComponent
   statusMessage = '';
   paramsError = '';
   loadingRun = false;
+  loadingMoreRows = false;
+  loadingAllRows = false;
   loadingPdf = false;
+  loadingExcel = false;
   exportMenuOpen = false;
   manageMode = false;
   sidebarCollapsed = false;
@@ -131,6 +134,10 @@ export class ReportsComponent
   private pendingCreateSql: string | null = null;
   private optionsReloadTimer: ReturnType<typeof setTimeout> | null = null;
   optionsParamsSignatureByKey: Record<string, string> = {};
+  private readonly reportPageSize = 500;
+  private lastRunParams: Record<string, unknown> | null = null;
+  private lastRunReportId: string | null = null;
+  private lastLoadedPage = -1;
   private readonly folderTemplateLogic: ReportsFolderTemplateLogic;
   private readonly treeLogic: ReportsTreeLogic;
   private readonly variableOptionsLogic: ReportsVariableOptionsLogic;
@@ -179,6 +186,24 @@ export class ReportsComponent
   get hasResultRows(): boolean {
     const metaCount = Number(this.runResult?.meta?.rowCount ?? 0);
     return metaCount > 0 && this.displayedRows.length > 0;
+  }
+
+  get canLoadMoreRows(): boolean {
+    const result = this.runResult;
+    if (!result?.meta?.truncated) return false;
+    const rowCount = Number(result.meta?.rowCount ?? 0);
+    if (rowCount > 0 && this.displayedRows.length >= rowCount) return false;
+    if (!this.selectedReportId) return false;
+    return !this.loadingRun && !this.loadingMoreRows && !this.loadingAllRows;
+  }
+
+  get canLoadAllRows(): boolean {
+    const result = this.runResult;
+    if (!result?.meta?.truncated) return false;
+    const rowCount = Number(result.meta?.rowCount ?? 0);
+    if (rowCount > 0 && this.displayedRows.length >= rowCount) return false;
+    if (!this.selectedReportId) return false;
+    return !this.loadingRun && !this.loadingMoreRows && !this.loadingAllRows;
   }
 
   get canExportPdf(): boolean {
@@ -361,6 +386,77 @@ export class ReportsComponent
     this.runSelectedReport();
   }
 
+  loadMoreResults() {
+    if (!this.canLoadMoreRows || !this.selectedReportId || !this.runResult) return;
+
+    const reportId = this.selectedReportId;
+    const params = this.resolveParamsForPagination(reportId);
+    if (params === null) return;
+
+    const nextPage = this.lastLoadedPage >= 0 ? this.lastLoadedPage + 1 : 1;
+
+    this.loadingMoreRows = true;
+    this.reportService
+      .runReportWithParamsAndOptions(reportId, params, {
+        safe: false,
+        page: nextPage,
+        size: this.reportPageSize,
+      })
+      .subscribe({
+        next: (res) => {
+          const merged = this.mergePagedResult(res, nextPage);
+          this.loadingMoreRows = false;
+
+          if (!merged.madeProgress) {
+            this.setStatusMessage(
+              'Nenhuma nova linha foi carregada. A paginação do backend pode estar retornando páginas repetidas.'
+            );
+          }
+        },
+        error: (err) => {
+          this.loadingMoreRows = false;
+          this.statusMessage = this.resolveAclAwareError(err, 'Falha ao carregar mais resultados.');
+        },
+      });
+  }
+
+  async loadAllResults() {
+    if (!this.canLoadAllRows || !this.selectedReportId || !this.runResult) return;
+
+    const reportId = this.selectedReportId;
+    const params = this.resolveParamsForPagination(reportId);
+    if (params === null) return;
+
+    this.loadingAllRows = true;
+    try {
+      this.setStatusMessage('Carregando todas as linhas do relatório...');
+      const res = await firstValueFrom(
+        this.reportService.runReportAllWithParams(reportId, params, false)
+      );
+      const rows = Array.isArray(res.rows) ? res.rows : [];
+      const totalRows = Number(res.meta?.rowCount ?? rows.length);
+
+      this.paramsError = '';
+      this.runResult = {
+        ...res,
+        rows,
+        meta: {
+          ...res.meta,
+          rowCount: totalRows > 0 ? totalRows : rows.length,
+          truncated: false,
+          page: 0,
+          size: rows.length,
+        },
+      };
+      this.lastLoadedPage = 0;
+      this.setStatusMessage(`Carga completa concluída (${rows.length} linhas).`, 2500);
+    } catch (err) {
+      this.statusMessage = this.resolveAclAwareError(err, 'Falha ao carregar todos os resultados.');
+    } finally {
+      this.loadingAllRows = false;
+    }
+  }
+
   clearAllFilters() {
     const next = buildClearedFilterState(this.selectedReportVariables, this.variableOptionSearchText);
     this.variableInputs = next.inputs;
@@ -473,10 +569,31 @@ export class ReportsComponent
   exportExcel() {
     this.closeExportMenu();
     const result = this.runResult;
-    if (!result) return;
-    const blob = createXlsxBlob(result.columns, result.rows || []);
-    this.downloadBlob(blob, `${normalizeFileName(result.name)}.xlsx`);
-    this.setStatusMessage(`Exportacao Excel concluida para "${result.name}".`, 2500);
+    const report = this.selectedReport;
+    if (!result || !report?.id) return;
+
+    this.loadingExcel = true;
+    const params = this.buildRunParams();
+    if (params === null) {
+      this.loadingExcel = false;
+      return;
+    }
+
+    firstValueFrom(this.reportService.runReportAllWithParams(report.id, params, false))
+      .then((fullResult) => {
+        this.loadingExcel = false;
+        const exportedRows = fullResult.rows || [];
+        const blob = createXlsxBlob(fullResult.columns || result.columns || [], exportedRows);
+        this.downloadBlob(blob, `${normalizeFileName(fullResult.name || result.name)}.xlsx`);
+        this.setStatusMessage(
+          `Exportacao Excel concluida para "${fullResult.name || result.name}" (${exportedRows.length} linhas).`,
+          3000
+        );
+      })
+      .catch((err) => {
+        this.loadingExcel = false;
+        this.setStatusMessage(this.resolveRequestError(err, 'Falha ao exportar Excel.'));
+      });
   }
 
   exportPdf() {
@@ -575,24 +692,42 @@ export class ReportsComponent
   private runSelectedReport() {
     if (!this.selectedReportId) {
       this.runResult = null;
+      this.lastRunParams = null;
+      this.lastRunReportId = null;
+      this.lastLoadedPage = -1;
       return;
     }
 
     const params = this.buildRunParams();
     if (params === null) {
       this.runResult = null;
+      this.lastRunParams = null;
+      this.lastRunReportId = null;
+      this.lastLoadedPage = -1;
       return;
     }
 
     this.loadingRun = true;
-    this.reportService.runReportWithParams(this.selectedReportId, params).subscribe({
+    this.loadingMoreRows = false;
+    this.loadingAllRows = false;
+    this.reportService.runReportWithParamsAndOptions(this.selectedReportId, params, {
+      safe: false,
+      page: 0,
+      size: this.reportPageSize,
+    }).subscribe({
       next: (res) => {
         this.paramsError = '';
         this.runResult = res;
+        this.lastRunParams = { ...params };
+        this.lastRunReportId = this.selectedReportId;
+        this.lastLoadedPage = Number.isFinite(Number(res.meta?.page)) ? Number(res.meta?.page) : 0;
         this.loadingRun = false;
       },
       error: (err) => {
         this.runResult = null;
+        this.lastRunParams = null;
+        this.lastRunReportId = null;
+        this.lastLoadedPage = -1;
         this.loadingRun = false;
         this.statusMessage = this.resolveAclAwareError(err, 'Falha ao executar relatorio.');
       },
@@ -658,6 +793,11 @@ export class ReportsComponent
 
     if (!this.selectedReportId) {
       this.runResult = null;
+      this.lastRunParams = null;
+      this.lastRunReportId = null;
+      this.lastLoadedPage = -1;
+      this.loadingMoreRows = false;
+      this.loadingAllRows = false;
       this.variableOptions = {};
       this.loadingVariableOptions = {};
       this.optionsParamsSignatureByKey = {};
@@ -667,6 +807,11 @@ export class ReportsComponent
     this.initVariableInputs();
     this.reloadVariableOptions();
     this.runResult = null;
+    this.lastRunParams = null;
+    this.lastRunReportId = null;
+    this.lastLoadedPage = -1;
+    this.loadingMoreRows = false;
+    this.loadingAllRows = false;
   }
 
   private downloadBlob(blob: Blob, fileName: string) {
@@ -762,6 +907,51 @@ export class ReportsComponent
     return result.params ?? {};
   }
 
+  private resolveParamsForPagination(reportId: string): Record<string, unknown> | null {
+    if (this.lastRunReportId === reportId && this.lastRunParams) return this.lastRunParams;
+    return this.buildRunParams();
+  }
+
+  private mergePagedResult(
+    res: ReportRunResponse,
+    page: number
+  ): { madeProgress: boolean; done: boolean; total: number; loaded: number } {
+    const previousRows = Array.isArray(this.runResult?.rows) ? this.runResult.rows : [];
+    const nextRows = Array.isArray(res?.rows) ? res.rows : [];
+    const totalRows = Number(res.meta?.rowCount ?? previousRows.length + nextRows.length);
+    let mergedRows = [...previousRows, ...nextRows];
+    if (totalRows > 0 && mergedRows.length > totalRows) {
+      mergedRows = mergedRows.slice(0, totalRows);
+    }
+
+    const madeProgress = mergedRows.length > previousRows.length;
+    const hasMoreByCount = totalRows > 0 && mergedRows.length < totalRows;
+    const hasMoreByApi = Boolean(res.meta?.truncated);
+    const truncated = madeProgress ? hasMoreByApi && hasMoreByCount : false;
+
+    this.paramsError = '';
+    this.runResult = {
+      ...res,
+      columns: res.columns?.length ? res.columns : this.runResult?.columns || [],
+      rows: mergedRows,
+      meta: {
+        ...res.meta,
+        page,
+        rowCount: totalRows > 0 ? totalRows : mergedRows.length,
+        size: this.reportPageSize,
+        truncated,
+      },
+    };
+    this.lastLoadedPage = page;
+
+    return {
+      madeProgress,
+      done: !truncated,
+      total: totalRows > 0 ? totalRows : mergedRows.length,
+      loaded: mergedRows.length,
+    };
+  }
+
   private syncDraftVariablesFromSql(existing: Array<Partial<DraftVariable>> = []) {
     this.reportDraftVariables = detectDraftVariables(this.reportDraft.sql, existing);
   }
@@ -846,4 +1036,5 @@ export class ReportsComponent
   private consumePendingSql(): string | null {
     return consumeStoredText(REPORT_DRAFT_SQL_KEY);
   }
+
 }

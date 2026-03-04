@@ -340,7 +340,9 @@
             <span class="btn-icon">⤓</span> Exportar ▾
           </app-button>
           <div class="export-menu" *ngIf="exportMenuOpen">
-            <button type="button" (click)="exportExcel()" [disabled]="!hasResultRows">Excel (.xlsx)</button>
+            <button type="button" (click)="exportExcel()" [disabled]="!hasResultRows || loadingExcel">
+              {{ loadingExcel ? 'Gerando Excel...' : 'Excel (.xlsx)' }}
+            </button>
             <button
               *ngIf="canExportPdf"
               type="button"
@@ -372,7 +374,9 @@
             <span class="btn-icon">⤓</span> Exportar ▾
           </app-button>
           <div class="export-menu" *ngIf="exportMenuOpen">
-            <button type="button" (click)="exportExcel()" [disabled]="!hasResultRows">Excel (.xlsx)</button>
+            <button type="button" (click)="exportExcel()" [disabled]="!hasResultRows || loadingExcel">
+              {{ loadingExcel ? 'Gerando Excel...' : 'Excel (.xlsx)' }}
+            </button>
             <button
               *ngIf="canExportPdf"
               type="button"
@@ -392,6 +396,7 @@
         <span class="metric-chip" *ngIf="displayedRows.length !== result.meta.rowCount"
           >📄 exibindo <strong>{{ displayedRows.length }}</strong></span
         >
+        <span class="metric-chip">📦 lote <strong>{{ result.meta.size || 500 }}</strong></span>
         <span class="metric-chip" *ngIf="result.meta.elapsedMs">⚡ <strong>{{ result.meta.elapsedMs }} ms</strong></span>
       </div>
       <div class="table-wrap">
@@ -412,6 +417,29 @@
             </tr>
           </tbody>
         </table>
+      </div>
+      <div class="table-more-actions" *ngIf="result.meta.truncated || loadingMoreRows || loadingAllRows">
+        <app-button
+          type="button"
+          tone="neutral"
+          variant="outline"
+          (pressed)="loadMoreResults()"
+          [disabled]="!canLoadMoreRows"
+        >
+          {{ loadingMoreRows ? 'Carregando mais resultados...' : 'Carregar mais resultados' }}
+        </app-button>
+        <app-button
+          type="button"
+          tone="neutral"
+          variant="outline"
+          (pressed)="loadAllResults()"
+          [disabled]="!canLoadAllRows"
+        >
+          {{ loadingAllRows ? 'Carregando todos os resultados...' : 'Carregar todos os resultados' }}
+        </app-button>
+        <span class="table-more-hint" *ngIf="!loadingMoreRows && !loadingAllRows">
+          Existem mais linhas disponíveis no relatório.
+        </span>
       </div>
     </section>
   </main>

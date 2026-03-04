@@ -118,6 +118,8 @@ export type ReportRunResponse = {
     environment: string;
     generatedAt: string;
     lastRunAt: string;
+    page: number;
+    size: number;
     rowCount: number;
     elapsedMs: number;
     truncated: boolean;
@@ -126,6 +128,12 @@ export type ReportRunResponse = {
   columns: string[];
   rows: Record<string, unknown>[];
   summaries: ReportRunSummary[];
+};
+
+export type ReportRunRequestOptions = {
+  safe?: boolean;
+  page?: number;
+  size?: number;
 };
 
 export type ReportVariableOption = {
@@ -254,6 +262,30 @@ export class ReportService {
   ): Observable<ReportRunResponse> {
     const body = params && Object.keys(params).length ? { params } : null;
     return this.http.post<ReportRunResponse>(`${this.base}/reports/${encodeURIComponent(id)}/run`, body);
+  }
+
+  runReportWithParamsAndOptions(
+    id: string,
+    params?: Record<string, unknown> | null,
+    options?: ReportRunRequestOptions
+  ): Observable<ReportRunResponse> {
+    const body: Record<string, unknown> = {};
+    if (params && Object.keys(params).length) body['params'] = params;
+    if (options?.safe !== undefined) body['safe'] = options.safe;
+    if (options?.page !== undefined) body['page'] = options.page;
+    if (options?.size !== undefined) body['size'] = options.size;
+    return this.http.post<ReportRunResponse>(`${this.base}/reports/${encodeURIComponent(id)}/run`, body);
+  }
+
+  runReportAllWithParams(
+    id: string,
+    params?: Record<string, unknown> | null,
+    safe?: boolean
+  ): Observable<ReportRunResponse> {
+    const body: Record<string, unknown> = {};
+    if (params && Object.keys(params).length) body['params'] = params;
+    if (safe !== undefined) body['safe'] = safe;
+    return this.http.post<ReportRunResponse>(`${this.base}/reports/${encodeURIComponent(id)}/run/all`, body);
   }
 
   listVariableOptions(
