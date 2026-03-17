@@ -713,6 +713,10 @@ export class AdminUsersPermissionsAclComponent implements OnInit {
         );
       }
       for (const reportNode of folderNode.reports) {
+        if (reportNode.originalRule === null) {
+          const inheritedAllowed = this.ruleToAllowed(folderNode.originalRule);
+          if (reportNode.allowed === inheritedAllowed) continue;
+        }
         requests.push(...this.buildAclRequestsForTarget('REPORT', reportNode.id, role, reportNode.originalRule, reportNode.allowed));
       }
     }
