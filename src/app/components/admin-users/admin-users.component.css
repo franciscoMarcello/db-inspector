@@ -87,6 +87,42 @@
   line-height: 1.35;
 }
 
+.password-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-input-wrap input {
+  flex: 1;
+  padding-right: 38px;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--text-muted);
+  min-height: unset;
+  border-radius: 4px;
+}
+
+.password-toggle:hover {
+  color: var(--text-primary);
+}
+
+.password-toggle mat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+}
+
 input,
 select {
   min-height: 36px;
@@ -335,6 +371,12 @@ select {
 .meta {
   color: #64748b;
   font-size: 12px;
+}
+
+.password-modal-email {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-primary);
 }
 
 .user-id {

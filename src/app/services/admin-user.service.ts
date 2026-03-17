@@ -64,15 +64,21 @@ export class AdminUserService {
   }
 
   setUserActive(id: string, active: boolean): Observable<AdminUser> {
-    return this.http.patch<AdminUser>(`${this.base}/users/${encodeURIComponent(id)}/active`, { active });
+    return this.http.patch<AdminUser>(`${this.base}/users/${encodeURIComponent(id)}/active`, {
+      active,
+    });
   }
 
   addUserRole(id: string, role: string): Observable<AdminUser> {
-    return this.http.post<AdminUser>(`${this.base}/users/${encodeURIComponent(id)}/roles`, { role });
+    return this.http.post<AdminUser>(`${this.base}/users/${encodeURIComponent(id)}/roles`, {
+      role,
+    });
   }
 
   removeUserRole(id: string, role: string): Observable<AdminUser> {
-    return this.http.delete<AdminUser>(`${this.base}/users/${encodeURIComponent(id)}/roles/${encodeURIComponent(role)}`);
+    return this.http.delete<AdminUser>(
+      `${this.base}/users/${encodeURIComponent(id)}/roles/${encodeURIComponent(role)}`,
+    );
   }
 
   listRoles(): Observable<AdminRole[]> {
@@ -104,7 +110,10 @@ export class AdminUserService {
   }
 
   revokeRefreshTokens(id: string): Observable<void> {
-    return this.http.post<void>(`${this.base}/users/${encodeURIComponent(id)}/revoke-refresh-tokens`, {});
+    return this.http.post<void>(
+      `${this.base}/users/${encodeURIComponent(id)}/revoke-refresh-tokens`,
+      {},
+    );
   }
 
   updateUserPassword(id: string, payload: UpdateAdminUserPasswordInput): Observable<void> {

@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Observable, forkJoin } from 'rxjs';
 import { ActivatedRoute } from '@angular/router';
+import { MatIconModule } from '@angular/material/icon';
 import { MultiSelectOption, ReportsMultiSelectComponent } from '../reports/controls/multi-select/reports-multi-select.component';
 import { AppButtonComponent } from '../shared/app-button/app-button.component';
 import { AdminUsersPermissionsAclComponent } from './permissions-acl/admin-users-permissions-acl.component';
@@ -12,7 +13,7 @@ import { AdminRole, AdminUser, AdminUserService } from '../../services/admin-use
 @Component({
   selector: 'app-admin-users',
   standalone: true,
-  imports: [CommonModule, FormsModule, ReportsMultiSelectComponent, AppButtonComponent, AdminUsersPermissionsAclComponent],
+  imports: [CommonModule, FormsModule, MatIconModule, ReportsMultiSelectComponent, AppButtonComponent, AdminUsersPermissionsAclComponent],
   templateUrl: './admin-users.component.html',
   styleUrls: ['./admin-users.component.css'],
 })
@@ -60,6 +61,7 @@ export class AdminUsersComponent implements OnInit {
   passwordModalOpen = false;
   passwordModalSaving = false;
   passwordModalValue = '';
+  passwordModalVisible = false;
   passwordModalUser: AdminUser | null = null;
 
   adminSection: 'USERS' | 'PERMISSIONS' = 'USERS';
@@ -565,6 +567,7 @@ export class AdminUsersComponent implements OnInit {
     this.status = '';
     this.passwordModalUser = user;
     this.passwordModalValue = '';
+    this.passwordModalVisible = false;
     this.passwordModalOpen = true;
   }
 
@@ -572,6 +575,7 @@ export class AdminUsersComponent implements OnInit {
     this.passwordModalOpen = false;
     this.passwordModalUser = null;
     this.passwordModalValue = '';
+    this.passwordModalVisible = false;
   }
 
   submitPasswordReset() {
