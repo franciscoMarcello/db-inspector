@@ -4,6 +4,7 @@ import { QueryRunnerComponent } from './components/query-runner/query-runner';
 import { EmailSchedulesComponent } from './components/email-schedules/email-schedules.component';
 import { ReportsComponent } from './components/reports/reports-page/reports.component';
 import { LoginComponent } from './components/login/login.component';
+import { PasswordResetComponent } from './components/password-reset/password-reset.component';
 import { AdminUsersComponent } from './components/admin-users/admin-users.component';
 import { authGuard } from './guards/auth.guard';
 import { adminGuard } from './guards/admin.guard';
@@ -18,6 +19,7 @@ import { noAuthGuard } from './guards/no-auth.guard';
 export const routes: Routes = [
   { path: '', redirectTo: 'schemas', pathMatch: 'full' },
   { path: 'login', component: LoginComponent, canActivate: [noAuthGuard] },
+  { path: 'reset-password', component: PasswordResetComponent, canActivate: [noAuthGuard] },
   { path: 'schemas', component: SchemaListComponent, canActivate: [sqlMetadataReadGuard] },
   { path: 'query', component: QueryRunnerComponent, canActivate: [sqlQueryExecuteGuard] },
   { path: 'schedules', component: EmailSchedulesComponent, canActivate: [emailSchedulesGuard] },
