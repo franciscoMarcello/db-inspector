@@ -549,6 +549,20 @@ export class AdminUsersComponent implements OnInit {
     });
   }
 
+  sendPasswordResetEmail(user: AdminUser) {
+    this.closeUserRowMenu();
+    this.error = '';
+    this.status = '';
+    this.auth.requestPasswordReset(user.email).subscribe({
+      next: () => {
+        this.status = `E-mail de redefinição de senha enviado para ${user.email}.`;
+      },
+      error: (err) => {
+        this.error = this.messageFromError(err, 'Falha ao enviar e-mail de redefinição.');
+      },
+    });
+  }
+
   revokeRefreshTokens(user: AdminUser) {
     this.closeUserRowMenu();
     this.api.revokeRefreshTokens(user.id).subscribe({

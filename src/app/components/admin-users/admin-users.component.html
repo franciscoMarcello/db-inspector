@@ -168,6 +168,7 @@
                   <button type="button" class="row-menu-trigger" (click)="$event.stopPropagation(); toggleUserRowMenu(user.id)">⋯</button>
                   <div class="row-menu" *ngIf="isUserRowMenuOpen(user.id)" (click)="$event.stopPropagation()">
                     <button type="button" (click)="openPasswordModal(user)">Redefinir senha</button>
+                    <button type="button" (click)="sendPasswordResetEmail(user)">Enviar link de redefinição</button>
                     <button type="button" (click)="revokeRefreshTokens(user)">Revogar refresh</button>
                     <button type="button" *ngIf="!user.active" (click)="setUserActiveQuick(user, true)">Ativar usuário</button>
                     <button type="button" *ngIf="user.active" (click)="setUserActiveQuick(user, false)">Desativar usuário</button>
