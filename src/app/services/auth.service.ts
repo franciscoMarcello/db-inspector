@@ -232,6 +232,14 @@ export class AuthService {
     return this.refreshInFlight$;
   }
 
+  requestPasswordReset(email: string): Observable<void> {
+    return this.http.post<void>(`${this.authBase()}/password-reset/request`, { email });
+  }
+
+  confirmPasswordReset(token: string, newPassword: string): Observable<void> {
+    return this.http.post<void>(`${this.authBase()}/password-reset/confirm`, { token, newPassword });
+  }
+
   logout(): Observable<void> {
     const refreshToken = this.getRefreshToken();
     if (!refreshToken) {
