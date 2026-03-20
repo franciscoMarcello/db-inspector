@@ -284,6 +284,16 @@
         <app-button type="button" tone="primary" variant="solid" (pressed)="applyFilters()" [disabled]="!canRunReport">
           <span class="btn-icon">▶</span> {{ loadingRun ? 'Executando...' : 'Executar' }}
         </app-button>
+        <app-button
+          *ngIf="selectedReport?.secondSql"
+          type="button"
+          tone="neutral"
+          variant="outline"
+          (pressed)="compareSelectedReport()"
+          [disabled]="loadingCompare || !canRunReport"
+        >
+          {{ loadingCompare ? 'Comparando...' : 'Comparar SAP' }}
+        </app-button>
         <app-button type="button" tone="neutral" variant="ghost" (pressed)="clearAllFilters()">
           Limpar filtros
         </app-button>
@@ -358,6 +368,16 @@
       <div class="actions" *ngIf="!manageMode">
         <app-button type="button" tone="primary" variant="solid" (pressed)="applyFilters()" [disabled]="!canRunReport">
           <span class="btn-icon">▶</span> {{ loadingRun ? 'Executando...' : 'Executar' }}
+        </app-button>
+        <app-button
+          *ngIf="selectedReport?.secondSql"
+          type="button"
+          tone="neutral"
+          variant="outline"
+          (pressed)="compareSelectedReport()"
+          [disabled]="loadingCompare || !canRunReport"
+        >
+          {{ loadingCompare ? 'Comparando...' : 'Comparar SAP' }}
         </app-button>
         <app-button type="button" tone="neutral" variant="ghost" (pressed)="clearAllFilters()">
           Limpar filtros
@@ -441,6 +461,142 @@
           Existem mais linhas disponíveis no relatório.
         </span>
       </div>
+    </section>
+
+    <section class="card table-card compare-card" *ngIf="compareResult as cmp">
+      <div class="table-meta">
+        <span class="metric-chip">Sistema: <strong>{{ cmp.source1.rowCount }}</strong> linhas</span>
+        <span class="metric-chip">SAP HANA: <strong>{{ cmp.source2.rowCount }}</strong> linhas</span>
+        <ng-container *ngIf="cmp.diff">
+          <span class="metric-chip compare-chip--ok">Iguais: <strong>{{ cmp.diff.equalCount }}</strong></span>
+          <span class="metric-chip compare-chip--diff" *ngIf="cmp.diff.differentCount">
+            Com divergências: <strong>{{ cmp.diff.differentCount }}</strong>
+          </span>
+          <span class="metric-chip compare-chip--warn" *ngIf="cmp.diff.onlyInSource1.length">
+            Pendentes no SAP: <strong>{{ cmp.diff.onlyInSource1.length }}</strong>
+          </span>
+          <span class="metric-chip compare-chip--warn" *ngIf="cmp.diff.onlyInSource2.length">
+            Só no SAP: <strong>{{ cmp.diff.onlyInSource2.length }}</strong>
+          </span>
+        </ng-container>
+      </div>
+
+      <ng-container *ngIf="!cmp.diff">
+        <div class="compare-sources">
+          <div class="compare-source">
+            <div class="compare-source__label">{{ cmp.source1.label }} ({{ cmp.source1.rowCount }} linhas)</div>
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr><th *ngFor="let col of cmp.source1.columns">{{ col }}</th></tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let row of cmp.source1.rows">
+                    <td *ngFor="let col of cmp.source1.columns">{{ row[col] }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="compare-source">
+            <div class="compare-source__label">{{ cmp.source2.label }} ({{ cmp.source2.rowCount }} linhas)</div>
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr><th *ngFor="let col of cmp.source2.columns">{{ col }}</th></tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let row of cmp.source2.rows">
+                    <td *ngFor="let col of cmp.source2.columns">{{ row[col] }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </ng-container>
+
+      <ng-container *ngIf="cmp.diff">
+        <div class="compare-sources" *ngIf="cmp.diff.onlyInSource1.length || cmp.diff.onlyInSource2.length">
+          <div class="compare-source">
+            <div class="compare-source__label compare-source__label--warn">
+              {{ cmp.source1.label }} — pendentes no SAP ({{ cmp.diff.onlyInSource1.length }})
+            </div>
+            <div class="table-wrap" *ngIf="cmp.diff.onlyInSource1.length; else diffEmpty1">
+              <table class="data-table">
+                <thead>
+                  <tr><th *ngFor="let col of cmp.source1.columns">{{ col }}</th></tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let row of cmp.diff.onlyInSource1">
+                    <td *ngFor="let col of cmp.source1.columns">{{ row[col] }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <ng-template #diffEmpty1>
+              <div class="compare-all-synced">Nenhum pendente.</div>
+            </ng-template>
+          </div>
+          <div class="compare-source">
+            <div class="compare-source__label compare-source__label--warn">
+              {{ cmp.source2.label }} — sem correspondência no sistema ({{ cmp.diff.onlyInSource2.length }})
+            </div>
+            <div class="table-wrap" *ngIf="cmp.diff.onlyInSource2.length; else diffEmpty2">
+              <table class="data-table">
+                <thead>
+                  <tr><th *ngFor="let col of cmp.source2.columns">{{ col }}</th></tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let row of cmp.diff.onlyInSource2">
+                    <td *ngFor="let col of cmp.source2.columns">{{ row[col] }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <ng-template #diffEmpty2>
+              <div class="compare-all-synced">Nenhum pendente.</div>
+            </ng-template>
+          </div>
+        </div>
+        <div class="compare-all-synced" *ngIf="!cmp.diff.onlyInSource1.length && !cmp.diff.onlyInSource2.length && !cmp.diff.differentCount">
+          Todos os {{ cmp.diff.equalCount }} registros estão sincronizados e iguais.
+        </div>
+
+        <ng-container *ngIf="cmp.diff.withDifferences.length">
+          <div class="compare-source__label compare-source__label--diff" style="margin-top: 12px;">
+            Registros com divergências de valores ({{ cmp.diff.differentCount }})
+          </div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Chave</th>
+                  <th>Campo</th>
+                  <th>{{ cmp.source1.label }}</th>
+                  <th>{{ cmp.source2.label }}</th>
+                  <th>Diferença</th>
+                </tr>
+              </thead>
+              <tbody>
+                <ng-container *ngFor="let item of cmp.diff.withDifferences">
+                  <ng-container *ngFor="let field of item.fields | keyvalue">
+                    <tr *ngIf="!field.value.equal" class="diff-field-changed">
+                      <td class="diff-key-cell">{{ item.key }}</td>
+                      <td class="diff-field-name">{{ field.key }}</td>
+                      <td>{{ field.value.source1 }}</td>
+                      <td>{{ field.value.source2 }}</td>
+                      <td class="diff-cell-value">
+                        {{ field.value.diff !== null ? ((field.value.diff > 0 ? '+' : '') + field.value.diff) : '≠' }}
+                      </td>
+                    </tr>
+                  </ng-container>
+                </ng-container>
+              </tbody>
+            </table>
+          </div>
+        </ng-container>
+      </ng-container>
     </section>
   </main>
 </div>

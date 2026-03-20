@@ -11,6 +11,7 @@ import { ActivatedRoute } from '@angular/router';
 import { catchError, firstValueFrom, forkJoin, of } from 'rxjs';
 import {
   JasperTemplateResponse,
+  ReportCompareResponse,
   ReportDefinition,
   ReportFolder,
   ReportRunResponse,
@@ -86,6 +87,8 @@ export class ReportsComponent
   reports: ReportDefinition[] = [];
   templates: JasperTemplateResponse[] = [];
   runResult: ReportRunResponse | null = null;
+  compareResult: ReportCompareResponse | null = null;
+  loadingCompare = false;
 
   selectedFolderId: string | null = null;
   selectedReportId: string | null = null;
@@ -324,6 +327,7 @@ export class ReportsComponent
     this.statusMessage = '';
     this.paramsError = '';
     this.runResult = null;
+    this.compareResult = null;
     this.optionsParamsSignatureByKey = {};
     this.initVariableInputs();
     this.reloadVariableOptions();
@@ -730,6 +734,36 @@ export class ReportsComponent
         this.lastLoadedPage = -1;
         this.loadingRun = false;
         this.statusMessage = this.resolveAclAwareError(err, 'Falha ao executar relatorio.');
+      },
+    });
+  }
+
+  compareSelectedReport() {
+    if (!this.selectedReportId) return;
+
+    const params = this.buildRunParams();
+    if (params === null) return;
+
+    this.loadingCompare = true;
+    this.compareResult = null;
+    this.runResult = null;
+    this.reportService.compareReport(this.selectedReportId, params).subscribe({
+      next: (res) => {
+        this.loadingCompare = false;
+        this.compareResult = res;
+      },
+      error: (err) => {
+        this.loadingCompare = false;
+        const status = (err as HttpErrorResponse)?.status;
+        if (status === 400) {
+          this.statusMessage = 'Este relatório não tem SQL SAP HANA configurado.';
+        } else if (status === 503) {
+          this.statusMessage = 'SAP HANA não está configurado no servidor.';
+        } else if (status === 502) {
+          this.statusMessage = 'Erro ao executar a consulta no SAP HANA.';
+        } else {
+          this.statusMessage = this.resolveAclAwareError(err, 'Falha ao comparar relatório.');
+        }
       },
     });
   }
