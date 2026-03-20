@@ -87,6 +87,8 @@ export type ReportDefinition = {
   jasperTemplateId?: string | null;
   jasperTemplate?: JasperTemplateSummary | null;
   sql: string;
+  secondSql?: string | null;
+  comparisonKey?: string | null;
   description: string | null;
   variables: ReportVariable[];
   archived: boolean;
@@ -102,9 +104,47 @@ export type ReportCreateInput = {
   templateName?: string;
   jasperTemplateId?: string | null;
   sql: string;
+  secondSql?: string | null;
+  comparisonKey?: string | null;
   description: string | null;
   variables: ReportVariableInput[];
   archived?: boolean;
+};
+
+export type ReportCompareSource = {
+  label: string;
+  columns: string[];
+  rows: Record<string, unknown>[];
+  rowCount: number;
+};
+
+export type ReportCompareDiffFieldDetail = {
+  source1: unknown;
+  source2: unknown;
+  equal: boolean;
+  diff: number | null;
+};
+
+export type ReportCompareDiffRow = {
+  key: string | null;
+  fields: Record<string, ReportCompareDiffFieldDetail>;
+};
+
+export type ReportCompareDiff = {
+  onlyInSource1: Record<string, unknown>[];
+  onlyInSource2: Record<string, unknown>[];
+  matchCount: number;
+  equalCount: number;
+  differentCount: number;
+  withDifferences: ReportCompareDiffRow[];
+};
+
+export type ReportCompareResponse = {
+  name: string;
+  comparisonKey: string | null;
+  source1: ReportCompareSource;
+  source2: ReportCompareSource;
+  diff: ReportCompareDiff | null;
 };
 
 export type ReportRunSummary = {
@@ -277,6 +317,18 @@ export class ReportService {
     return this.http.post<ReportRunResponse>(`${this.base}/reports/${encodeURIComponent(id)}/run`, body);
   }
 
+  compareReport(
+    id: string,
+    params?: Record<string, unknown> | null
+  ): Observable<ReportCompareResponse> {
+    const body: Record<string, unknown> = {};
+    if (params && Object.keys(params).length) body['params'] = params;
+    return this.http.post<ReportCompareResponse>(
+      `${this.base}/reports/${encodeURIComponent(id)}/compare`,
+      body
+    );
+  }
+
   runReportAllWithParams(
     id: string,
     params?: Record<string, unknown> | null,
@@ -425,6 +477,8 @@ export class ReportService {
       jasperTemplateId: this.extractJasperTemplateId(item),
       jasperTemplate,
       sql: String(item?.sql ?? ''),
+      secondSql: item?.secondSql != null ? String(item.secondSql) : null,
+      comparisonKey: item?.comparisonKey != null ? String(item.comparisonKey) : null,
       description:
         item?.description === null || item?.description === undefined
           ? null
