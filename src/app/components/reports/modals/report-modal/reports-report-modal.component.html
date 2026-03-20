@@ -190,6 +190,37 @@
         </div>
       </section>
 
+      <section class="report-draft-section report-draft-section--sql">
+        <div class="report-draft-section__head">
+          <h4 class="report-draft-section__title">
+            <mat-icon aria-hidden="true">compare_arrows</mat-icon>
+            4. Comparação SAP HANA (opcional)
+          </h4>
+        </div>
+        <p class="muted" style="margin: 0 0 10px; font-size: 12px;">
+          Preencha apenas se este relatório precisa ser comparado com dados do SAP HANA.
+        </p>
+        <label class="var-field">
+          <span>SQL SAP HANA</span>
+          <textarea
+            class="report-draft-sql"
+            rows="8"
+            [(ngModel)]="reportDraft.secondSql"
+            [ngModelOptions]="{ standalone: true }"
+            placeholder="SELECT T0.&quot;U_IdProducao&quot; AS chave, T0.&quot;ItemCode&quot; FROM &quot;@TABELA&quot; T0 WHERE ..."
+          ></textarea>
+        </label>
+        <label class="var-field" style="margin-top: 8px;">
+          <span>Coluna de cruzamento (comparisonKey)</span>
+          <input
+            type="text"
+            [(ngModel)]="reportDraft.comparisonKey"
+            [ngModelOptions]="{ standalone: true }"
+            placeholder="Ex: chave"
+          />
+        </label>
+      </section>
+
       <div class="vars-panel">
         <div class="vars-title">Variáveis detectadas</div>
         <div class="draft-vars-empty" *ngIf="!reportDraftVariables.length">

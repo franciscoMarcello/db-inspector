@@ -10,6 +10,8 @@ export type ReportDraft = {
   id: string | null;
   name: string;
   sql: string;
+  secondSql: string;
+  comparisonKey: string;
   description: string;
   folderId: string;
   jasperTemplateId: string;
