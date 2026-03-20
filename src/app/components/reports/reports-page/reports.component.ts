@@ -89,6 +89,7 @@ export class ReportsComponent
   runResult: ReportRunResponse | null = null;
   compareResult: ReportCompareResponse | null = null;
   loadingCompare = false;
+  showCompareRawData = false;
 
   selectedFolderId: string | null = null;
   selectedReportId: string | null = null;
@@ -746,6 +747,7 @@ export class ReportsComponent
 
     this.loadingCompare = true;
     this.compareResult = null;
+    this.showCompareRawData = false;
     this.runResult = null;
     this.reportService.compareReport(this.selectedReportId, params).subscribe({
       next: (res) => {

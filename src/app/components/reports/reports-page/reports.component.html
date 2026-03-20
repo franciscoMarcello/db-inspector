@@ -481,7 +481,13 @@
         </ng-container>
       </div>
 
-      <ng-container *ngIf="!cmp.diff">
+      <ng-container *ngIf="cmp.diff">
+        <button type="button" class="compare-raw-toggle" (click)="showCompareRawData = !showCompareRawData">
+          {{ showCompareRawData ? 'Ocultar resultados completos' : 'Ver resultados completos' }}
+        </button>
+      </ng-container>
+
+      <ng-container *ngIf="!cmp.diff || showCompareRawData">
         <div class="compare-sources">
           <div class="compare-source">
             <div class="compare-source__label">{{ cmp.source1.label }} ({{ cmp.source1.rowCount }} linhas)</div>

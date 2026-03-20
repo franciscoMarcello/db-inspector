@@ -245,6 +245,22 @@ tbody tr:hover {
   border-color: rgba(251, 191, 36, 0.25) !important;
 }
 
+.compare-raw-toggle {
+  margin-bottom: 10px;
+  background: none;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: 12px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.compare-raw-toggle:hover {
+  color: var(--text-primary);
+  border-color: var(--text-muted);
+}
+
 .compare-chip--diff {
   background: rgba(251, 146, 60, 0.12) !important;
   color: #fb923c !important;
