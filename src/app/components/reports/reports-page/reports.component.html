@@ -468,17 +468,65 @@
         <span class="metric-chip">Sistema: <strong>{{ cmp.source1.rowCount }}</strong> linhas</span>
         <span class="metric-chip">SAP HANA: <strong>{{ cmp.source2.rowCount }}</strong> linhas</span>
         <ng-container *ngIf="cmp.diff">
-          <span class="metric-chip compare-chip--ok">Iguais: <strong>{{ cmp.diff.equalCount }}</strong></span>
-          <span class="metric-chip compare-chip--diff" *ngIf="cmp.diff.differentCount">
-            Com divergências: <strong>{{ cmp.diff.differentCount }}</strong>
-          </span>
-          <span class="metric-chip compare-chip--warn" *ngIf="cmp.diff.onlyInSource1.length">
-            Pendentes no SAP: <strong>{{ cmp.diff.onlyInSource1.length }}</strong>
-          </span>
-          <span class="metric-chip compare-chip--warn" *ngIf="cmp.diff.onlyInSource2.length">
-            Só no SAP: <strong>{{ cmp.diff.onlyInSource2.length }}</strong>
-          </span>
+          <span class="metric-chip">Correspondências: <strong>{{ cmp.diff.matchCount }}</strong></span>
+          <span class="metric-chip compare-chip--ok">Registros iguais: <strong>{{ cmp.diff.equalCount }}</strong></span>
+          <span class="metric-chip compare-chip--diff">Registros diferentes: <strong>{{ cmp.diff.differentCount }}</strong></span>
+          <span class="metric-chip compare-chip--warn">Faltantes no SAP: <strong>{{ cmp.diff.onlyInSource1.length }}</strong></span>
+          <span class="metric-chip compare-chip--warn">Faltantes no sistema: <strong>{{ cmp.diff.onlyInSource2.length }}</strong></span>
         </ng-container>
+      </div>
+      <div class="compare-mode-hint">{{ compareModeDescription }}</div>
+
+      <div class="compare-duplicates" *ngIf="showCompareDuplicatesSection && hasDuplicateKeysInCompare">
+        <div class="status-line status-line--warn" *ngIf="cmp.duplicateKeysSource1.length">
+          <strong>Chaves duplicadas em {{ cmp.source1.label }}</strong>
+          <span>{{ formatDuplicateKeys(cmp.duplicateKeysSource1) }}</span>
+        </div>
+        <div class="status-line status-line--warn" *ngIf="cmp.duplicateKeysSource2.length">
+          <strong>Chaves duplicadas em {{ cmp.source2.label }}</strong>
+          <span>{{ formatDuplicateKeys(cmp.duplicateKeysSource2) }}</span>
+        </div>
+      </div>
+
+      <div class="compare-quick-filters">
+        <button
+          type="button"
+          class="compare-filter-btn"
+          [class.compare-filter-btn--active]="compareQuickFilter === 'all'"
+          (click)="compareQuickFilter = 'all'"
+        >Tudo</button>
+        <button
+          type="button"
+          class="compare-filter-btn"
+          [class.compare-filter-btn--active]="compareQuickFilter === 'different'"
+          (click)="compareQuickFilter = 'different'"
+        >Só diferentes</button>
+        <button
+          type="button"
+          class="compare-filter-btn"
+          [class.compare-filter-btn--active]="compareQuickFilter === 'missingInSystem'"
+          (click)="compareQuickFilter = 'missingInSystem'"
+        >Só faltantes no sistema</button>
+        <button
+          type="button"
+          class="compare-filter-btn"
+          [class.compare-filter-btn--active]="compareQuickFilter === 'missingInSap'"
+          (click)="compareQuickFilter = 'missingInSap'"
+        >Só faltantes no SAP</button>
+        <button
+          type="button"
+          class="compare-filter-btn"
+          [class.compare-filter-btn--active]="compareQuickFilter === 'duplicates'"
+          (click)="compareQuickFilter = 'duplicates'"
+        >Somente chaves duplicadas</button>
+        <button
+          type="button"
+          class="compare-filter-btn compare-filter-btn--action"
+          (click)="exportCompareExcel()"
+          [disabled]="loadingCompareExcel || !cmp.diff"
+        >
+          {{ loadingCompareExcel ? 'Gerando Excel...' : 'Exportar diferenças (.xlsx)' }}
+        </button>
       </div>
 
       <ng-container *ngIf="cmp.diff">
@@ -487,7 +535,7 @@
         </button>
       </ng-container>
 
-      <ng-container *ngIf="!cmp.diff || showCompareRawData">
+      <ng-container *ngIf="(!cmp.diff || showCompareRawData) && compareQuickFilter === 'all'">
         <div class="compare-sources">
           <div class="compare-source">
             <div class="compare-source__label">{{ cmp.source1.label }} ({{ cmp.source1.rowCount }} linhas)</div>
@@ -523,8 +571,11 @@
       </ng-container>
 
       <ng-container *ngIf="cmp.diff">
-        <div class="compare-sources" *ngIf="cmp.diff.onlyInSource1.length || cmp.diff.onlyInSource2.length">
-          <div class="compare-source">
+        <div
+          class="compare-sources"
+          *ngIf="(showCompareMissingInSapSection && cmp.diff.onlyInSource1.length) || (showCompareMissingInSystemSection && cmp.diff.onlyInSource2.length)"
+        >
+          <div class="compare-source" *ngIf="showCompareMissingInSapSection">
             <div class="compare-source__label compare-source__label--warn">
               {{ cmp.source1.label }} — pendentes no SAP ({{ cmp.diff.onlyInSource1.length }})
             </div>
@@ -544,7 +595,7 @@
               <div class="compare-all-synced">Nenhum pendente.</div>
             </ng-template>
           </div>
-          <div class="compare-source">
+          <div class="compare-source" *ngIf="showCompareMissingInSystemSection">
             <div class="compare-source__label compare-source__label--warn">
               {{ cmp.source2.label }} — sem correspondência no sistema ({{ cmp.diff.onlyInSource2.length }})
             </div>
@@ -565,11 +616,11 @@
             </ng-template>
           </div>
         </div>
-        <div class="compare-all-synced" *ngIf="!cmp.diff.onlyInSource1.length && !cmp.diff.onlyInSource2.length && !cmp.diff.differentCount">
+        <div class="compare-all-synced" *ngIf="compareQuickFilter === 'all' && !cmp.diff.onlyInSource1.length && !cmp.diff.onlyInSource2.length && !cmp.diff.differentCount">
           Todos os {{ cmp.diff.equalCount }} registros estão sincronizados e iguais.
         </div>
 
-        <ng-container *ngIf="cmp.diff.withDifferences.length">
+        <ng-container *ngIf="showCompareDifferencesSection && cmp.diff.withDifferences.length">
           <div class="compare-source__label compare-source__label--diff" style="margin-top: 12px;">
             Registros com divergências de valores ({{ cmp.diff.differentCount }})
           </div>

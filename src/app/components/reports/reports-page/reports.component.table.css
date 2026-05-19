@@ -218,6 +218,57 @@ tbody tr:hover {
   margin-bottom: 6px;
 }
 
+.compare-mode-hint {
+  margin: 8px 0 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.compare-duplicates {
+  margin-bottom: 10px;
+  display: grid;
+  gap: 6px;
+}
+
+.status-line--warn strong {
+  color: #fbbf24;
+}
+
+.compare-quick-filters {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.compare-filter-btn {
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  background: var(--bg-surface-alt);
+  color: var(--text-muted);
+  font-size: 12px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.compare-filter-btn--active {
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--text-primary) 26%, transparent);
+  background: color-mix(in srgb, var(--bg-surface-alt) 76%, var(--text-primary) 6%);
+}
+
+.compare-filter-btn--action {
+  margin-left: auto;
+  color: #4ade80;
+  border-color: rgba(74, 222, 128, 0.35);
+  background: rgba(74, 222, 128, 0.08);
+}
+
+.compare-filter-btn--action:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .compare-source__label--warn {
   color: #fbbf24;
 }

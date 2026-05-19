@@ -93,23 +93,27 @@ function buildSheetXml(columns: string[], rows: Record<string, unknown>[]): stri
 </worksheet>`;
 }
 
-function buildWorkbookXml(): string {
+function buildWorkbookXml(sheetNames: string[]): string {
+  const sheets = sheetNames
+    .map((name, index) => `<sheet name="${xmlEscape(name)}" sheetId="${index + 1}" r:id="rId${index + 1}"/>`)
+    .join('');
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"
   xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
-  <sheets>
-    <sheet name="Dados" sheetId="1" r:id="rId1"/>
-  </sheets>
+  <sheets>${sheets}</sheets>
 </workbook>`;
 }
 
-function buildContentTypesXml(): string {
+function buildContentTypesXml(sheetCount: number): string {
+  const sheets = Array.from({ length: Math.max(1, sheetCount) }, (_, index) => (
+    `<Override PartName="/xl/worksheets/sheet${index + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`
+  )).join('');
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
   <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
   <Default Extension="xml" ContentType="application/xml"/>
   <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
-  <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+  ${sheets}
   <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
   <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
 </Types>`;
@@ -124,10 +128,13 @@ function buildRootRelsXml(): string {
 </Relationships>`;
 }
 
-function buildWorkbookRelsXml(): string {
+function buildWorkbookRelsXml(sheetCount: number): string {
+  const rels = Array.from({ length: Math.max(1, sheetCount) }, (_, index) => (
+    `<Relationship Id="rId${index + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${index + 1}.xml"/>`
+  )).join('');
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+  ${rels}
 </Relationships>`;
 }
 
@@ -264,14 +271,24 @@ function createZip(files: Array<{ name: string; content: string }>): Uint8Array 
 }
 
 export function createXlsxBlob(columns: string[], rows: Record<string, unknown>[]): Blob {
+  return createXlsxWorkbookBlob([{ name: 'Dados', columns, rows }]);
+}
+
+export function createXlsxWorkbookBlob(
+  sheets: Array<{ name: string; columns: string[]; rows: Record<string, unknown>[] }>
+): Blob {
+  const validSheets = sheets.length ? sheets : [{ name: 'Dados', columns: [], rows: [] }];
   const files = [
-    { name: '[Content_Types].xml', content: buildContentTypesXml() },
+    { name: '[Content_Types].xml', content: buildContentTypesXml(validSheets.length) },
     { name: '_rels/.rels', content: buildRootRelsXml() },
     { name: 'docProps/core.xml', content: buildCoreXml() },
     { name: 'docProps/app.xml', content: buildAppXml() },
-    { name: 'xl/workbook.xml', content: buildWorkbookXml() },
-    { name: 'xl/_rels/workbook.xml.rels', content: buildWorkbookRelsXml() },
-    { name: 'xl/worksheets/sheet1.xml', content: buildSheetXml(columns, rows) },
+    { name: 'xl/workbook.xml', content: buildWorkbookXml(validSheets.map((sheet) => sheet.name)) },
+    { name: 'xl/_rels/workbook.xml.rels', content: buildWorkbookRelsXml(validSheets.length) },
+    ...validSheets.map((sheet, index) => ({
+      name: `xl/worksheets/sheet${index + 1}.xml`,
+      content: buildSheetXml(sheet.columns, sheet.rows),
+    })),
   ];
   const bytes = createZip(files);
   const arrayBuffer = new ArrayBuffer(bytes.byteLength);
