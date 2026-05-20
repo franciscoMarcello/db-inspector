@@ -1,0 +1,167 @@
+<section class="card dashboard-viewer">
+  <header class="viewer-header">
+    <div>
+      <h2>{{ dashboard?.name || 'Dashboard' }}</h2>
+      <p>{{ dashboard?.description || 'Sem descrição' }}</p>
+      <span class="chip" *ngIf="dashboard">{{ dashboard.system }}</span>
+    </div>
+    <div class="header-actions">
+      <app-button type="button" tone="neutral" variant="outline" (pressed)="goList()">Voltar</app-button>
+      <app-button *ngIf="dashboard" type="button" tone="neutral" variant="outline" (pressed)="goEdit()">Editar</app-button>
+    </div>
+  </header>
+
+  <div class="status" *ngIf="loading">Carregando dashboard...</div>
+  <div class="status" *ngIf="statusMessage">{{ statusMessage }}</div>
+
+  <section class="dashboard-filters" *ngIf="dashboard?.filtersJson?.length">
+    <label *ngFor="let filter of dashboard?.filtersJson">
+      <span>{{ filter.label }}</span>
+      <input
+        [type]="filter.type"
+        [(ngModel)]="filterValues[filter.key]"
+        [name]="filter.key"
+      />
+    </label>
+    <app-button type="button" tone="primary" variant="solid" (pressed)="applyFilters()">Aplicar filtros</app-button>
+  </section>
+
+  <div class="widgets-grid" *ngIf="dashboard as dash">
+    <article class="widget" [class.widget--kpi]="widget.type === 'kpi'" *ngFor="let widget of dash.widgets">
+      <header class="widget-header">
+        <h3>{{ widget.title }}</h3>
+        <div class="widget-header__actions">
+          <span class="chip">{{ widget.type }}</span>
+          <app-button
+            type="button"
+            size="sm"
+            tone="neutral"
+            variant="outline"
+            (pressed)="reloadWidget(widget)"
+            [disabled]="widgetState(widget.id).loading"
+          >
+            <span class="widget-spinner" *ngIf="widgetState(widget.id).loading" aria-hidden="true"></span>
+            {{ widgetState(widget.id).loading ? 'Atualizando...' : 'Atualizar' }}
+          </app-button>
+        </div>
+      </header>
+
+      <ng-container *ngIf="widgetState(widget.id) as state">
+        <div class="widget-loading" *ngIf="state.loading">
+          <span class="widget-spinner widget-spinner--large" aria-hidden="true"></span>
+          <span>Carregando widget...</span>
+        </div>
+        <div class="status error" *ngIf="state.error">{{ state.error }}</div>
+
+        <ng-container *ngIf="!state.loading && !state.error">
+          <div class="kpi-value" *ngIf="widget.type === 'kpi'">{{ asKpiValue(state.result) }}</div>
+
+          <div class="bars" *ngIf="widget.type === 'bar' && isHorizontalBar(widget) && barRows(state.result).length">
+            <div class="bar-row" *ngFor="let item of barRows(state.result)">
+              <div class="bar-row__label">{{ item.label }}</div>
+              <div class="bar-row__bar"><span [style.width.%]="item.pct"></span></div>
+              <div class="bar-row__value">{{ item.displayValue }}</div>
+            </div>
+          </div>
+
+          <div class="vertical-bars" *ngIf="widget.type === 'bar' && !isHorizontalBar(widget) && verticalBarRows(state.result).length">
+            <div class="vertical-bar" *ngFor="let item of verticalBarRows(state.result)">
+              <div class="vertical-bar__track">
+                <span [style.height.%]="item.pct"></span>
+              </div>
+              <strong>{{ item.displayValue }}</strong>
+              <small>{{ item.label }}</small>
+            </div>
+          </div>
+
+          <div
+            class="line-chart"
+            *ngIf="widget.type === 'line' && linePoints(state.result).length"
+            (mouseleave)="clearChartHover(widget.id)"
+          >
+            <div class="line-chart__summary" *ngIf="lineStats(state.result) as stats">
+              <span>Min {{ stats.minDisplayValue }}</span>
+              <span>Max {{ stats.maxDisplayValue }}</span>
+            </div>
+            <svg viewBox="0 0 320 150" preserveAspectRatio="none" role="img">
+              <polyline class="line-chart__line" [attr.points]="linePolyline(state.result)"></polyline>
+              <circle
+                *ngFor="let point of linePoints(state.result)"
+                class="line-chart__point"
+                [attr.cx]="point.x"
+                [attr.cy]="point.y"
+                r="3"
+                (mouseenter)="setLineHover(widget.id, point)"
+                (mouseleave)="clearChartHover(widget.id)"
+              ></circle>
+            </svg>
+            <div
+              class="chart-tooltip"
+              *ngIf="chartHover[widget.id] as hover"
+              [style.left.%]="hover.x"
+              [style.top.%]="hover.y"
+            >
+              <span>{{ hover.label }}</span>
+              <strong>{{ hover.displayValue }}</strong>
+            </div>
+            <div class="line-chart__axis" *ngIf="linePoints(state.result) as points">
+              <span>{{ points[0].label }}</span>
+              <span>{{ points[points.length - 1].label }}</span>
+            </div>
+          </div>
+
+          <div
+            class="pie-chart"
+            *ngIf="widget.type === 'pie' && pieSegments(state.result).length"
+            (mouseleave)="clearChartHover(widget.id)"
+          >
+            <div class="pie-chart__figure">
+              <svg viewBox="0 0 152 152" role="img">
+                <path
+                  *ngFor="let segment of pieSegments(state.result)"
+                  [attr.d]="segment.path"
+                  [attr.fill]="segment.color"
+                  (mouseenter)="setPieHover(widget.id, segment)"
+                  (mouseleave)="clearChartHover(widget.id)"
+                ></path>
+                <circle cx="76" cy="76" r="34" class="pie-chart__hole"></circle>
+              </svg>
+              <div
+                class="chart-tooltip chart-tooltip--pie"
+                *ngIf="chartHover[widget.id] as hover"
+                [style.left.%]="hover.x"
+                [style.top.%]="hover.y"
+              >
+                <span>{{ hover.label }}</span>
+                <strong>{{ hover.displayValue }}<ng-container *ngIf="hover.pct !== undefined"> · {{ hover.pct }}%</ng-container></strong>
+              </div>
+            </div>
+            <div class="pie-chart__legend">
+              <div class="pie-legend-row" *ngFor="let segment of pieSegments(state.result)">
+                <span class="pie-legend-dot" [style.background]="segment.color"></span>
+                <span class="pie-legend-label">{{ segment.label }}</span>
+                <span class="pie-legend-value">{{ segment.displayValue }}</span>
+                <strong>{{ segment.pct }}%</strong>
+              </div>
+            </div>
+          </div>
+
+          <div class="table-wrap" *ngIf="widget.type === 'table' && state.result?.rows?.length">
+            <table>
+              <thead>
+                <tr><th *ngFor="let col of state.result?.columns">{{ col }}</th></tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let row of state.result?.rows">
+                  <td *ngFor="let col of state.result?.columns">{{ row[col] }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="status" *ngIf="!state.result?.rows?.length">Sem dados.</div>
+        </ng-container>
+      </ng-container>
+    </article>
+  </div>
+</section>

@@ -40,6 +40,16 @@
         >
           Relatorios
         </app-button>
+        <app-button
+          class="nav-btn"
+          [class.active]="isRoute('/dashboards', true)"
+          tone="neutral"
+          variant="ghost"
+          icon="dashboard"
+          (pressed)="go('/dashboards')"
+        >
+          Dashboards
+        </app-button>
         @if (canManageReports) {
           <app-button
             class="nav-btn"

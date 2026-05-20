@@ -6,6 +6,9 @@ import { ReportsComponent } from './components/reports/reports-page/reports.comp
 import { LoginComponent } from './components/login/login.component';
 import { PasswordResetComponent } from './components/password-reset/password-reset.component';
 import { AdminUsersComponent } from './components/admin-users/admin-users.component';
+import { DashboardListComponent } from './components/dashboards/dashboard-list.component';
+import { DashboardBuilderComponent } from './components/dashboards/dashboard-builder.component';
+import { DashboardViewerComponent } from './components/dashboards/dashboard-viewer.component';
 import { authGuard } from './guards/auth.guard';
 import { adminGuard } from './guards/admin.guard';
 import {
@@ -27,5 +30,9 @@ export const routes: Routes = [
   { path: 'admin/permissions', component: AdminUsersComponent, canActivate: [adminGuard], data: { adminSection: 'PERMISSIONS' } },
   { path: 'reports/manage', component: ReportsComponent, canActivate: [reportWriteGuard], data: { manage: true } },
   { path: 'reports', component: ReportsComponent, canActivate: [authGuard], data: { manage: false } },
+  { path: 'dashboards', component: DashboardListComponent, canActivate: [authGuard] },
+  { path: 'dashboards/new', component: DashboardBuilderComponent, canActivate: [authGuard] },
+  { path: 'dashboards/:id/edit', component: DashboardBuilderComponent, canActivate: [authGuard] },
+  { path: 'dashboards/:id', component: DashboardViewerComponent, canActivate: [authGuard] },
   { path: '**', redirectTo: 'schemas' },
 ];

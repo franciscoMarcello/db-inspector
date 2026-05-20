@@ -1,0 +1,130 @@
+<section class="card dashboard-builder">
+  <header class="builder-header">
+    <div>
+      <h2>{{ isEditMode ? 'Editar Dashboard' : 'Novo Dashboard' }}</h2>
+      <p>Configure dashboard e widgets por sistema.</p>
+    </div>
+    <div class="header-actions">
+      <app-button type="button" tone="neutral" variant="outline" (pressed)="goList()">Voltar</app-button>
+      <app-button *ngIf="dashboardId" type="button" tone="neutral" variant="outline" (pressed)="goViewer()">Abrir viewer</app-button>
+    </div>
+  </header>
+
+  <div class="status" *ngIf="loading">Carregando dashboard...</div>
+  <div class="status" *ngIf="statusMessage">{{ statusMessage }}</div>
+
+  <div class="form-grid">
+    <label>
+      <span>Nome</span>
+      <input [(ngModel)]="name" placeholder="Ex.: Produção diária" />
+    </label>
+    <label>
+      <span>Sistema</span>
+      <select [(ngModel)]="system" [disabled]="isEditMode">
+        <option value="AGROMOBI">AGROMOBI</option>
+        <option value="SAP">SAP</option>
+      </select>
+    </label>
+  </div>
+
+  <label class="full-width">
+    <span>Descrição</span>
+    <textarea [(ngModel)]="description" rows="2" placeholder="Descrição opcional"></textarea>
+  </label>
+
+  <section class="filters-editor">
+    <div class="section-header">
+      <div>
+        <h3>Filtros</h3>
+        <p>Os filtros globais são enviados como params para todos os widgets.</p>
+      </div>
+      <app-button type="button" tone="neutral" variant="outline" (pressed)="addFilterDraft()">Adicionar filtro</app-button>
+    </div>
+
+    <div class="filters-list" *ngIf="filterDrafts.length; else emptyFilters">
+      <div class="filter-row" *ngFor="let filter of filterDrafts; let i = index">
+        <label>
+          <span>Chave</span>
+          <input [(ngModel)]="filter.key" placeholder="dataInicio" />
+        </label>
+        <label>
+          <span>Rótulo</span>
+          <input [(ngModel)]="filter.label" placeholder="Data início" />
+        </label>
+        <label>
+          <span>Tipo</span>
+          <select [(ngModel)]="filter.type">
+            <option value="text">Texto</option>
+            <option value="number">Número</option>
+            <option value="date">Data</option>
+          </select>
+        </label>
+        <label>
+          <span>Valor padrão</span>
+          <input
+            [type]="filter.type"
+            [(ngModel)]="filter.defaultValue"
+            placeholder="Opcional"
+          />
+        </label>
+        <div class="filter-row__action">
+          <app-button type="button" size="sm" tone="danger" variant="outline" (pressed)="removeFilterDraft(i)">Remover</app-button>
+        </div>
+      </div>
+    </div>
+
+    <ng-template #emptyFilters>
+      <div class="empty">Nenhum filtro configurado.</div>
+    </ng-template>
+  </section>
+
+  <div class="widgets-header">
+    <h3>Widgets</h3>
+    <app-button type="button" tone="neutral" variant="outline" (pressed)="addWidgetDraft()">Adicionar widget</app-button>
+  </div>
+
+  <div class="widgets-list" *ngIf="widgetDrafts.length; else emptyWidgets">
+    <article class="widget-card" *ngFor="let widget of widgetDrafts; let i = index">
+      <div class="widget-row">
+        <label>
+          <span>Título</span>
+          <input [(ngModel)]="widget.title" placeholder="Ex.: Total de produção" />
+        </label>
+        <label>
+          <span>Tipo</span>
+          <select [(ngModel)]="widget.type">
+            <option value="kpi">KPI</option>
+            <option value="bar">Barra</option>
+            <option value="line">Linha</option>
+            <option value="pie">Pizza</option>
+            <option value="table">Tabela</option>
+          </select>
+        </label>
+      </div>
+
+      <label>
+        <span>SQL do widget</span>
+        <textarea [(ngModel)]="widget.querySql" rows="4" placeholder="SELECT ..."></textarea>
+      </label>
+
+      <label>
+        <span>Config JSON (opcional)</span>
+        <textarea [(ngModel)]="widget.configJsonText" rows="4" placeholder='{"xKey":"data","yKey":"valor"}'></textarea>
+      </label>
+
+      <div class="widget-actions">
+        <app-button type="button" size="sm" tone="danger" variant="outline" (pressed)="removeWidgetDraft(i)">Remover</app-button>
+      </div>
+    </article>
+  </div>
+
+  <ng-template #emptyWidgets>
+    <div class="empty">Nenhum widget adicionado.</div>
+  </ng-template>
+
+  <footer class="builder-footer">
+    <app-button type="button" tone="primary" variant="solid" (pressed)="saveDashboard()" [disabled]="saving">
+      {{ saving ? 'Salvando...' : 'Salvar dashboard' }}
+    </app-button>
+  </footer>
+</section>

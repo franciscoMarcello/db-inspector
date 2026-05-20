@@ -1,0 +1,49 @@
+<section class="card dashboards-page">
+  <header class="dashboards-header">
+    <div>
+      <h2>Dashboards</h2>
+      <p>Crie e visualize dashboards por sistema.</p>
+    </div>
+    <div class="header-actions">
+      <app-button type="button" tone="primary" variant="solid" (pressed)="create('AGROMOBI')">Novo Agromobi</app-button>
+      <app-button type="button" tone="neutral" variant="outline" (pressed)="create('SAP')">Novo SAP</app-button>
+    </div>
+  </header>
+
+  <div class="filters">
+    <app-button type="button" size="sm" [tone]="selectedSystem === 'ALL' ? 'primary' : 'neutral'" [variant]="selectedSystem === 'ALL' ? 'solid' : 'outline'" (pressed)="setSystem('ALL')">Todos</app-button>
+    <app-button type="button" size="sm" [tone]="selectedSystem === 'AGROMOBI' ? 'primary' : 'neutral'" [variant]="selectedSystem === 'AGROMOBI' ? 'solid' : 'outline'" (pressed)="setSystem('AGROMOBI')">Agromobi</app-button>
+    <app-button type="button" size="sm" [tone]="selectedSystem === 'SAP' ? 'primary' : 'neutral'" [variant]="selectedSystem === 'SAP' ? 'solid' : 'outline'" (pressed)="setSystem('SAP')">SAP</app-button>
+  </div>
+
+  <div class="status" *ngIf="statusMessage">{{ statusMessage }}</div>
+  <div class="status" *ngIf="loading">Carregando dashboards...</div>
+
+  <div class="dashboards-grid" *ngIf="!loading && dashboards.length">
+    <article class="dashboard-card" *ngFor="let dashboard of dashboards">
+      <div class="dashboard-card__meta">
+        <span class="chip">{{ dashboard.system }}</span>
+      </div>
+      <h3>{{ dashboard.name }}</h3>
+      <p>{{ dashboard.description || 'Sem descrição' }}</p>
+      <footer class="dashboard-card__actions">
+        <app-button type="button" size="sm" tone="primary" variant="solid" (pressed)="openViewer(dashboard.id)">Abrir</app-button>
+        <app-button type="button" size="sm" tone="neutral" variant="outline" (pressed)="openBuilder(dashboard.id)">Editar</app-button>
+        <app-button
+          type="button"
+          size="sm"
+          tone="danger"
+          variant="outline"
+          (pressed)="deleteDashboard(dashboard)"
+          [disabled]="deletingId === dashboard.id"
+        >
+          {{ deletingId === dashboard.id ? 'Excluindo...' : 'Excluir' }}
+        </app-button>
+      </footer>
+    </article>
+  </div>
+
+  <div class="empty" *ngIf="!loading && !dashboards.length">
+    Nenhum dashboard encontrado para este filtro.
+  </div>
+</section>
