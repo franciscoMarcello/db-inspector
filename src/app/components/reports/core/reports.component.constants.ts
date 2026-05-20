@@ -11,6 +11,8 @@ export function createEmptyReportDraft(): ReportDraft {
     id: null,
     name: '',
     sql: '',
+    secondSql: '',
+    comparisonKey: '',
     description: '',
     folderId: '',
     jasperTemplateId: '',

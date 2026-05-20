@@ -13,11 +13,20 @@
         <mat-label>Senha</mat-label>
         <input
           matInput
-          type="password"
+          [type]="passwordVisible ? 'text' : 'password'"
           [(ngModel)]="password"
           name="password"
           autocomplete="current-password"
         />
+        <button
+          mat-icon-button
+          matSuffix
+          type="button"
+          (click)="passwordVisible = !passwordVisible"
+          [attr.aria-label]="passwordVisible ? 'Ocultar senha' : 'Mostrar senha'"
+        >
+          <mat-icon>{{ passwordVisible ? 'visibility_off' : 'visibility' }}</mat-icon>
+        </button>
       </mat-form-field>
 
       <p class="error" *ngIf="error">{{ error }}</p>
@@ -25,6 +34,7 @@
       <app-button class="full login-submit" type="submit" tone="primary" variant="solid" [fullWidth]="true" [disabled]="loading">
         {{ loading ? 'Entrando...' : 'Entrar' }}
       </app-button>
+
     </form>
   </mat-card>
 </div>

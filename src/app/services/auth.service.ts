@@ -232,6 +232,14 @@ export class AuthService {
     return this.refreshInFlight$;
   }
 
+  requestPasswordReset(email: string): Observable<void> {
+    return this.http.post<void>(`${this.authBase()}/password-reset/request`, { email });
+  }
+
+  confirmPasswordReset(token: string, newPassword: string): Observable<void> {
+    return this.http.post<void>(`${this.authBase()}/password-reset/confirm`, { token, newPassword });
+  }
+
   logout(): Observable<void> {
     const refreshToken = this.getRefreshToken();
     if (!refreshToken) {
@@ -371,9 +379,14 @@ export class AuthService {
     return backend.replace(/\/api\/db\/?$/i, '/api/auth');
   }
 
+  private adminBase(): string {
+    const backend = this.env.getActive()?.backend?.trim() || '/api/db';
+    return backend.replace(/\/api\/db\/?$/i, '/api/admin');
+  }
+
   loadPermissionCatalog(): Observable<PermissionCatalogItem[]> {
     return this.http
-      .get<PermissionCatalogItem[]>(`${this.authBase()}/permissions/catalog`)
+      .get<PermissionCatalogItem[]>(`${this.adminBase()}/permissions/catalog`)
       .pipe(
         map((items) =>
           [...(items || [])]

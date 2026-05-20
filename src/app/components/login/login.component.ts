@@ -6,13 +6,15 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { MatCardModule } from '@angular/material/card';
 import { MatInputModule } from '@angular/material/input';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatIconModule } from '@angular/material/icon';
+import { MatIconButton } from '@angular/material/button';
 import { AuthService } from '../../services/auth.service';
 import { AppButtonComponent } from '../shared/app-button/app-button.component';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatCardModule, MatInputModule, MatFormFieldModule, AppButtonComponent],
+  imports: [CommonModule, FormsModule, MatCardModule, MatInputModule, MatFormFieldModule, MatIconModule, MatIconButton, AppButtonComponent],
   templateUrl: './login.component.html',
   styleUrls: ['./login.component.css'],
 })
@@ -22,6 +24,7 @@ export class LoginComponent {
 
   email = '';
   password = '';
+  passwordVisible = false;
   loading = false;
   error = '';
 

@@ -11,6 +11,7 @@ import { ActivatedRoute } from '@angular/router';
 import { catchError, firstValueFrom, forkJoin, of } from 'rxjs';
 import {
   JasperTemplateResponse,
+  ReportCompareResponse,
   ReportDefinition,
   ReportFolder,
   ReportRunResponse,
@@ -21,7 +22,7 @@ import {
 } from '../../../services/report.service';
 import { AuthService } from '../../../services/auth.service';
 import { DbInspectorService } from '../../../services/db-inspector.service';
-import { createXlsxBlob } from '../../../utils/xlsx-export';
+import { createXlsxBlob, createXlsxWorkbookBlob } from '../../../utils/xlsx-export';
 import { DraftVariable, FolderNode, ReportDraft, TemplateDraft } from '../core/reports.component.models';
 import {
   createEmptyReportDraft,
@@ -86,6 +87,10 @@ export class ReportsComponent
   reports: ReportDefinition[] = [];
   templates: JasperTemplateResponse[] = [];
   runResult: ReportRunResponse | null = null;
+  compareResult: ReportCompareResponse | null = null;
+  loadingCompare = false;
+  showCompareRawData = false;
+  compareQuickFilter: 'all' | 'different' | 'missingInSystem' | 'missingInSap' | 'duplicates' = 'all';
 
   selectedFolderId: string | null = null;
   selectedReportId: string | null = null;
@@ -99,6 +104,7 @@ export class ReportsComponent
   loadingAllRows = false;
   loadingPdf = false;
   loadingExcel = false;
+  loadingCompareExcel = false;
   exportMenuOpen = false;
   manageMode = false;
   sidebarCollapsed = false;
@@ -264,6 +270,41 @@ export class ReportsComponent
     return statusTitleFromTone(this.statusToneClass as StatusTone);
   }
 
+  get hasDuplicateKeysInCompare(): boolean {
+    const result = this.compareResult;
+    if (!result) return false;
+    return result.duplicateKeysSource1.length > 0 || result.duplicateKeysSource2.length > 0;
+  }
+
+  get compareModeDescription(): string {
+    const result = this.compareResult;
+    if (!result) return '';
+    if (result.mode === 'keyed' && result.comparisonKey) {
+      return `Comparação por chave: ${result.comparisonKey}`;
+    }
+    return 'Sem chave de comparação, usando comparação por conteúdo.';
+  }
+
+  get showCompareMissingInSapSection(): boolean {
+    return this.compareQuickFilter === 'all' || this.compareQuickFilter === 'missingInSap';
+  }
+
+  get showCompareMissingInSystemSection(): boolean {
+    return this.compareQuickFilter === 'all' || this.compareQuickFilter === 'missingInSystem';
+  }
+
+  get showCompareDifferencesSection(): boolean {
+    return this.compareQuickFilter === 'all' || this.compareQuickFilter === 'different';
+  }
+
+  get showCompareDuplicatesSection(): boolean {
+    return this.compareQuickFilter === 'all' || this.compareQuickFilter === 'duplicates';
+  }
+
+  formatDuplicateKeys(list: Array<{ key: string; count: number }>): string {
+    return list.map((item) => `${item.key} (${item.count})`).join(', ');
+  }
+
   reportsByFolder(folder: FolderNode): ReportDefinition[] {
     return this.treeLogic.reportsByFolder(this.reports, folder);
   }
@@ -324,6 +365,8 @@ export class ReportsComponent
     this.statusMessage = '';
     this.paramsError = '';
     this.runResult = null;
+    this.compareResult = null;
+    this.compareQuickFilter = 'all';
     this.optionsParamsSignatureByKey = {};
     this.initVariableInputs();
     this.reloadVariableOptions();
@@ -596,6 +639,93 @@ export class ReportsComponent
       });
   }
 
+  exportCompareExcel() {
+    const cmp = this.compareResult;
+    if (!cmp?.diff) {
+      this.setStatusMessage('Não há diferenças para exportar.');
+      return;
+    }
+
+    this.loadingCompareExcel = true;
+    try {
+      const now = new Date();
+      const pad = (value: number) => String(value).padStart(2, '0');
+      const timestamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}`;
+      const reportName = normalizeFileName(cmp.name || this.selectedReport?.name || 'comparacao');
+
+      const diffRows = this.buildCompareDivergenceRows(cmp);
+      const missingSapRows = cmp.diff.onlyInSource1;
+      const missingSystemRows = cmp.diff.onlyInSource2;
+      const duplicateSystemRows = cmp.duplicateKeysSource1.map((item) => ({ chave: item.key, ocorrencias: item.count }));
+      const duplicateSapRows = cmp.duplicateKeysSource2.map((item) => ({ chave: item.key, ocorrencias: item.count }));
+
+      const sheets: Array<{ name: string; columns: string[]; rows: Record<string, unknown>[] }> = [];
+      sheets.push({
+        name: 'Resumo',
+        columns: ['relatorio', 'modo', 'comparisonKey', 'correspondencias', 'iguais', 'diferentes', 'faltantes_sap', 'faltantes_sistema', 'gerado_em'],
+        rows: [{
+          relatorio: cmp.name || this.selectedReport?.name || '',
+          modo: cmp.mode,
+          comparisonKey: cmp.comparisonKey ?? '',
+          correspondencias: cmp.diff.matchCount,
+          iguais: cmp.diff.equalCount,
+          diferentes: cmp.diff.differentCount,
+          faltantes_sap: missingSapRows.length,
+          faltantes_sistema: missingSystemRows.length,
+          gerado_em: now.toISOString(),
+        }],
+      });
+
+      const addEverything = this.compareQuickFilter === 'all';
+      if ((addEverything || this.compareQuickFilter === 'different') && diffRows.length) {
+        sheets.push({
+          name: 'Divergencias',
+          columns: ['chave', 'campo', 'sistema', 'sap_hana', 'delta'],
+          rows: diffRows,
+        });
+      }
+      if ((addEverything || this.compareQuickFilter === 'missingInSap') && missingSapRows.length) {
+        sheets.push({
+          name: 'Faltantes_SAP',
+          columns: this.resolveColumns(cmp.source1.columns, missingSapRows),
+          rows: missingSapRows,
+        });
+      }
+      if ((addEverything || this.compareQuickFilter === 'missingInSystem') && missingSystemRows.length) {
+        sheets.push({
+          name: 'Faltantes_Sistema',
+          columns: this.resolveColumns(cmp.source2.columns, missingSystemRows),
+          rows: missingSystemRows,
+        });
+      }
+      if ((addEverything || this.compareQuickFilter === 'duplicates') && duplicateSystemRows.length) {
+        sheets.push({
+          name: 'Duplicadas_Sistema',
+          columns: ['chave', 'ocorrencias'],
+          rows: duplicateSystemRows,
+        });
+      }
+      if ((addEverything || this.compareQuickFilter === 'duplicates') && duplicateSapRows.length) {
+        sheets.push({
+          name: 'Duplicadas_SAP',
+          columns: ['chave', 'ocorrencias'],
+          rows: duplicateSapRows,
+        });
+      }
+
+      if (sheets.length === 1) {
+        this.setStatusMessage('Nenhum dado para exportar no filtro atual.');
+        return;
+      }
+
+      const blob = createXlsxWorkbookBlob(sheets);
+      this.downloadBlob(blob, `comparacao_${reportName}_${timestamp}.xlsx`);
+      this.setStatusMessage('Excel de diferenças exportado.', 2500);
+    } finally {
+      this.loadingCompareExcel = false;
+    }
+  }
+
   exportPdf() {
     this.closeExportMenu();
     const report = this.selectedReport;
@@ -730,6 +860,46 @@ export class ReportsComponent
         this.lastLoadedPage = -1;
         this.loadingRun = false;
         this.statusMessage = this.resolveAclAwareError(err, 'Falha ao executar relatorio.');
+      },
+    });
+  }
+
+  compareSelectedReport() {
+    if (!this.selectedReportId) return;
+
+    const params = this.buildRunParams();
+    if (params === null) return;
+
+    this.loadingCompare = true;
+    this.compareResult = null;
+    this.compareQuickFilter = 'all';
+    this.showCompareRawData = false;
+    this.runResult = null;
+    this.reportService.compareReport(this.selectedReportId, params).subscribe({
+      next: (res) => {
+        this.loadingCompare = false;
+        this.compareResult = res;
+      },
+      error: (err) => {
+        this.loadingCompare = false;
+        const status = (err as HttpErrorResponse)?.status;
+        const backendMessage = this.extractErrorMessage(err).toLowerCase();
+        if (
+          status === 400 &&
+          (backendMessage.includes('campo de comparacao') || backendMessage.includes('campo de comparação')) &&
+          backendMessage.includes('ausente')
+        ) {
+          this.statusMessage =
+            'A coluna de comparação não foi encontrada em uma das consultas. Edite o relatório/SQL e ajuste o campo comparisonKey para continuar.';
+        } else if (status === 400) {
+          this.statusMessage = 'Este relatório não tem SQL SAP HANA configurado.';
+        } else if (status === 503) {
+          this.statusMessage = 'SAP HANA não está configurado no servidor.';
+        } else if (status === 502) {
+          this.statusMessage = 'Erro ao executar a consulta no SAP HANA.';
+        } else {
+          this.statusMessage = this.resolveAclAwareError(err, 'Falha ao comparar relatório.');
+        }
       },
     });
   }
@@ -956,6 +1126,34 @@ export class ReportsComponent
     this.reportDraftVariables = detectDraftVariables(this.reportDraft.sql, existing);
   }
 
+  private buildCompareDivergenceRows(cmp: ReportCompareResponse): Record<string, unknown>[] {
+    if (!cmp.diff) return [];
+    const rows: Record<string, unknown>[] = [];
+    for (const item of cmp.diff.withDifferences) {
+      const fields = item.fields || {};
+      for (const [fieldName, detail] of Object.entries(fields)) {
+        if (detail?.equal) continue;
+        rows.push({
+          chave: item.key ?? '',
+          campo: fieldName,
+          sistema: detail?.source1 ?? '',
+          sap_hana: detail?.source2 ?? '',
+          delta: detail?.diff ?? '',
+        });
+      }
+    }
+    return rows;
+  }
+
+  private resolveColumns(preferredColumns: string[], rows: Record<string, unknown>[]): string[] {
+    if (Array.isArray(preferredColumns) && preferredColumns.length) return preferredColumns;
+    const keys = new Set<string>();
+    for (const row of rows) {
+      for (const key of Object.keys(row || {})) keys.add(key);
+    }
+    return [...keys];
+  }
+
   private syncValidationInputsWithDraftVariables() {
     const next: Record<string, string> = {};
     for (const v of this.reportDraftVariables) {
@@ -1009,6 +1207,14 @@ export class ReportsComponent
 
   resolveRequestError(error: unknown, fallback: string): string {
     return resolveRequestErrorMessage(error, fallback, this.manageMode);
+  }
+
+  private extractErrorMessage(err: unknown): string {
+    const error = (err as HttpErrorResponse)?.error;
+    if (typeof error === 'string') return error;
+    if (typeof error?.message === 'string') return error.message;
+    if (typeof error?.error === 'string') return error.error;
+    return '';
   }
 
   private resolveAclAwareError(error: unknown, fallback: string): string {

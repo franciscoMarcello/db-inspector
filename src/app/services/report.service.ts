@@ -87,6 +87,8 @@ export type ReportDefinition = {
   jasperTemplateId?: string | null;
   jasperTemplate?: JasperTemplateSummary | null;
   sql: string;
+  secondSql?: string | null;
+  comparisonKey?: string | null;
   description: string | null;
   variables: ReportVariable[];
   archived: boolean;
@@ -102,9 +104,57 @@ export type ReportCreateInput = {
   templateName?: string;
   jasperTemplateId?: string | null;
   sql: string;
+  secondSql?: string | null;
+  comparisonKey?: string | null;
   description: string | null;
   variables: ReportVariableInput[];
   archived?: boolean;
+};
+
+export type ReportCompareSource = {
+  label: string;
+  columns: string[];
+  rows: Record<string, unknown>[];
+  rowCount: number;
+};
+
+export type ReportCompareDiffFieldDetail = {
+  source1: unknown;
+  source2: unknown;
+  equal: boolean;
+  diff: number | null;
+};
+
+export type ReportCompareDiffRow = {
+  key: string | null;
+  fields: Record<string, ReportCompareDiffFieldDetail>;
+};
+
+export type ReportCompareDiff = {
+  onlyInSource1: Record<string, unknown>[];
+  onlyInSource2: Record<string, unknown>[];
+  matchCount: number;
+  equalCount: number;
+  differentCount: number;
+  withDifferences: ReportCompareDiffRow[];
+};
+
+export type ReportCompareMode = 'keyed' | 'content';
+
+export type ReportCompareDuplicateKey = {
+  key: string;
+  count: number;
+};
+
+export type ReportCompareResponse = {
+  name: string;
+  mode: ReportCompareMode;
+  comparisonKey: string | null;
+  source1: ReportCompareSource;
+  source2: ReportCompareSource;
+  duplicateKeysSource1: ReportCompareDuplicateKey[];
+  duplicateKeysSource2: ReportCompareDuplicateKey[];
+  diff: ReportCompareDiff | null;
 };
 
 export type ReportRunSummary = {
@@ -277,6 +327,17 @@ export class ReportService {
     return this.http.post<ReportRunResponse>(`${this.base}/reports/${encodeURIComponent(id)}/run`, body);
   }
 
+  compareReport(
+    id: string,
+    params?: Record<string, unknown> | null
+  ): Observable<ReportCompareResponse> {
+    const body: Record<string, unknown> = {};
+    if (params && Object.keys(params).length) body['params'] = params;
+    return this.http
+      .post<any>(`${this.base}/reports/${encodeURIComponent(id)}/compare`, body)
+      .pipe(map((res) => this.normalizeCompareResponse(res)));
+  }
+
   runReportAllWithParams(
     id: string,
     params?: Record<string, unknown> | null,
@@ -425,6 +486,8 @@ export class ReportService {
       jasperTemplateId: this.extractJasperTemplateId(item),
       jasperTemplate,
       sql: String(item?.sql ?? ''),
+      secondSql: item?.secondSql != null ? String(item.secondSql) : null,
+      comparisonKey: item?.comparisonKey != null ? String(item.comparisonKey) : null,
       description:
         item?.description === null || item?.description === undefined
           ? null
@@ -495,6 +558,81 @@ export class ReportService {
     return data
       .map((item: any) => this.normalizeTemplate(item))
       .filter((item: JasperTemplateResponse | null): item is JasperTemplateResponse => !!item);
+  }
+
+  private normalizeCompareResponse(item: any): ReportCompareResponse {
+    const comparisonKey = item?.comparisonKey != null ? String(item.comparisonKey) : null;
+    const source1 = this.normalizeCompareSource(item?.source1);
+    const source2 = this.normalizeCompareSource(item?.source2);
+    const mode: ReportCompareMode = item?.mode === 'content' || item?.mode === 'keyed'
+      ? item.mode
+      : comparisonKey
+      ? 'keyed'
+      : 'content';
+
+    return {
+      name: String(item?.name ?? ''),
+      mode,
+      comparisonKey,
+      source1,
+      source2,
+      duplicateKeysSource1: this.normalizeDuplicateKeys(item?.duplicateKeysSource1),
+      duplicateKeysSource2: this.normalizeDuplicateKeys(item?.duplicateKeysSource2),
+      diff: item?.diff ? this.normalizeCompareDiff(item.diff) : null,
+    };
+  }
+
+  private normalizeCompareSource(item: any): ReportCompareSource {
+    const columns = Array.isArray(item?.columns) ? item.columns.map((col: unknown) => String(col)) : [];
+    const rows = Array.isArray(item?.rows)
+      ? item.rows.filter((row: unknown) => !!row && typeof row === 'object')
+      : [];
+    return {
+      label: String(item?.label ?? ''),
+      columns,
+      rows: rows as Record<string, unknown>[],
+      rowCount: Number(item?.rowCount ?? rows.length ?? 0),
+    };
+  }
+
+  private normalizeCompareDiff(item: any): ReportCompareDiff {
+    const onlyInSource1 = Array.isArray(item?.onlyInSource1)
+      ? (item.onlyInSource1 as Record<string, unknown>[])
+      : [];
+    const onlyInSource2 = Array.isArray(item?.onlyInSource2)
+      ? (item.onlyInSource2 as Record<string, unknown>[])
+      : [];
+    const withDifferences = Array.isArray(item?.withDifferences)
+      ? (item.withDifferences as ReportCompareDiffRow[])
+      : [];
+    return {
+      onlyInSource1,
+      onlyInSource2,
+      matchCount: Number(item?.matchCount ?? 0),
+      equalCount: Number(item?.equalCount ?? 0),
+      differentCount: Number(item?.differentCount ?? 0),
+      withDifferences,
+    };
+  }
+
+  private normalizeDuplicateKeys(value: unknown): ReportCompareDuplicateKey[] {
+    if (!Array.isArray(value)) return [];
+    return value
+      .map((entry: any) => {
+        if (entry === null || entry === undefined) return null;
+        if (typeof entry === 'string' || typeof entry === 'number') {
+          return { key: String(entry), count: 2 };
+        }
+        const key = entry?.key ?? entry?.value ?? entry?.comparisonKey;
+        if (key === null || key === undefined) return null;
+        const countRaw = entry?.count ?? entry?.occurrences ?? entry?.total;
+        const count = Number(countRaw ?? 2);
+        return {
+          key: String(key),
+          count: Number.isFinite(count) && count > 0 ? count : 2,
+        };
+      })
+      .filter((item: ReportCompareDuplicateKey | null): item is ReportCompareDuplicateKey => !!item);
   }
 
   private normalizeTemplate(item: any): JasperTemplateResponse {
