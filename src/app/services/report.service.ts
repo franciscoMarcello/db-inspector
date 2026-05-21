@@ -128,6 +128,8 @@ export type ReportCompareDiffFieldDetail = {
 export type ReportCompareDiffRow = {
   key: string | null;
   fields: Record<string, ReportCompareDiffFieldDetail>;
+  source1Row?: Record<string, unknown> | null;
+  source2Row?: Record<string, unknown> | null;
 };
 
 export type ReportCompareDiff = {
@@ -204,6 +206,15 @@ export type ReportValidationResponse = {
   valid: boolean;
   errors: string[];
   renderedQuery?: string | null;
+};
+
+export type ReportConnectionSource = 'agromobi' | 'sap';
+
+export type ReportConnectionTestResponse = {
+  ok?: boolean;
+  source?: ReportConnectionSource | string;
+  message?: string;
+  elapsedMs?: number;
 };
 
 @Injectable({ providedIn: 'root' })
@@ -380,6 +391,23 @@ export class ReportService {
 
   validateReportQuery(payload: ReportValidationRequest): Observable<ReportValidationResponse> {
     return this.http.post<ReportValidationResponse>(`${this.base}/reports/validate`, payload);
+  }
+
+  testAgromobiConnection(): Observable<ReportValidationResponse> {
+    return this.validateReportQuery({
+      sql: 'SELECT 1 AS ok',
+      variables: [],
+      validateSyntax: true,
+      enforceRequired: false,
+      enforceReadOnly: true,
+    });
+  }
+
+  testSapConnection(): Observable<ReportConnectionTestResponse> {
+    return this.http.post<ReportConnectionTestResponse>(`${this.base}/reports/connection-test`, {
+      source: 'sap',
+      sql: 'SELECT 1 AS "ok" FROM DUMMY',
+    });
   }
 
   listFolderAcl(folderId: string): Observable<AccessControlRule[]> {

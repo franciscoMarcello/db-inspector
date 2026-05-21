@@ -7,6 +7,7 @@ import { MatTableModule } from '@angular/material/table';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MonacoEditorModule } from 'ngx-monaco-editor-v2';
 import { DbInspectorService } from '../../services/db-inspector.service';
+import { ReportConnectionSource, ReportService } from '../../services/report.service';
 import { finalize } from 'rxjs/operators';
 import { SnippetStorageService, QuerySnippet } from '../../services/snippet-storage.service';
 import { QueryParam, QueryParamsDialog } from '../query-params-dialog/query-params-dialog';
@@ -78,6 +79,9 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
   snippetMenuOpenId: string | null = null;
   runAllDisplayLimit = this.defaultRunAllDisplayLimit;
   allModeTruncated = false;
+  connectionTestLoadingSource: ReportConnectionSource | null = null;
+  connectionTestStatus = '';
+  connectionTestTone: 'ok' | 'error' | 'neutral' = 'neutral';
   lastSavedQuery = '';
   private lastExecutedSql: string | null = null;
 
@@ -86,7 +90,8 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
     private snackBar: MatSnackBar,
     private snippetsStore: SnippetStorageService,
     private dialog: MatDialog,
-    private router: Router
+    private router: Router,
+    private reportService: ReportService
   ) {}
 
   snippets: QuerySnippet[] = [];
@@ -440,6 +445,52 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
       });
   }
 
+  testConnection(source: ReportConnectionSource) {
+    if (this.connectionTestLoadingSource) return;
+
+    const startedAt = performance.now();
+    this.connectionTestLoadingSource = source;
+    this.connectionTestStatus =
+      source === 'sap'
+        ? 'Testando SAP HANA com SELECT 1 AS "ok" FROM DUMMY...'
+        : 'Testando Agromobi com SELECT 1 AS ok...';
+    this.connectionTestTone = 'neutral';
+
+    const request$: any =
+      source === 'sap'
+        ? this.reportService.testSapConnection()
+        : this.reportService.testAgromobiConnection();
+
+    request$.subscribe({
+      next: (res: any) => {
+        if ('valid' in res && !res.valid) {
+          this.connectionTestStatus = res.errors?.join(' ') || 'Falha ao validar conexão Agromobi.';
+          this.connectionTestTone = 'error';
+          return;
+        }
+        if ('ok' in res && res.ok === false) {
+          this.connectionTestStatus = res.message || 'Falha ao validar conexão SAP HANA.';
+          this.connectionTestTone = 'error';
+          return;
+        }
+
+        const elapsedMs = Math.round(Number(res?.elapsedMs ?? performance.now() - startedAt));
+        const label = source === 'sap' ? 'SAP HANA' : 'Agromobi';
+        this.connectionTestStatus = `Conexão ${label} OK (${elapsedMs} ms).`;
+        this.connectionTestTone = 'ok';
+      },
+      error: (err: any) => {
+        const label = source === 'sap' ? 'SAP HANA' : 'Agromobi';
+        this.connectionTestStatus = this.resolveConnectionTestError(err, `Falha ao testar conexão ${label}.`);
+        this.connectionTestTone = 'error';
+        this.connectionTestLoadingSource = null;
+      },
+      complete: () => {
+        this.connectionTestLoadingSource = null;
+      },
+    });
+  }
+
   async copyResultsForExcel() {
     this.closeAllMenus();
     if (!this.rows?.length || !this.displayedColumns?.length) return;
@@ -533,6 +584,14 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
 
   private snack(msg: string) {
     this.snackBar.open(msg, 'OK', { duration: 1500 });
+  }
+
+  private resolveConnectionTestError(err: any, fallback: string): string {
+    const error = err?.error;
+    if (typeof error === 'string') return error;
+    if (typeof error?.message === 'string') return error.message;
+    if (typeof error?.error === 'string') return error.error;
+    return fallback;
   }
 
   saveOnSelectedSnippet() {
