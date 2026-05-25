@@ -47,6 +47,8 @@ export class ReportsReportModalComponent {
   @Output() save = new EventEmitter<void>();
   @Output() saveAndTest = new EventEmitter<void>();
   showTemplatePicker = false;
+  showComparisonSqlGuide = false;
+  showPdfTemplateGuide = false;
 
   get usePdfTemplate(): boolean {
     return Boolean(this.reportDraft?.jasperTemplateId);
@@ -61,5 +63,13 @@ export class ReportsReportModalComponent {
     if (!checked && this.reportDraft) {
       this.reportDraft.jasperTemplateId = '';
     }
+  }
+
+  toggleComparisonSqlGuide() {
+    this.showComparisonSqlGuide = !this.showComparisonSqlGuide;
+  }
+
+  togglePdfTemplateGuide() {
+    this.showPdfTemplateGuide = !this.showPdfTemplateGuide;
   }
 }

@@ -47,10 +47,82 @@
       </section>
 
       <section class="report-draft-section">
-        <h4 class="report-draft-section__title">
-          <mat-icon aria-hidden="true">description</mat-icon>
-          2. Template de saída (opcional)
-        </h4>
+        <div class="report-draft-section__head">
+          <h4 class="report-draft-section__title">
+            <mat-icon aria-hidden="true">description</mat-icon>
+            2. Template de saída (opcional)
+          </h4>
+          <button
+            type="button"
+            class="comparison-guide-btn"
+            (click)="togglePdfTemplateGuide()"
+            [attr.aria-expanded]="showPdfTemplateGuide"
+            title="Guia de template PDF"
+          >
+            i
+          </button>
+        </div>
+
+        <aside class="comparison-sql-guide pdf-template-guide" *ngIf="showPdfTemplateGuide">
+          <div class="comparison-sql-guide__head">
+            <div>
+              <strong>Guia para criar Template PDF</strong>
+              <p>Use template PDF quando o relatório precisa sair em formato fixo, com cabeçalho, totais, agrupamentos ou layout de impressão.</p>
+            </div>
+            <button type="button" class="comparison-guide-close" (click)="togglePdfTemplateGuide()">Fechar</button>
+          </div>
+
+          <div class="comparison-guide-grid">
+            <section>
+              <h5>Como o template recebe os dados</h5>
+              <ol>
+                <li>A SQL do relatório define as colunas disponíveis para o template.</li>
+                <li>Cada alias da SQL vira um campo no template, por exemplo <code>nome_produtor</code>.</li>
+                <li>No Jasper, use os campos como <code>$F&#123;nome_produtor&#125;</code>.</li>
+                <li>Parâmetros detectados na SQL podem ser usados como filtros do relatório.</li>
+                <li>O template deve ser compatível com as colunas retornadas pela SQL principal.</li>
+              </ol>
+            </section>
+
+            <section>
+              <h5>Boas práticas</h5>
+              <ol>
+                <li>Use aliases simples, sem espaço e sem acento: <code>data_producao</code>, <code>quantidade</code>.</li>
+                <li>Evite mudar nomes de aliases depois que o template estiver pronto.</li>
+                <li>Formate valores monetários, datas e números no template quando possível.</li>
+                <li>Para totais, prefira trazer o valor agregado pela SQL ou criar variável no Jasper.</li>
+                <li>Teste a SQL antes de vincular o template para garantir que os campos existem.</li>
+              </ol>
+            </section>
+          </div>
+
+          <div class="comparison-guide-example">
+            <h5>Exemplo de SQL para template</h5>
+            <pre><code>SELECT
+  pd.dt AS data_producao,
+  p.nome AS produtor,
+  d.nome AS dieta,
+  SUM(pd.qt_ordem_realizada) AS quantidade_realizada
+FROM confinamento.producao_dieta pd
+JOIN confinamento.produtor p ON p.id = pd.produtor_id
+JOIN confinamento.dieta d ON d.id = pd.dieta_id
+WHERE pd.dt &gt;= :data_inicial
+  AND pd.dt &lt;= :data_final
+GROUP BY pd.dt, p.nome, d.nome
+ORDER BY pd.dt, p.nome</code></pre>
+          </div>
+
+          <div class="comparison-guide-note">
+            No template Jasper, os campos desse exemplo seriam usados como
+            <b>$F&#123;data_producao&#125;</b>, <b>$F&#123;produtor&#125;</b>,
+            <b>$F&#123;dieta&#125;</b> e <b>$F&#123;quantidade_realizada&#125;</b>.
+          </div>
+
+          <div class="comparison-guide-warning">
+            Se o PDF sair em branco ou com erro de campo, verifique se o nome do campo no template é exatamente igual ao alias retornado pela SQL.
+          </div>
+        </aside>
+
         <label class="report-draft-toggle">
           <input
             type="checkbox"
@@ -87,6 +159,7 @@
             </app-button>
           </div>
         </div>
+
         <label class="var-field">
           <span>SQL</span>
           <textarea
@@ -196,10 +269,89 @@
             <mat-icon aria-hidden="true">compare_arrows</mat-icon>
             4. Comparação SAP HANA (opcional)
           </h4>
+          <button
+            type="button"
+            class="comparison-guide-btn"
+            (click)="toggleComparisonSqlGuide()"
+            [attr.aria-expanded]="showComparisonSqlGuide"
+            title="Guia de SQL para comparação"
+          >
+            i
+          </button>
         </div>
         <p class="muted" style="margin: 0 0 10px; font-size: 12px;">
           Preencha apenas se este relatório precisa ser comparado com dados do SAP HANA.
         </p>
+
+        <aside class="comparison-sql-guide" *ngIf="showComparisonSqlGuide">
+          <div class="comparison-sql-guide__head">
+            <div>
+              <strong>Guia para criar SQL de comparação</strong>
+              <p>A comparação cruza o resultado do Agromobi com o SAP HANA usando uma coluna de chave.</p>
+            </div>
+            <button type="button" class="comparison-guide-close" (click)="toggleComparisonSqlGuide()">Fechar</button>
+          </div>
+
+          <div class="comparison-guide-grid">
+            <section>
+              <h5>Regras obrigatórias</h5>
+              <ol>
+                <li>A SQL principal e a SQL SAP devem retornar uma coluna com o mesmo alias da chave.</li>
+                <li>O campo <b>comparisonKey</b> deve ser exatamente esse alias, por exemplo <code>id_agromobi</code>.</li>
+                <li>Campos que serão comparados precisam ter aliases iguais nas duas consultas.</li>
+                <li>Use os mesmos placeholders de filtro nas duas consultas quando o filtro afetar os dois lados.</li>
+                <li>Evite <code>SELECT *</code>; retorne apenas chave e colunas necessárias para comparar.</li>
+              </ol>
+            </section>
+
+            <section>
+              <h5>Boas práticas</h5>
+              <ol>
+                <li>Para números, retorne número puro, não texto formatado com <code>TO_CHAR</code>.</li>
+                <li>Para datas, use o mesmo formato ou o mesmo tipo dos dois lados.</li>
+                <li>Use <code>COALESCE</code> quando nulos puderem atrapalhar a comparação.</li>
+                <li>No SAP HANA, use aspas duplas em tabelas/colunas com nomes sensíveis a maiúsculas.</li>
+                <li>No SAP HANA, também coloque os aliases entre aspas duplas para preservar o nome retornado.</li>
+                <li>Ordenação é opcional; a comparação usa a chave, não a ordem das linhas.</li>
+              </ol>
+            </section>
+          </div>
+
+          <div class="comparison-guide-example">
+            <h5>Exemplo Agromobi</h5>
+            <pre><code>SELECT
+  pd.id_agromobi AS id_agromobi,
+  pd.dt AS data_producao,
+  SUM(pd.qt_ordem_realizada) AS quantidade
+FROM confinamento.producao_dieta pd
+WHERE pd.dt &gt;= :data_inicial
+  AND pd.dt &lt;= :data_final
+GROUP BY pd.id_agromobi, pd.dt</code></pre>
+          </div>
+
+          <div class="comparison-guide-example">
+            <h5>Exemplo SAP HANA</h5>
+            <pre><code>SELECT
+  T0."U_IdAgromobi" AS "id_agromobi",
+  T0."DocDate" AS "data_producao",
+  SUM(T1."Quantity") AS "quantidade"
+FROM "OINV" T0
+JOIN "INV1" T1 ON T1."DocEntry" = T0."DocEntry"
+WHERE T0."DocDate" &gt;= :data_inicial
+  AND T0."DocDate" &lt;= :data_final
+GROUP BY T0."U_IdAgromobi", T0."DocDate"</code></pre>
+          </div>
+
+          <div class="comparison-guide-note">
+            Neste exemplo, informe <b>id_agromobi</b> no campo <b>comparisonKey</b>. A tela vai comparar
+            <b>data_producao</b> e <b>quantidade</b> para cada chave.
+          </div>
+
+          <div class="comparison-guide-warning">
+            Se aparecer erro de campo de comparação ausente, significa que uma das duas consultas não retornou a coluna com o alias informado em <b>comparisonKey</b>.
+          </div>
+        </aside>
+
         <label class="var-field">
           <span>SQL SAP HANA</span>
           <textarea

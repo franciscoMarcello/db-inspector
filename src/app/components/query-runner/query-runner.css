@@ -313,6 +313,7 @@ h3 {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+  flex-wrap: wrap;
   padding: 8px 12px;
   margin: 8px 0;
   background: var(--bg-surface);
@@ -491,6 +492,22 @@ h3 {
   color: #fde68a;
   font-size: 12px;
   font-weight: 600;
+}
+
+.connection-test-status {
+  margin: 0 0 8px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface-alt);
+  color: var(--text-muted);
+  padding: 8px 12px;
+}
+
+.connection-test-status--ok {
+  color: #16a34a;
+}
+
+.connection-test-status--error {
+  color: #dc2626;
 }
 
 .dirty-badge {

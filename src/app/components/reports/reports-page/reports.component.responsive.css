@@ -27,6 +27,15 @@
     height: 260px;
   }
 
+  .compare-card {
+    height: auto;
+    min-height: 0;
+  }
+
+  .compare-card--expanded {
+    height: auto;
+  }
+
   .status-card {
     margin-top: 6px;
     padding: 10px 12px;

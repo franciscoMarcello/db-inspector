@@ -90,7 +90,11 @@ export class ReportsComponent
   compareResult: ReportCompareResponse | null = null;
   loadingCompare = false;
   showCompareRawData = false;
+  compareExpanded = false;
+  compareRawRowLimit = 100;
+  compareSourceFilter: 'both' | 'source1' | 'source2' = 'both';
   compareQuickFilter: 'all' | 'different' | 'missingInSystem' | 'missingInSap' | 'duplicates' = 'all';
+  compareDiffViewMode: 'compact' | 'full' = 'compact';
 
   selectedFolderId: string | null = null;
   selectedReportId: string | null = null;
@@ -105,9 +109,11 @@ export class ReportsComponent
   loadingPdf = false;
   loadingExcel = false;
   loadingCompareExcel = false;
+  loadingCompareRawExcel = false;
   exportMenuOpen = false;
   manageMode = false;
   sidebarCollapsed = false;
+  analysisMode = false;
   variableInputs: Record<string, string> = {};
   variableMultiOptionSelections: Record<string, string[]> = {};
   variableMultiSelectOptionsByKey: Record<string, MultiSelectOption[]> = {};
@@ -301,8 +307,161 @@ export class ReportsComponent
     return this.compareQuickFilter === 'all' || this.compareQuickFilter === 'duplicates';
   }
 
+  get showCompareSource1(): boolean {
+    return this.compareSourceFilter === 'both' || this.compareSourceFilter === 'source1';
+  }
+
+  get showCompareSource2(): boolean {
+    return this.compareSourceFilter === 'both' || this.compareSourceFilter === 'source2';
+  }
+
+  compareDisplayLabel(label: string | null | undefined, fallback = 'Agromobi'): string {
+    const value = (label || '').trim();
+    if (!value || value.toLowerCase() === 'sistema') return fallback;
+    return value;
+  }
+
+  comparePercent(value: number, total: number): number {
+    if (!total) return 0;
+    return Math.round((Number(value || 0) / Number(total || 0)) * 100);
+  }
+
+  compareDifferentPercent(cmp: ReportCompareResponse): number {
+    return cmp.diff ? this.comparePercent(cmp.diff.differentCount, cmp.diff.matchCount) : 0;
+  }
+
+  compareEqualPercent(cmp: ReportCompareResponse): number {
+    return cmp.diff ? this.comparePercent(cmp.diff.equalCount, cmp.diff.matchCount) : 0;
+  }
+
+  compareDivergenceAlert(cmp: ReportCompareResponse): string {
+    if (!cmp.diff || !cmp.diff.matchCount || !cmp.diff.differentCount) return '';
+    const percent = this.compareDifferentPercent(cmp);
+    return `${percent}% dos registros comparados possuem divergência.`;
+  }
+
   formatDuplicateKeys(list: Array<{ key: string; count: number }>): string {
     return list.map((item) => `${item.key} (${item.count})`).join(', ');
+  }
+
+  showMoreCompareRawRows() {
+    this.compareRawRowLimit += 200;
+  }
+
+  compareDifferenceSourceRow(
+    cmp: ReportCompareResponse,
+    item: { key: string | null; source1Row?: Record<string, unknown> | null; source2Row?: Record<string, unknown> | null },
+    source: 'source1' | 'source2'
+  ): Record<string, unknown> {
+    const directRow = source === 'source1' ? item.source1Row : item.source2Row;
+    if (directRow && typeof directRow === 'object') return directRow;
+    const key = item.key;
+    const comparisonKey = cmp.comparisonKey;
+    if (key === null || key === undefined || !comparisonKey) return {};
+    const rows = source === 'source1' ? cmp.source1.rows : cmp.source2.rows;
+    return rows.find((row) => String(row?.[comparisonKey] ?? '') === String(key)) ?? {};
+  }
+
+  compareDifferentFields(item: { fields: Record<string, any> }): string[] {
+    return Object.entries(item.fields || {})
+      .filter(([, detail]) => detail && !detail.equal)
+      .map(([fieldName]) => fieldName);
+  }
+
+  compareDifferentFieldsLabel(item: { fields: Record<string, any> }): string {
+    return this.compareDifferentFields(item).join(', ');
+  }
+
+  compareDifferentFieldsCountLabel(item: { fields: Record<string, any> }): string {
+    const count = this.compareDifferentFields(item).length;
+    return `${count} ${count === 1 ? 'divergência' : 'divergências'}`;
+  }
+
+  compareDifferenceRows(cmp: ReportCompareResponse): Array<{
+    key: string | null;
+    field: string;
+    source1: unknown;
+    source2: unknown;
+    diff: unknown;
+    item: any;
+  }> {
+    const rows: Array<{ key: string | null; field: string; source1: unknown; source2: unknown; diff: unknown; item: any }> = [];
+    for (const item of cmp.diff?.withDifferences || []) {
+      for (const field of this.compareDifferentFields(item)) {
+        const detail = this.compareFieldDetail(item, field);
+        rows.push({
+          key: item.key,
+          field,
+          source1: detail.source1 ?? '',
+          source2: detail.source2 ?? '',
+          diff: detail.diff ?? '',
+          item,
+        });
+      }
+    }
+    return rows;
+  }
+
+  compareFieldStats(cmp: ReportCompareResponse): Array<{ field: string; count: number }> {
+    const counts = new Map<string, number>();
+    for (const item of cmp.diff?.withDifferences || []) {
+      for (const field of this.compareDifferentFields(item)) {
+        counts.set(field, (counts.get(field) || 0) + 1);
+      }
+    }
+    return Array.from(counts.entries())
+      .map(([field, count]) => ({ field, count }))
+      .sort((a, b) => b.count - a.count || a.field.localeCompare(b.field))
+      .slice(0, 5);
+  }
+
+  compareCellDiffClass(item: { fields: Record<string, any> }, column: string): Record<string, boolean> {
+    const detail = item.fields?.[column];
+    return {
+      'diff-cell--changed': Boolean(detail && !detail.equal),
+      'diff-cell--missing': detail !== undefined && (detail?.source1 === null || detail?.source1 === undefined || detail?.source2 === null || detail?.source2 === undefined),
+    };
+  }
+
+  compareFieldDetail(item: { fields: Record<string, any> }, field: string): any {
+    return item.fields?.[field] ?? {};
+  }
+
+  formatCompareDelta(value: unknown): string {
+    if (value === null || value === undefined || value === '') return '';
+    const numeric = Number(value);
+    if (!Number.isNaN(numeric)) return `${numeric > 0 ? '+' : ''}${value}`;
+    return String(value);
+  }
+
+  compareColumnDiffValue(item: { fields: Record<string, any> }, column: string): string {
+    const detail = item.fields?.[column];
+    if (!detail || detail.equal) return '';
+    return this.formatCompareDelta(detail.diff) || '≠';
+  }
+
+  formatCompareDiffPercent(row: { source2: unknown; diff: unknown }): string {
+    const diff = Number(row.diff);
+    const base = Number(row.source2);
+    if (!Number.isFinite(diff) || !Number.isFinite(base) || base === 0) return '';
+    const percent = (diff / base) * 100;
+    return `${percent > 0 ? '+' : ''}${percent.toFixed(2)}%`;
+  }
+
+  compareValueTitle(value: unknown): string {
+    return value === null || value === undefined ? '' : String(value);
+  }
+
+  formatCompareDifferenceSummary(item: { fields: Record<string, any> }): string {
+    return Object.entries(item.fields || {})
+      .filter(([, detail]) => detail && !detail.equal)
+      .map(([fieldName, detail]) => {
+        const delta = detail.diff !== null && detail.diff !== undefined
+          ? ` (${detail.diff > 0 ? '+' : ''}${detail.diff})`
+          : '';
+        return `${fieldName}: ${detail.source1 ?? ''} → ${detail.source2 ?? ''}${delta}`;
+      })
+      .join('; ');
   }
 
   reportsByFolder(folder: FolderNode): ReportDefinition[] {
@@ -366,7 +525,11 @@ export class ReportsComponent
     this.paramsError = '';
     this.runResult = null;
     this.compareResult = null;
+    this.compareExpanded = false;
+    this.compareRawRowLimit = 100;
+    this.compareSourceFilter = 'both';
     this.compareQuickFilter = 'all';
+    this.compareDiffViewMode = 'compact';
     this.optionsParamsSignatureByKey = {};
     this.initVariableInputs();
     this.reloadVariableOptions();
@@ -375,6 +538,14 @@ export class ReportsComponent
   toggleSidebar() {
     this.sidebarCollapsed = !this.sidebarCollapsed;
     this.persistSidebarCollapsedState();
+  }
+
+  toggleAnalysisMode() {
+    this.analysisMode = !this.analysisMode;
+    if (this.analysisMode && !this.sidebarCollapsed) {
+      this.sidebarCollapsed = true;
+      this.persistSidebarCollapsedState();
+    }
   }
 
   toggleExportMenu(event?: Event) {
@@ -662,7 +833,7 @@ export class ReportsComponent
       const sheets: Array<{ name: string; columns: string[]; rows: Record<string, unknown>[] }> = [];
       sheets.push({
         name: 'Resumo',
-        columns: ['relatorio', 'modo', 'comparisonKey', 'correspondencias', 'iguais', 'diferentes', 'faltantes_sap', 'faltantes_sistema', 'gerado_em'],
+        columns: ['relatorio', 'modo', 'comparisonKey', 'correspondencias', 'iguais', 'diferentes', 'faltantes_sap', 'faltantes_agromobi', 'gerado_em'],
         rows: [{
           relatorio: cmp.name || this.selectedReport?.name || '',
           modo: cmp.mode,
@@ -671,7 +842,7 @@ export class ReportsComponent
           iguais: cmp.diff.equalCount,
           diferentes: cmp.diff.differentCount,
           faltantes_sap: missingSapRows.length,
-          faltantes_sistema: missingSystemRows.length,
+          faltantes_agromobi: missingSystemRows.length,
           gerado_em: now.toISOString(),
         }],
       });
@@ -680,7 +851,7 @@ export class ReportsComponent
       if ((addEverything || this.compareQuickFilter === 'different') && diffRows.length) {
         sheets.push({
           name: 'Divergencias',
-          columns: ['chave', 'campo', 'sistema', 'sap_hana', 'delta'],
+          columns: ['chave', 'campo', 'agromobi', 'sap_hana', 'delta'],
           rows: diffRows,
         });
       }
@@ -693,14 +864,14 @@ export class ReportsComponent
       }
       if ((addEverything || this.compareQuickFilter === 'missingInSystem') && missingSystemRows.length) {
         sheets.push({
-          name: 'Faltantes_Sistema',
+          name: 'Faltantes_Agromobi',
           columns: this.resolveColumns(cmp.source2.columns, missingSystemRows),
           rows: missingSystemRows,
         });
       }
       if ((addEverything || this.compareQuickFilter === 'duplicates') && duplicateSystemRows.length) {
         sheets.push({
-          name: 'Duplicadas_Sistema',
+          name: 'Duplicadas_Agromobi',
           columns: ['chave', 'ocorrencias'],
           rows: duplicateSystemRows,
         });
@@ -723,6 +894,52 @@ export class ReportsComponent
       this.setStatusMessage('Excel de diferenças exportado.', 2500);
     } finally {
       this.loadingCompareExcel = false;
+    }
+  }
+
+  exportCompareRawExcel() {
+    const cmp = this.compareResult;
+    if (!cmp) {
+      this.setStatusMessage('Não há resultados de comparação para exportar.');
+      return;
+    }
+
+    this.loadingCompareRawExcel = true;
+    try {
+      const now = new Date();
+      const pad = (value: number) => String(value).padStart(2, '0');
+      const timestamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}`;
+      const reportName = normalizeFileName(cmp.name || this.selectedReport?.name || 'comparacao');
+      const sheets: Array<{ name: string; columns: string[]; rows: Record<string, unknown>[] }> = [
+        {
+          name: 'Resumo',
+          columns: ['relatorio', 'modo', 'comparisonKey', 'linhas_agromobi', 'linhas_sap', 'gerado_em'],
+          rows: [{
+            relatorio: cmp.name || this.selectedReport?.name || '',
+            modo: cmp.mode,
+            comparisonKey: cmp.comparisonKey ?? '',
+            linhas_agromobi: cmp.source1.rowCount,
+            linhas_sap: cmp.source2.rowCount,
+            gerado_em: now.toISOString(),
+          }],
+        },
+        {
+          name: 'Agromobi',
+          columns: this.resolveColumns(cmp.source1.columns, cmp.source1.rows),
+          rows: cmp.source1.rows,
+        },
+        {
+          name: 'SAP_HANA',
+          columns: this.resolveColumns(cmp.source2.columns, cmp.source2.rows),
+          rows: cmp.source2.rows,
+        },
+      ];
+
+      const blob = createXlsxWorkbookBlob(sheets);
+      this.downloadBlob(blob, `resultados_comparacao_${reportName}_${timestamp}.xlsx`);
+      this.setStatusMessage('Excel de resultados da comparação exportado.', 2500);
+    } finally {
+      this.loadingCompareRawExcel = false;
     }
   }
 
@@ -873,6 +1090,10 @@ export class ReportsComponent
     this.loadingCompare = true;
     this.compareResult = null;
     this.compareQuickFilter = 'all';
+    this.compareExpanded = false;
+    this.compareRawRowLimit = 100;
+    this.compareSourceFilter = 'both';
+    this.compareDiffViewMode = 'compact';
     this.showCompareRawData = false;
     this.runResult = null;
     this.reportService.compareReport(this.selectedReportId, params).subscribe({
@@ -1136,7 +1357,7 @@ export class ReportsComponent
         rows.push({
           chave: item.key ?? '',
           campo: fieldName,
-          sistema: detail?.source1 ?? '',
+          agromobi: detail?.source1 ?? '',
           sap_hana: detail?.source2 ?? '',
           delta: detail?.diff ?? '',
         });
@@ -1177,8 +1398,6 @@ export class ReportsComponent
     this.reportDraftPreviewRows = [];
     this.reportDraftPreviewColumns = [];
   }
-
-  
 
   private updateSelectedReportArchived(archived: boolean) {
     const current = this.selectedReport;

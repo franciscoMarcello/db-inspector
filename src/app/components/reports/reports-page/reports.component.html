@@ -1,4 +1,4 @@
-<div class="reports-shell" [class.sidebar-collapsed]="sidebarCollapsed" (click)="closeExportMenu()">
+<div class="reports-shell" [class.sidebar-collapsed]="sidebarCollapsed" [class.analysis-mode]="analysisMode" (click)="closeExportMenu()">
   <aside class="tree-panel" *ngIf="!sidebarCollapsed">
     <div class="tree-header">
       <div class="tree-header__row">
@@ -118,7 +118,7 @@
   </aside>
 
   <main class="content-panel">
-    <section class="card filters">
+    <section class="card filters" *ngIf="!analysisMode || !compareResult">
       <div class="title">
         <div class="title-row">
           <h2>{{ runResult?.name || selectedReport?.name || 'Relatorio' }}</h2>
@@ -410,7 +410,7 @@
       </div>
     </section>
 
-    <section class="card table-card" *ngIf="runResult as result; else emptyState">
+    <section class="card table-card" *ngIf="runResult as result">
       <div class="table-meta">
         <span class="metric-chip">🧾 <strong>{{ result.meta.rowCount }}</strong> linhas</span>
         <span class="metric-chip" *ngIf="displayedRows.length !== result.meta.rowCount"
@@ -463,23 +463,36 @@
       </div>
     </section>
 
-    <section class="card table-card compare-card" *ngIf="compareResult as cmp">
+    <ng-container *ngIf="!runResult && !compareResult">
+      <ng-container *ngTemplateOutlet="emptyState"></ng-container>
+    </ng-container>
+
+    <section class="card table-card compare-card" [class.compare-card--expanded]="compareExpanded" *ngIf="compareResult as cmp">
       <div class="table-meta">
-        <span class="metric-chip">Sistema: <strong>{{ cmp.source1.rowCount }}</strong> linhas</span>
+        <span class="metric-chip">Agromobi: <strong>{{ cmp.source1.rowCount }}</strong> linhas</span>
         <span class="metric-chip">SAP HANA: <strong>{{ cmp.source2.rowCount }}</strong> linhas</span>
         <ng-container *ngIf="cmp.diff">
           <span class="metric-chip">Correspondências: <strong>{{ cmp.diff.matchCount }}</strong></span>
-          <span class="metric-chip compare-chip--ok">Registros iguais: <strong>{{ cmp.diff.equalCount }}</strong></span>
-          <span class="metric-chip compare-chip--diff">Registros diferentes: <strong>{{ cmp.diff.differentCount }}</strong></span>
+          <span class="metric-chip compare-chip--ok">Registros iguais: <strong>{{ cmp.diff.equalCount }} de {{ cmp.diff.matchCount }} — {{ compareEqualPercent(cmp) }}%</strong></span>
+          <span class="metric-chip compare-chip--diff compare-chip--primary">Registros diferentes: <strong>{{ cmp.diff.differentCount }} de {{ cmp.diff.matchCount }} — {{ compareDifferentPercent(cmp) }}%</strong></span>
           <span class="metric-chip compare-chip--warn">Faltantes no SAP: <strong>{{ cmp.diff.onlyInSource1.length }}</strong></span>
-          <span class="metric-chip compare-chip--warn">Faltantes no sistema: <strong>{{ cmp.diff.onlyInSource2.length }}</strong></span>
+          <span class="metric-chip compare-chip--warn">Faltantes no Agromobi: <strong>{{ cmp.diff.onlyInSource2.length }}</strong></span>
         </ng-container>
+      </div>
+      <div class="compare-alert" *ngIf="cmp.diff && compareDivergenceAlert(cmp)">
+        {{ compareDivergenceAlert(cmp) }}
+      </div>
+      <div class="compare-field-stats" *ngIf="cmp.diff && compareFieldStats(cmp).length">
+        <span class="compare-field-stats__label">Colunas com mais divergência:</span>
+        <span class="compare-field-chip" *ngFor="let stat of compareFieldStats(cmp)" [title]="stat.field">
+          {{ stat.field }}: <strong>{{ stat.count }}</strong>
+        </span>
       </div>
       <div class="compare-mode-hint">{{ compareModeDescription }}</div>
 
       <div class="compare-duplicates" *ngIf="showCompareDuplicatesSection && hasDuplicateKeysInCompare">
         <div class="status-line status-line--warn" *ngIf="cmp.duplicateKeysSource1.length">
-          <strong>Chaves duplicadas em {{ cmp.source1.label }}</strong>
+          <strong>Chaves duplicadas em {{ compareDisplayLabel(cmp.source1.label) }}</strong>
           <span>{{ formatDuplicateKeys(cmp.duplicateKeysSource1) }}</span>
         </div>
         <div class="status-line status-line--warn" *ngIf="cmp.duplicateKeysSource2.length">
@@ -506,7 +519,7 @@
           class="compare-filter-btn"
           [class.compare-filter-btn--active]="compareQuickFilter === 'missingInSystem'"
           (click)="compareQuickFilter = 'missingInSystem'"
-        >Só faltantes no sistema</button>
+        >Só faltantes no Agromobi</button>
         <button
           type="button"
           class="compare-filter-btn"
@@ -527,40 +540,90 @@
         >
           {{ loadingCompareExcel ? 'Gerando Excel...' : 'Exportar diferenças (.xlsx)' }}
         </button>
+        <button
+          type="button"
+          class="compare-filter-btn compare-filter-btn--action compare-filter-btn--raw-export"
+          (click)="exportCompareRawExcel()"
+          [disabled]="loadingCompareRawExcel"
+        >
+          {{ loadingCompareRawExcel ? 'Gerando Excel...' : 'Exportar resultados (.xlsx)' }}
+        </button>
+        <button
+          type="button"
+          class="compare-filter-btn compare-filter-btn--expand"
+          (click)="compareExpanded = !compareExpanded"
+        >
+          {{ compareExpanded ? 'Recolher comparação' : 'Expandir comparação' }}
+        </button>
+        <button
+          type="button"
+          class="compare-filter-btn compare-filter-btn--analysis"
+          [class.compare-filter-btn--active]="analysisMode"
+          (click)="toggleAnalysisMode()"
+        >
+          {{ analysisMode ? 'Sair do modo análise' : 'Modo análise' }}
+        </button>
       </div>
 
       <ng-container *ngIf="cmp.diff">
-        <button type="button" class="compare-raw-toggle" (click)="showCompareRawData = !showCompareRawData">
-          {{ showCompareRawData ? 'Ocultar resultados completos' : 'Ver resultados completos' }}
-        </button>
+        <div class="compare-raw-toolbar">
+          <button type="button" class="compare-raw-toggle" (click)="showCompareRawData = !showCompareRawData">
+            {{ showCompareRawData ? 'Ocultar resultados completos' : 'Ver resultados completos' }}
+          </button>
+          <ng-container *ngIf="showCompareRawData">
+            <button
+              type="button"
+              class="compare-filter-btn"
+              [class.compare-filter-btn--active]="compareSourceFilter === 'both'"
+              (click)="compareSourceFilter = 'both'"
+            >Ambos</button>
+            <button
+              type="button"
+              class="compare-filter-btn"
+              [class.compare-filter-btn--active]="compareSourceFilter === 'source1'"
+              (click)="compareSourceFilter = 'source1'"
+            >Só {{ compareDisplayLabel(cmp.source1.label) }}</button>
+            <button
+              type="button"
+              class="compare-filter-btn"
+              [class.compare-filter-btn--active]="compareSourceFilter === 'source2'"
+              (click)="compareSourceFilter = 'source2'"
+            >Só {{ cmp.source2.label || 'SAP' }}</button>
+          </ng-container>
+        </div>
       </ng-container>
 
+      <div class="compare-body">
       <ng-container *ngIf="(!cmp.diff || showCompareRawData) && compareQuickFilter === 'all'">
-        <div class="compare-sources">
-          <div class="compare-source">
-            <div class="compare-source__label">{{ cmp.source1.label }} ({{ cmp.source1.rowCount }} linhas)</div>
+        <div class="compare-section compare-sources">
+          <div class="compare-source" *ngIf="showCompareSource1">
+            <div class="compare-source__label">
+              {{ compareDisplayLabel(cmp.source1.label) }} (exibindo {{ (cmp.source1.rows | slice:0:compareRawRowLimit).length }} de {{ cmp.source1.rowCount }} linhas)
+            </div>
             <div class="table-wrap">
               <table class="data-table">
                 <thead>
                   <tr><th *ngFor="let col of cmp.source1.columns">{{ col }}</th></tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let row of cmp.source1.rows">
+                  <tr *ngFor="let row of cmp.source1.rows | slice:0:compareRawRowLimit">
                     <td *ngFor="let col of cmp.source1.columns">{{ row[col] }}</td>
                   </tr>
                 </tbody>
               </table>
             </div>
           </div>
-          <div class="compare-source">
-            <div class="compare-source__label">{{ cmp.source2.label }} ({{ cmp.source2.rowCount }} linhas)</div>
+          <div class="compare-source" *ngIf="showCompareSource2">
+            <div class="compare-source__label">
+              {{ cmp.source2.label }} (exibindo {{ (cmp.source2.rows | slice:0:compareRawRowLimit).length }} de {{ cmp.source2.rowCount }} linhas)
+            </div>
             <div class="table-wrap">
               <table class="data-table">
                 <thead>
                   <tr><th *ngFor="let col of cmp.source2.columns">{{ col }}</th></tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let row of cmp.source2.rows">
+                  <tr *ngFor="let row of cmp.source2.rows | slice:0:compareRawRowLimit">
                     <td *ngFor="let col of cmp.source2.columns">{{ row[col] }}</td>
                   </tr>
                 </tbody>
@@ -568,16 +631,21 @@
             </div>
           </div>
         </div>
+        <div class="compare-raw-more" *ngIf="cmp.source1.rows.length > compareRawRowLimit || cmp.source2.rows.length > compareRawRowLimit">
+          <button type="button" class="compare-filter-btn compare-filter-btn--expand" (click)="showMoreCompareRawRows()">
+            Mostrar mais linhas
+          </button>
+        </div>
       </ng-container>
 
       <ng-container *ngIf="cmp.diff">
         <div
-          class="compare-sources"
+          class="compare-section compare-sources"
           *ngIf="(showCompareMissingInSapSection && cmp.diff.onlyInSource1.length) || (showCompareMissingInSystemSection && cmp.diff.onlyInSource2.length)"
         >
           <div class="compare-source" *ngIf="showCompareMissingInSapSection">
             <div class="compare-source__label compare-source__label--warn">
-              {{ cmp.source1.label }} — pendentes no SAP ({{ cmp.diff.onlyInSource1.length }})
+              {{ compareDisplayLabel(cmp.source1.label) }} — pendentes no SAP ({{ cmp.diff.onlyInSource1.length }})
             </div>
             <div class="table-wrap" *ngIf="cmp.diff.onlyInSource1.length; else diffEmpty1">
               <table class="data-table">
@@ -597,7 +665,7 @@
           </div>
           <div class="compare-source" *ngIf="showCompareMissingInSystemSection">
             <div class="compare-source__label compare-source__label--warn">
-              {{ cmp.source2.label }} — sem correspondência no sistema ({{ cmp.diff.onlyInSource2.length }})
+              {{ cmp.source2.label }} — sem correspondência no Agromobi ({{ cmp.diff.onlyInSource2.length }})
             </div>
             <div class="table-wrap" *ngIf="cmp.diff.onlyInSource2.length; else diffEmpty2">
               <table class="data-table">
@@ -621,39 +689,109 @@
         </div>
 
         <ng-container *ngIf="showCompareDifferencesSection && cmp.diff.withDifferences.length">
-          <div class="compare-source__label compare-source__label--diff" style="margin-top: 12px;">
-            Registros com divergências de valores ({{ cmp.diff.differentCount }})
-          </div>
-          <div class="table-wrap">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>Chave</th>
-                  <th>Campo</th>
-                  <th>{{ cmp.source1.label }}</th>
-                  <th>{{ cmp.source2.label }}</th>
-                  <th>Diferença</th>
-                </tr>
-              </thead>
-              <tbody>
-                <ng-container *ngFor="let item of cmp.diff.withDifferences">
-                  <ng-container *ngFor="let field of item.fields | keyvalue">
-                    <tr *ngIf="!field.value.equal" class="diff-field-changed">
+          <div class="compare-section compare-diff-section">
+            <div class="compare-diff-head">
+              <div class="compare-source__label compare-source__label--diff">
+                Registros com divergências de valores ({{ cmp.diff.differentCount }})
+              </div>
+              <div class="compare-diff-view-toggle">
+                <button
+                  type="button"
+                  class="compare-filter-btn"
+                  [class.compare-filter-btn--active]="compareDiffViewMode === 'compact'"
+                  (click)="compareDiffViewMode = 'compact'"
+                >Somente divergências</button>
+                <button
+                  type="button"
+                  class="compare-filter-btn"
+                  [class.compare-filter-btn--active]="compareDiffViewMode === 'full'"
+                  (click)="compareDiffViewMode = 'full'"
+                >Tabela completa</button>
+              </div>
+            </div>
+
+            <div class="table-wrap" *ngIf="compareDiffViewMode === 'compact'; else fullDifferenceTable">
+              <table class="data-table compare-diff-table compare-diff-table--compact">
+                <thead>
+                  <tr>
+                    <th>Chave</th>
+                    <th>Coluna divergente</th>
+                    <th>{{ compareDisplayLabel(cmp.source1.label) }}</th>
+                    <th>{{ cmp.source2.label }}</th>
+                    <th>Diferença</th>
+                    <th>Diferença %</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let row of compareDifferenceRows(cmp)" class="diff-field-changed">
+                    <td class="diff-key-cell">{{ row.key }}</td>
+                    <td class="diff-fields-list">{{ row.field }}</td>
+                    <td class="diff-cell-value diff-cell--changed">
+                      <span class="diff-value" [title]="compareValueTitle(row.source1)"><span class="diff-marker">▌</span>{{ row.source1 }}</span>
+                    </td>
+                    <td class="diff-cell-value diff-cell--changed">
+                      <span class="diff-value" [title]="compareValueTitle(row.source2)"><span class="diff-marker">▌</span>{{ row.source2 }}</span>
+                    </td>
+                    <td class="diff-cell-value diff-delta">{{ formatCompareDelta(row.diff) || '≠' }}</td>
+                    <td class="diff-cell-value diff-delta">{{ formatCompareDiffPercent(row) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <ng-template #fullDifferenceTable>
+              <div class="table-wrap">
+                <table class="data-table compare-diff-table compare-diff-table--full">
+                  <thead>
+                    <tr>
+                      <th rowspan="2">Chave</th>
+                      <th rowspan="2">Status</th>
+                      <th rowspan="2">Colunas divergentes</th>
+                      <th class="compare-group-head" [attr.colspan]="cmp.source1.columns.length">{{ compareDisplayLabel(cmp.source1.label) }}</th>
+                      <th class="compare-group-head" [attr.colspan]="cmp.source2.columns.length">{{ cmp.source2.label }}</th>
+                      <th class="compare-group-head compare-group-head--diff" [attr.colspan]="cmp.source1.columns.length">Diferença</th>
+                    </tr>
+                    <tr>
+                      <th *ngFor="let col of cmp.source1.columns">{{ col }}</th>
+                      <th *ngFor="let col of cmp.source2.columns">{{ col }}</th>
+                      <th *ngFor="let col of cmp.source1.columns">{{ col }}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let item of cmp.diff.withDifferences" class="diff-field-changed">
                       <td class="diff-key-cell">{{ item.key }}</td>
-                      <td class="diff-field-name">{{ field.key }}</td>
-                      <td>{{ field.value.source1 }}</td>
-                      <td>{{ field.value.source2 }}</td>
-                      <td class="diff-cell-value">
-                        {{ field.value.diff !== null ? ((field.value.diff > 0 ? '+' : '') + field.value.diff) : '≠' }}
+                      <td><span class="diff-type-pill">Valor diferente</span></td>
+                      <td class="diff-fields-list diff-fields-list--full" [title]="compareDifferentFieldsLabel(item)">
+                        {{ compareDifferentFieldsLabel(item) }}
+                      </td>
+                      <td
+                        *ngFor="let col of cmp.source1.columns"
+                        [ngClass]="compareCellDiffClass(item, col)"
+                      >
+                        {{ compareDifferenceSourceRow(cmp, item, 'source1')[col] }}
+                      </td>
+                      <td
+                        *ngFor="let col of cmp.source2.columns"
+                        [ngClass]="compareCellDiffClass(item, col)"
+                      >
+                        {{ compareDifferenceSourceRow(cmp, item, 'source2')[col] }}
+                      </td>
+                      <td
+                        *ngFor="let col of cmp.source1.columns"
+                        class="diff-cell-value diff-delta"
+                        [class.diff-cell--changed]="compareColumnDiffValue(item, col)"
+                      >
+                        {{ compareColumnDiffValue(item, col) }}
                       </td>
                     </tr>
-                  </ng-container>
-                </ng-container>
-              </tbody>
-            </table>
+                  </tbody>
+                </table>
+              </div>
+            </ng-template>
           </div>
         </ng-container>
       </ng-container>
+      </div>
     </section>
   </main>
 </div>

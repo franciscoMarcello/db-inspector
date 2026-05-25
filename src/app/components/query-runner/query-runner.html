@@ -136,6 +136,27 @@
         </div>
       </div>
 
+      <div class="btns toolbar-group">
+        <button
+          class="group-btn"
+          [disabled]="connectionTestLoadingSource !== null"
+          (click)="testConnection('agromobi')"
+          title="Executa SELECT 1 AS ok"
+        >
+          <span class="btn-spinner" *ngIf="connectionTestLoadingSource === 'agromobi'" aria-hidden="true"></span>
+          {{ connectionTestLoadingSource === 'agromobi' ? 'Testando Agromobi...' : 'Testar Agromobi' }}
+        </button>
+        <button
+          class="group-btn"
+          [disabled]="connectionTestLoadingSource !== null"
+          (click)="testConnection('sap')"
+          title="Executa SELECT 1 AS &quot;ok&quot; FROM DUMMY"
+        >
+          <span class="btn-spinner" *ngIf="connectionTestLoadingSource === 'sap'" aria-hidden="true"></span>
+          {{ connectionTestLoadingSource === 'sap' ? 'Testando SAP...' : 'Testar SAP HANA' }}
+        </button>
+      </div>
+
       <div class="toolbar-right">
         <button class="snippet-toggle-btn" (click)="toggleSnippetsPanel()">
           <mat-icon aria-hidden="true">
@@ -157,6 +178,14 @@
     </div>
     <div class="run-warning" *ngIf="allModeTruncated">
       Resultado truncado na interface: exibindo {{ rows.length }} de {{ rowCount }} linhas.
+    </div>
+    <div
+      class="connection-test-status"
+      *ngIf="connectionTestStatus"
+      [class.connection-test-status--ok]="connectionTestTone === 'ok'"
+      [class.connection-test-status--error]="connectionTestTone === 'error'"
+    >
+      {{ connectionTestStatus }}
     </div>
 
     <div
