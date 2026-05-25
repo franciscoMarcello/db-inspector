@@ -11,6 +11,7 @@ import { ActivatedRoute } from '@angular/router';
 import { catchError, firstValueFrom, forkJoin, of } from 'rxjs';
 import {
   JasperTemplateResponse,
+  ReportCompareRequest,
   ReportCompareResponse,
   ReportDefinition,
   ReportFolder,
@@ -82,6 +83,9 @@ import { ReportsDraftHost, ReportsDraftLogic } from '../core/reports.component.d
 })
 export class ReportsComponent
   implements OnInit, OnDestroy, ReportsFolderTemplateHost, ReportsVariableOptionsHost, ReportsDraftHost {
+
+  compareToleranceRows: Array<{ field: string; tolerance: string }> = [];
+  compareToleranceError = '';
   folders: FolderNode[] = [];
   allFolders: ReportFolder[] = [];
   reports: ReportDefinition[] = [];
@@ -1087,6 +1091,9 @@ export class ReportsComponent
     const params = this.buildRunParams();
     if (params === null) return;
 
+    const comparisonTolerances = this.buildComparisonTolerances();
+    if (comparisonTolerances === null) return;
+
     this.loadingCompare = true;
     this.compareResult = null;
     this.compareQuickFilter = 'all';
@@ -1096,7 +1103,12 @@ export class ReportsComponent
     this.compareDiffViewMode = 'compact';
     this.showCompareRawData = false;
     this.runResult = null;
-    this.reportService.compareReport(this.selectedReportId, params).subscribe({
+    const request: ReportCompareRequest = { params };
+    if (Object.keys(comparisonTolerances).length) {
+      request.comparisonTolerances = comparisonTolerances;
+    }
+
+    this.reportService.compareReport(this.selectedReportId, request).subscribe({
       next: (res) => {
         this.loadingCompare = false;
         this.compareResult = res;
@@ -1123,6 +1135,47 @@ export class ReportsComponent
         }
       },
     });
+  }
+
+  addCompareToleranceRow() {
+    this.compareToleranceRows = [...this.compareToleranceRows, { field: '', tolerance: '' }];
+  }
+
+  removeCompareToleranceRow(index: number) {
+    this.compareToleranceRows = this.compareToleranceRows.filter((_, idx) => idx !== index);
+    if (!this.compareToleranceRows.length) this.compareToleranceError = '';
+  }
+
+  private buildComparisonTolerances(): Record<string, number> | null {
+    const tolerances: Record<string, number> = {};
+
+    for (const row of this.compareToleranceRows) {
+      const field = row.field.trim();
+      const rawTolerance = row.tolerance.trim();
+      const isCompletelyEmpty = !field && !rawTolerance;
+      if (isCompletelyEmpty) continue;
+
+      if (!field) {
+        this.compareToleranceError = 'Preencha o nome do campo em todas as tolerâncias.';
+        return null;
+      }
+
+      const numericTolerance = Number(rawTolerance);
+      if (!rawTolerance || !Number.isFinite(numericTolerance)) {
+        this.compareToleranceError = 'A tolerância deve ser numérica e finita.';
+        return null;
+      }
+
+      if (numericTolerance < 0) {
+        this.compareToleranceError = 'A tolerância deve ser maior ou igual a zero.';
+        return null;
+      }
+
+      tolerances[field] = numericTolerance;
+    }
+
+    this.compareToleranceError = '';
+    return tolerances;
   }
 
   private rebuildFolders(apiFolders: ReportFolder[]) {

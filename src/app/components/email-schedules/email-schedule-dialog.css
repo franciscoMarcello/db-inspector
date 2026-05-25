@@ -148,7 +148,8 @@
 }
 
 textarea,
-input {
+input,
+select {
   width: 100%;
   box-sizing: border-box;
   border-radius: 10px;
@@ -165,7 +166,8 @@ textarea {
 }
 
 input:focus,
-textarea:focus {
+textarea:focus,
+select:focus {
   outline: none;
   border-color: var(--chip-bg-active);
   box-shadow: 0 0 0 3px rgba(76, 111, 255, 0.2);
@@ -259,6 +261,31 @@ small {
 
 .error-text {
   color: #ef4444;
+}
+
+.check-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.check-row input {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+}
+
+.tolerance-list {
+  display: grid;
+  gap: 8px;
+}
+
+.tolerance-item {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) minmax(110px, 180px) auto;
+  gap: 8px;
+  align-items: center;
 }
 
 .days-preset {
@@ -405,5 +432,9 @@ button {
 
   .actions {
     flex-wrap: wrap;
+  }
+
+  .tolerance-item {
+    grid-template-columns: 1fr;
   }
 }

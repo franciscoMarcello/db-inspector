@@ -635,7 +635,22 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
     dialogRef.afterClosed().subscribe((result?: EmailScheduleResult) => {
       if (!result) return;
       const payload = {
-        ...result,
+        sql: result.sql,
+        secondSql: result.secondSql || undefined,
+        compareWithSap: result.compareWithSap,
+        comparisonKey: result.comparisonKey || undefined,
+        comparisonTolerances: Object.keys(result.comparisonTolerances || {}).length
+          ? result.comparisonTolerances
+          : undefined,
+        sendOnlyIfDifferent: result.sendOnlyIfDifferent,
+        to: result.to,
+        cc: result.cc,
+        subject: result.subject,
+        message: result.message || undefined,
+        reportId: result.reportId || undefined,
+        attachPdf: result.attachPdf,
+        time: result.time || undefined,
+        days: result.days?.length ? result.days : undefined,
         asDict: true,
         withDescription: true,
       };
@@ -645,6 +660,8 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
           if (res.status === 'scheduled') {
             const nxt = res.nextRun ? `Próxima: ${res.nextRun}` : '';
             this.snack(`Agendado com sucesso. ${nxt}`);
+          } else if (res.status === 'skipped') {
+            this.snack('Envio ignorado: sem dados ou sem divergência.');
           } else {
             this.snack('Relatório enviado por e-mail.');
           }

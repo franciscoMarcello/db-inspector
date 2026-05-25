@@ -14,9 +14,17 @@ import { AppButtonComponent } from '../shared/app-button/app-button.component';
 type EmailSchedule = {
   id: string;
   sql: string;
+  secondSql?: string;
+  compareWithSap?: boolean;
+  comparisonKey?: string;
+  comparisonTolerances?: Record<string, number>;
+  sendOnlyIfDifferent?: boolean;
   to: string;
   cc: string;
   subject: string;
+  message?: string;
+  reportId?: string;
+  attachPdf?: boolean;
   time: string;
   days: string[];
   active: boolean;
@@ -109,7 +117,7 @@ export class EmailSchedulesComponent implements OnInit {
     const dialogRef = this.dialog.open(EmailScheduleDialogComponent, {
       width: '1024px',
       maxWidth: '98vw',
-      data: { sql: '' },
+      data: { sql: '', forceSchedule: true },
     });
 
     dialogRef.afterClosed().subscribe((res?: EmailScheduleResult) => {
@@ -117,11 +125,21 @@ export class EmailSchedulesComponent implements OnInit {
       this.api
         .createEmailSchedule({
           sql: res.sql,
+          secondSql: res.secondSql || undefined,
+          compareWithSap: res.compareWithSap,
+          comparisonKey: res.comparisonKey || undefined,
+          comparisonTolerances: Object.keys(res.comparisonTolerances || {}).length
+            ? res.comparisonTolerances
+            : undefined,
+          sendOnlyIfDifferent: res.sendOnlyIfDifferent,
           to: res.to,
           cc: res.cc,
           subject: res.subject,
-          time: res.time,
-          days: this.toApiDays(res.days),
+          message: res.message || undefined,
+          reportId: res.reportId || undefined,
+          attachPdf: res.attachPdf,
+          time: res.time || '',
+          days: this.toApiDays(res.days || []),
           asDict: true,
           withDescription: true,
         })
@@ -161,7 +179,7 @@ export class EmailSchedulesComponent implements OnInit {
     const dialogRef = this.dialog.open(EmailScheduleDialogComponent, {
       width: '1024px',
       maxWidth: '98vw',
-      data: { ...schedule },
+      data: { ...schedule, forceSchedule: true },
     });
 
     dialogRef.afterClosed().subscribe((res?: EmailScheduleResult) => {
@@ -169,11 +187,21 @@ export class EmailSchedulesComponent implements OnInit {
       this.api
         .updateEmailSchedule(schedule.id, {
           sql: res.sql,
+          secondSql: res.secondSql || undefined,
+          compareWithSap: res.compareWithSap,
+          comparisonKey: res.comparisonKey || undefined,
+          comparisonTolerances: Object.keys(res.comparisonTolerances || {}).length
+            ? res.comparisonTolerances
+            : undefined,
+          sendOnlyIfDifferent: res.sendOnlyIfDifferent,
           to: res.to,
           cc: res.cc,
           subject: res.subject,
-          time: res.time,
-          days: this.toApiDays(res.days),
+          message: res.message || undefined,
+          reportId: res.reportId || undefined,
+          attachPdf: res.attachPdf,
+          time: res.time || '',
+          days: this.toApiDays(res.days || []),
         })
         .subscribe({
           next: (updated) => {
@@ -214,15 +242,27 @@ export class EmailSchedulesComponent implements OnInit {
     this.api
       .sendEmail({
         sql: schedule.sql,
+        secondSql: schedule.secondSql,
+        compareWithSap: schedule.compareWithSap,
+        comparisonKey: schedule.comparisonKey,
+        comparisonTolerances: schedule.comparisonTolerances,
+        sendOnlyIfDifferent: schedule.sendOnlyIfDifferent,
         to: schedule.to,
         cc: schedule.cc,
         subject: schedule.subject || 'Envio manual de agendamento',
+        message: schedule.message,
+        reportId: schedule.reportId,
+        attachPdf: schedule.attachPdf,
         asDict: true,
         withDescription: true,
       })
       .subscribe({
-        next: () => {
+        next: (res) => {
           this.sendingNowIds.delete(schedule.id);
+          if (res.status === 'skipped') {
+            this.snack('Envio ignorado (sem dados ou sem divergência).');
+            return;
+          }
           this.snack(`Envio disparado para ${schedule.to}.`);
         },
         error: () => {
@@ -330,9 +370,17 @@ export class EmailSchedulesComponent implements OnInit {
     return {
       id: api.id,
       sql: api.sql,
+      secondSql: api.secondSql || '',
+      compareWithSap: api.compareWithSap || false,
+      comparisonKey: api.comparisonKey || '',
+      comparisonTolerances: api.comparisonTolerances || {},
+      sendOnlyIfDifferent: api.sendOnlyIfDifferent !== false,
       to: api.to,
       cc: api.cc || '',
       subject: api.subject || '',
+      message: api.message || '',
+      reportId: api.reportId || '',
+      attachPdf: api.attachPdf || false,
       time: api.time,
       days: this.fromApiDays(api.days || []),
       active: this.isActive(api.status),
