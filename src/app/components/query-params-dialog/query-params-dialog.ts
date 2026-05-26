@@ -28,10 +28,7 @@ export class QueryParamsDialog {
   }
 
   get canApply(): boolean {
-    return (
-      this.params.length > 0 &&
-      this.params.every((p) => p.value != null && String(p.value).trim() !== '')
-    );
+    return this.params.length > 0;
   }
 
   onCancel() {

@@ -336,6 +336,12 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
       return;
     }
 
+    const runnableSql = this.stripSqlComments(q).trim();
+    if (!runnableSql) {
+      this.error = 'A SQL contém apenas comentários.';
+      return;
+    }
+
     const ok = await this.openParamsDialog();
     if (!ok) {
       return;
@@ -345,7 +351,7 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
 
     let finalSql: string;
     try {
-      finalSql = this.expandVariables(q, vars);
+      finalSql = this.expandVariables(runnableSql, vars);
     } catch (e: any) {
       this.error = e?.message || 'Erro ao expandir variáveis.';
       return;
@@ -1029,7 +1035,7 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
   }
 
   private updateVariableNamesFromQuery() {
-    const sql = this.query || '';
+    const sql = this.stripSqlComments(this.query || '');
     const names = new Set<string>();
     let match: RegExpExecArray | null;
 
@@ -1038,6 +1044,58 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
     }
 
     this.variableNames = Array.from(names).sort();
+  }
+
+  private stripSqlComments(sql: string): string {
+    let out = '';
+    let i = 0;
+    let inSingleQuote = false;
+    let inDoubleQuote = false;
+
+    while (i < sql.length) {
+      const ch = sql[i];
+      const next = sql[i + 1];
+
+      if (!inSingleQuote && !inDoubleQuote && ch === '-' && next === '-') {
+        i += 2;
+        while (i < sql.length && sql[i] !== '\n') i += 1;
+        continue;
+      }
+
+      if (!inSingleQuote && !inDoubleQuote && ch === '/' && next === '*') {
+        i += 2;
+        while (i < sql.length) {
+          if (sql[i] === '*' && sql[i + 1] === '/') {
+            i += 2;
+            break;
+          }
+          i += 1;
+        }
+        continue;
+      }
+
+      out += ch;
+
+      if (!inDoubleQuote && ch === "'") {
+        if (inSingleQuote && next === "'") {
+          out += next;
+          i += 2;
+          continue;
+        }
+        inSingleQuote = !inSingleQuote;
+      } else if (!inSingleQuote && ch === '"') {
+        if (inDoubleQuote && next === '"') {
+          out += next;
+          i += 2;
+          continue;
+        }
+        inDoubleQuote = !inDoubleQuote;
+      }
+
+      i += 1;
+    }
+
+    return out;
   }
 
   private buildVariablesMap(): Record<string, any> {
