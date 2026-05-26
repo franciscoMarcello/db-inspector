@@ -3,7 +3,6 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatCardModule } from '@angular/material/card';
-import { MatTableModule } from '@angular/material/table';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MonacoEditorModule } from 'ngx-monaco-editor-v2';
 import { DbInspectorService } from '../../services/db-inspector.service';
@@ -20,6 +19,7 @@ import {
 import { MatIconModule } from '@angular/material/icon';
 import { createXlsxBlob } from '../../utils/xlsx-export';
 import { AppButtonComponent } from '../shared/app-button/app-button.component';
+import { ResultTableComponent } from '../shared/result-table/result-table.component';
 
 const STORAGE_KEY = 'dbi.query.state';
 const SNIPPETS_COLLAPSED_KEY = 'dbi.query.snippets_collapsed';
@@ -34,12 +34,12 @@ const REPORT_DRAFT_SQL_KEY = 'dbi.reports.pending_sql';
     FormsModule,
     MatProgressBarModule,
     MatCardModule,
-    MatTableModule,
     MatSnackBarModule,
     MonacoEditorModule,
     MatDialogModule,
     MatIconModule,
     AppButtonComponent,
+    ResultTableComponent,
   ],
   templateUrl: './query-runner.html',
   styleUrls: ['./query-runner.css'],

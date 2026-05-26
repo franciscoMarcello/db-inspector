@@ -264,6 +264,17 @@ export class ResultTableComponent {
     return Object.prototype.hasOwnProperty.call(this.activeColumnFilters, column);
   }
 
+  get hasActiveFilters(): boolean {
+    return Object.keys(this.activeColumnFilters).length > 0;
+  }
+
+  clearAllFilters(): void {
+    this.activeColumnFilters = {};
+    this.draftColumnFilters = {};
+    this.columnFilterSearchTerm = {};
+    this.closeFilterMenu();
+  }
+
   closeFilterMenu(): void {
     this.openFilterColumn = '';
   }

@@ -1,3 +1,7 @@
+<div class="result-table-actions" *ngIf="enableColumnFilters && hasActiveFilters">
+  <button type="button" class="clear-all-filters-btn" (click)="clearAllFilters()">Limpar todos os filtros</button>
+</div>
+
 <div class="no-results" *ngIf="processedRows.length === 0">{{ emptyMessage }}</div>
 
 <table class="data-table" *ngIf="processedRows.length > 0">
@@ -33,7 +37,11 @@
             title="Filtrar coluna"
             aria-label="Filtrar coluna"
           >
-            F
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path
+                d="M3 5c0-.55.45-1 1-1h16a1 1 0 0 1 .77 1.64L14 13.9V19a1 1 0 0 1-.55.9l-3 1.5A1 1 0 0 1 9 20.5v-6.6L3.23 5.64A1 1 0 0 1 3 5Z"
+              />
+            </svg>
           </button>
           <span>{{ columnLabel(col) }}</span>
           <span class="sort-indicator">{{ sortIndicator(col) }}</span>
