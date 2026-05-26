@@ -454,19 +454,12 @@
           <span class="result-loading-spinner" aria-hidden="true"></span>
           <span>Executando relatório...</span>
         </div>
-        <div class="no-results" *ngIf="displayedRows.length === 0">Sem resultado.</div>
-        <table *ngIf="displayedRows.length > 0">
-          <thead>
-            <tr>
-              <th *ngFor="let col of result.columns">{{ col }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let row of displayedRows">
-              <td *ngFor="let col of result.columns">{{ row[col] }}</td>
-            </tr>
-          </tbody>
-        </table>
+        <app-result-table
+          [columns]="result.columns"
+          [rows]="displayedRows"
+          emptyMessage="Sem resultado."
+          searchPlaceholder="Pesquisar no resultado SQL..."
+        ></app-result-table>
       </div>
       <div class="table-more-actions" *ngIf="result.meta.truncated || loadingMoreRows || loadingAllRows">
         <app-button
@@ -631,16 +624,12 @@
               {{ compareDisplayLabel(cmp.source1.label) }} (exibindo {{ (cmp.source1.rows | slice:0:compareRawRowLimit).length }} de {{ cmp.source1.rowCount }} linhas)
             </div>
             <div class="table-wrap">
-              <table class="data-table">
-                <thead>
-                  <tr><th *ngFor="let col of cmp.source1.columns">{{ col }}</th></tr>
-                </thead>
-                <tbody>
-                  <tr *ngFor="let row of cmp.source1.rows | slice:0:compareRawRowLimit">
-                    <td *ngFor="let col of cmp.source1.columns">{{ row[col] }}</td>
-                  </tr>
-                </tbody>
-              </table>
+              <app-result-table
+                [columns]="cmp.source1.columns"
+                [rows]="cmp.source1.rows | slice:0:compareRawRowLimit"
+                emptyMessage="Sem resultado."
+                [searchPlaceholder]="'Pesquisar nos resultados de ' + compareDisplayLabel(cmp.source1.label) + '...'"
+              ></app-result-table>
             </div>
           </div>
           <div class="compare-source" *ngIf="showCompareSource2">
@@ -648,16 +637,12 @@
               {{ cmp.source2.label }} (exibindo {{ (cmp.source2.rows | slice:0:compareRawRowLimit).length }} de {{ cmp.source2.rowCount }} linhas)
             </div>
             <div class="table-wrap">
-              <table class="data-table">
-                <thead>
-                  <tr><th *ngFor="let col of cmp.source2.columns">{{ col }}</th></tr>
-                </thead>
-                <tbody>
-                  <tr *ngFor="let row of cmp.source2.rows | slice:0:compareRawRowLimit">
-                    <td *ngFor="let col of cmp.source2.columns">{{ row[col] }}</td>
-                  </tr>
-                </tbody>
-              </table>
+              <app-result-table
+                [columns]="cmp.source2.columns"
+                [rows]="cmp.source2.rows | slice:0:compareRawRowLimit"
+                emptyMessage="Sem resultado."
+                [searchPlaceholder]="'Pesquisar nos resultados de ' + (cmp.source2.label || 'SAP') + '...'"
+              ></app-result-table>
             </div>
           </div>
         </div>
@@ -741,81 +726,26 @@
             </div>
 
             <div class="table-wrap" *ngIf="compareDiffViewMode === 'compact'; else fullDifferenceTable">
-              <table class="data-table compare-diff-table compare-diff-table--compact">
-                <thead>
-                  <tr>
-                    <th>Chave</th>
-                    <th>Coluna divergente</th>
-                    <th>{{ compareDisplayLabel(cmp.source1.label) }}</th>
-                    <th>{{ cmp.source2.label }}</th>
-                    <th>Diferença</th>
-                    <th>Diferença %</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr *ngFor="let row of compareDifferenceRows(cmp)" class="diff-field-changed">
-                    <td class="diff-key-cell">{{ row.key }}</td>
-                    <td class="diff-fields-list">{{ row.field }}</td>
-                    <td class="diff-cell-value diff-cell--changed">
-                      <span class="diff-value" [title]="compareValueTitle(row.source1)"><span class="diff-marker">▌</span>{{ row.source1 }}</span>
-                    </td>
-                    <td class="diff-cell-value diff-cell--changed">
-                      <span class="diff-value" [title]="compareValueTitle(row.source2)"><span class="diff-marker">▌</span>{{ row.source2 }}</span>
-                    </td>
-                    <td class="diff-cell-value diff-delta">{{ formatCompareDelta(row.diff) || '≠' }}</td>
-                    <td class="diff-cell-value diff-delta">{{ formatCompareDiffPercent(row) }}</td>
-                  </tr>
-                </tbody>
-              </table>
+              <app-result-table
+                [columns]="compareCompactTableColumns(cmp)"
+                [rows]="compareCompactTableRows(cmp)"
+                [cellClassResolver]="compareCompactCellClass"
+                emptyMessage="Sem divergências."
+                searchPlaceholder="Pesquisar nas divergências..."
+              ></app-result-table>
             </div>
 
             <ng-template #fullDifferenceTable>
               <div class="table-wrap">
-                <table class="data-table compare-diff-table compare-diff-table--full">
-                  <thead>
-                    <tr>
-                      <th rowspan="2">Chave</th>
-                      <th rowspan="2">Status</th>
-                      <th rowspan="2">Colunas divergentes</th>
-                      <th class="compare-group-head" [attr.colspan]="cmp.source1.columns.length">{{ compareDisplayLabel(cmp.source1.label) }}</th>
-                      <th class="compare-group-head" [attr.colspan]="cmp.source2.columns.length">{{ cmp.source2.label }}</th>
-                      <th class="compare-group-head compare-group-head--diff" [attr.colspan]="cmp.source1.columns.length">Diferença</th>
-                    </tr>
-                    <tr>
-                      <th *ngFor="let col of cmp.source1.columns">{{ col }}</th>
-                      <th *ngFor="let col of cmp.source2.columns">{{ col }}</th>
-                      <th *ngFor="let col of cmp.source1.columns">{{ col }}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr *ngFor="let item of cmp.diff.withDifferences" class="diff-field-changed">
-                      <td class="diff-key-cell">{{ item.key }}</td>
-                      <td><span class="diff-type-pill">Valor diferente</span></td>
-                      <td class="diff-fields-list diff-fields-list--full" [title]="compareDifferentFieldsLabel(item)">
-                        {{ compareDifferentFieldsLabel(item) }}
-                      </td>
-                      <td
-                        *ngFor="let col of cmp.source1.columns"
-                        [ngClass]="compareCellDiffClass(item, col)"
-                      >
-                        {{ compareDifferenceSourceRow(cmp, item, 'source1')[col] }}
-                      </td>
-                      <td
-                        *ngFor="let col of cmp.source2.columns"
-                        [ngClass]="compareCellDiffClass(item, col)"
-                      >
-                        {{ compareDifferenceSourceRow(cmp, item, 'source2')[col] }}
-                      </td>
-                      <td
-                        *ngFor="let col of cmp.source1.columns"
-                        class="diff-cell-value diff-delta"
-                        [class.diff-cell--changed]="compareColumnDiffValue(item, col)"
-                      >
-                        {{ compareColumnDiffValue(item, col) }}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+                <app-result-table
+                  [columns]="compareFullTableColumns(cmp)"
+                  [columnLabels]="compareFullTableColumnLabels(cmp)"
+                  [headerGroups]="compareFullTableHeaderGroups(cmp)"
+                  [rows]="compareFullTableRows(cmp)"
+                  [cellClassResolver]="compareFullCellClass"
+                  emptyMessage="Sem divergências."
+                  searchPlaceholder="Pesquisar na tabela completa..."
+                ></app-result-table>
               </div>
             </ng-template>
           </div>
