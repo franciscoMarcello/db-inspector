@@ -11,6 +11,7 @@ import { ActivatedRoute } from '@angular/router';
 import { catchError, firstValueFrom, forkJoin, of } from 'rxjs';
 import {
   JasperTemplateResponse,
+  ReportCompareRequest,
   ReportCompareResponse,
   ReportDefinition,
   ReportFolder,
@@ -36,6 +37,11 @@ import { MultiSelectOption, ReportsMultiSelectComponent } from '../controls/mult
 import { ReportsReportModalComponent } from '../modals/report-modal/reports-report-modal.component';
 import { ReportsTemplateManagerModalComponent } from '../modals/template-manager-modal/reports-template-manager-modal.component';
 import { AppButtonComponent } from '../../shared/app-button/app-button.component';
+import {
+  ResultTableCellContext,
+  ResultTableComponent,
+  ResultTableHeaderGroup,
+} from '../../shared/result-table/result-table.component';
 import {
   buildArchivePayload,
   buildClearedFilterState,
@@ -71,6 +77,7 @@ import { ReportsDraftHost, ReportsDraftLogic } from '../core/reports.component.d
     ReportsTemplateManagerModalComponent,
     ReportsMultiSelectComponent,
     AppButtonComponent,
+    ResultTableComponent,
   ],
   templateUrl: './reports.component.html',
   styleUrls: [
@@ -82,6 +89,9 @@ import { ReportsDraftHost, ReportsDraftLogic } from '../core/reports.component.d
 })
 export class ReportsComponent
   implements OnInit, OnDestroy, ReportsFolderTemplateHost, ReportsVariableOptionsHost, ReportsDraftHost {
+
+  compareToleranceRows: Array<{ field: string; tolerance: string | number }> = [];
+  compareToleranceError = '';
   folders: FolderNode[] = [];
   allFolders: ReportFolder[] = [];
   reports: ReportDefinition[] = [];
@@ -155,6 +165,22 @@ export class ReportsComponent
   private readonly variableOptionsLogic: ReportsVariableOptionsLogic;
   private readonly draftLogic: ReportsDraftLogic;
   private statusClearTimer: ReturnType<typeof setTimeout> | null = null;
+  private compareCompactCache:
+    | {
+        cmpRef: ReportCompareResponse;
+        columns: string[];
+        rows: Record<string, unknown>[];
+      }
+    | null = null;
+  private compareFullCache:
+    | {
+        cmpRef: ReportCompareResponse;
+        columns: string[];
+        labels: Record<string, string>;
+        groups: ResultTableHeaderGroup[];
+        rows: Record<string, unknown>[];
+      }
+    | null = null;
 
   constructor(
     private reportService: ReportService,
@@ -359,7 +385,41 @@ export class ReportsComponent
     const comparisonKey = cmp.comparisonKey;
     if (key === null || key === undefined || !comparisonKey) return {};
     const rows = source === 'source1' ? cmp.source1.rows : cmp.source2.rows;
-    return rows.find((row) => String(row?.[comparisonKey] ?? '') === String(key)) ?? {};
+    const matchesByKey = rows.filter((row) => String(row?.[comparisonKey] ?? '') === String(key));
+    if (!matchesByKey.length) return {};
+    if (matchesByKey.length === 1) return matchesByKey[0];
+
+    type DiffDetail = {
+      source1?: unknown;
+      source2?: unknown;
+      equal?: boolean;
+      diff?: unknown;
+    };
+
+    const fieldsRecord = (item as { fields?: Record<string, DiffDetail> }).fields;
+    if (!fieldsRecord) return matchesByKey[0];
+
+    const expectedValueKey = source === 'source1' ? 'source1' : 'source2';
+    let bestMatch = matchesByKey[0];
+    let bestScore = -1;
+
+    for (const candidate of matchesByKey) {
+      let score = 0;
+      for (const [fieldName, detail] of Object.entries(fieldsRecord)) {
+        if (!detail) continue;
+        const expected = detail[expectedValueKey];
+        if (expected === undefined) continue;
+        if (String(candidate?.[fieldName] ?? '') === String(expected ?? '')) {
+          score += 1;
+        }
+      }
+      if (score > bestScore) {
+        bestScore = score;
+        bestMatch = candidate;
+      }
+    }
+
+    return bestMatch;
   }
 
   compareDifferentFields(item: { fields: Record<string, any> }): string[] {
@@ -400,6 +460,247 @@ export class ReportsComponent
       }
     }
     return rows;
+  }
+
+  compareCompactTableColumns(cmp: ReportCompareResponse): string[] {
+    this.ensureCompareCompactCache(cmp);
+    return this.compareCompactCache?.columns ?? [];
+  }
+
+  compareCompactTableRows(cmp: ReportCompareResponse): Record<string, unknown>[] {
+    this.ensureCompareCompactCache(cmp);
+    return this.compareCompactCache?.rows ?? [];
+  }
+
+  compareCompactCellClass = (context: ResultTableCellContext): string => {
+    const classes = context.row['__cellClasses'];
+    if (!classes || typeof classes !== 'object' || Array.isArray(classes)) return '';
+    const classMap = classes as Record<string, unknown>;
+    const value = classMap[context.column];
+    return typeof value === 'string' ? value : '';
+  };
+
+  compareFullTableColumns(cmp: ReportCompareResponse): string[] {
+    this.ensureCompareFullCache(cmp);
+    return this.compareFullCache?.columns ?? [];
+  }
+
+  compareFullTableColumnLabels(cmp: ReportCompareResponse): Record<string, string> {
+    this.ensureCompareFullCache(cmp);
+    return this.compareFullCache?.labels ?? {};
+  }
+
+  compareFullTableHeaderGroups(cmp: ReportCompareResponse): ResultTableHeaderGroup[] {
+    this.ensureCompareFullCache(cmp);
+    return this.compareFullCache?.groups ?? [];
+  }
+
+  compareFullTableRows(cmp: ReportCompareResponse): Record<string, unknown>[] {
+    this.ensureCompareFullCache(cmp);
+    return this.compareFullCache?.rows ?? [];
+  }
+
+  private ensureCompareCompactCache(cmp: ReportCompareResponse): void {
+    if (this.compareCompactCache?.cmpRef === cmp) return;
+
+    const source1Label = this.compareDisplayLabel(cmp.source1.label);
+    const source2Label = cmp.source2.label || 'SAP';
+    const columns = ['Chave', 'Coluna divergente', source1Label, source2Label, 'Diferença', 'Diferença %'];
+    const rows = this.compareDifferenceRows(cmp).map((row) => ({
+      Chave: row.key,
+      'Coluna divergente': row.field,
+      [source1Label]: row.source1,
+      [source2Label]: row.source2,
+      Diferença: this.formatCompareDelta(row.diff) || '≠',
+      'Diferença %': this.formatCompareDiffPercent({ source2: row.source2, diff: row.diff }),
+      __cellClasses: {
+        'Coluna divergente': 'diff-fields-list',
+        [source1Label]: 'diff-cell-value diff-cell--changed',
+        [source2Label]: 'diff-cell-value diff-cell--changed',
+        Diferença: 'diff-cell-value diff-delta',
+        'Diferença %': 'diff-cell-value diff-delta',
+      },
+    }));
+
+    this.compareCompactCache = { cmpRef: cmp, columns, rows };
+  }
+
+  private ensureCompareFullCache(cmp: ReportCompareResponse): void {
+    if (this.compareFullCache?.cmpRef === cmp) return;
+
+    const columns = [
+      'key',
+      'status',
+      'differentFields',
+      ...cmp.source1.columns.map((col) => `source1:${col}`),
+      ...cmp.source2.columns.map((col) => `source2:${col}`),
+      ...cmp.source1.columns.map((col) => `diff:${col}`),
+    ];
+
+    const labels: Record<string, string> = {
+      key: 'Chave',
+      status: 'Status',
+      differentFields: 'Colunas divergentes',
+    };
+
+    for (const col of cmp.source1.columns) labels[`source1:${col}`] = col;
+    for (const col of cmp.source2.columns) labels[`source2:${col}`] = col;
+    for (const col of cmp.source1.columns) labels[`diff:${col}`] = col;
+
+    const groups: ResultTableHeaderGroup[] = [
+      { label: '', span: 3, className: 'group-spacer' },
+      { label: this.compareDisplayLabel(cmp.source1.label), span: cmp.source1.columns.length, className: 'compare-group-head' },
+      { label: cmp.source2.label || 'SAP', span: cmp.source2.columns.length, className: 'compare-group-head' },
+      { label: 'Diferença', span: cmp.source1.columns.length, className: 'compare-group-head compare-group-head--diff' },
+    ];
+
+    const rows: Record<string, unknown>[] = [];
+    const source1ByKey = this.groupRowsByComparisonKey(cmp.source1.rows, cmp.comparisonKey);
+    const source2ByKey = this.groupRowsByComparisonKey(cmp.source2.rows, cmp.comparisonKey);
+    const source1UsageByKey = new Map<string, number>();
+    const source2UsageByKey = new Map<string, number>();
+
+    for (const item of cmp.diff?.withDifferences || []) {
+      const source1Row = this.pickCompareRowForFullTable(
+        cmp,
+        item,
+        'source1',
+        source1ByKey,
+        source1UsageByKey
+      );
+      const source2Row = this.pickCompareRowForFullTable(
+        cmp,
+        item,
+        'source2',
+        source2ByKey,
+        source2UsageByKey
+      );
+      const row: Record<string, unknown> = {
+        key: item.key,
+        status: 'Valor diferente',
+        differentFields: this.compareDifferentFieldsLabel(item),
+        __cellClasses: {
+          key: 'diff-key-cell',
+          status: 'diff-status-cell',
+          differentFields: 'diff-fields-list diff-fields-list--full',
+        },
+      };
+
+      const cellClasses = row['__cellClasses'] as Record<string, string>;
+
+      for (const col of cmp.source1.columns) {
+        const source1Key = `source1:${col}`;
+        const source2Key = `source2:${col}`;
+        const diffKey = `diff:${col}`;
+
+        row[source1Key] = source1Row[col];
+        row[source2Key] = source2Row[col];
+        row[diffKey] = this.compareColumnDiffValue(item, col);
+
+        const sourceClassMap = this.compareCellDiffClass(item, col);
+        const sourceClass = this.classMapToString(sourceClassMap);
+        if (sourceClass) {
+          cellClasses[source1Key] = sourceClass;
+          cellClasses[source2Key] = sourceClass;
+        }
+        if (row[diffKey]) {
+          cellClasses[diffKey] = 'diff-cell-value diff-delta diff-cell--changed';
+        } else {
+          cellClasses[diffKey] = 'diff-cell-value diff-delta';
+        }
+      }
+
+      rows.push(row);
+    }
+
+    this.compareFullCache = {
+      cmpRef: cmp,
+      columns,
+      labels,
+      groups,
+      rows,
+    };
+  }
+
+  private groupRowsByComparisonKey(
+    rows: Record<string, unknown>[],
+    comparisonKey: string | null | undefined
+  ): Map<string, Record<string, unknown>[]> {
+    const grouped = new Map<string, Record<string, unknown>[]>();
+    if (!comparisonKey) return grouped;
+
+    for (const row of rows) {
+      const key = String(row?.[comparisonKey] ?? '');
+      const list = grouped.get(key) ?? [];
+      list.push(row);
+      grouped.set(key, list);
+    }
+
+    return grouped;
+  }
+
+  private pickCompareRowForFullTable(
+    cmp: ReportCompareResponse,
+    item: { key: string | null; source1Row?: Record<string, unknown> | null; source2Row?: Record<string, unknown> | null },
+    source: 'source1' | 'source2',
+    groupedRows: Map<string, Record<string, unknown>[]>,
+    usageByKey: Map<string, number>
+  ): Record<string, unknown> {
+    const directRow = source === 'source1' ? item.source1Row : item.source2Row;
+    if (directRow && typeof directRow === 'object') return directRow;
+
+    const comparisonKey = cmp.comparisonKey;
+    const key = item.key;
+    if (!comparisonKey || key === null || key === undefined) return {};
+
+    const keyText = String(key);
+    const candidates = groupedRows.get(keyText) ?? [];
+    if (!candidates.length) return {};
+
+    const startIndex = usageByKey.get(keyText) ?? 0;
+    const fieldsRecord = (item as { fields?: Record<string, { source1?: unknown; source2?: unknown }> }).fields;
+    const expectedKey = source === 'source1' ? 'source1' : 'source2';
+
+    let bestAbsoluteIndex = startIndex;
+    let bestScore = -1;
+
+    for (let i = startIndex; i < candidates.length; i += 1) {
+      const candidate = candidates[i];
+      let score = 0;
+      if (fieldsRecord) {
+        for (const [fieldName, detail] of Object.entries(fieldsRecord)) {
+          if (!detail) continue;
+          const expected = detail[expectedKey];
+          if (expected === undefined) continue;
+          if (String(candidate?.[fieldName] ?? '') === String(expected ?? '')) {
+            score += 1;
+          }
+        }
+      }
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestAbsoluteIndex = i;
+      }
+    }
+
+    usageByKey.set(keyText, Math.min(bestAbsoluteIndex + 1, candidates.length));
+    return candidates[bestAbsoluteIndex] ?? candidates[candidates.length - 1] ?? {};
+  }
+
+  compareFullCellClass = (context: ResultTableCellContext): string => {
+    const classes = context.row['__cellClasses'];
+    if (!classes || typeof classes !== 'object' || Array.isArray(classes)) return '';
+    const classMap = classes as Record<string, unknown>;
+    const value = classMap[context.column];
+    return typeof value === 'string' ? value : '';
+  };
+
+  private classMapToString(classMap: Record<string, boolean>): string {
+    return Object.entries(classMap)
+      .filter(([, enabled]) => enabled)
+      .map(([name]) => name)
+      .join(' ');
   }
 
   compareFieldStats(cmp: ReportCompareResponse): Array<{ field: string; count: number }> {
@@ -1087,6 +1388,9 @@ export class ReportsComponent
     const params = this.buildRunParams();
     if (params === null) return;
 
+    const comparisonTolerances = this.buildComparisonTolerances();
+    if (comparisonTolerances === null) return;
+
     this.loadingCompare = true;
     this.compareResult = null;
     this.compareQuickFilter = 'all';
@@ -1096,7 +1400,12 @@ export class ReportsComponent
     this.compareDiffViewMode = 'compact';
     this.showCompareRawData = false;
     this.runResult = null;
-    this.reportService.compareReport(this.selectedReportId, params).subscribe({
+    const request: ReportCompareRequest = { params };
+    if (Object.keys(comparisonTolerances).length) {
+      request.comparisonTolerances = comparisonTolerances;
+    }
+
+    this.reportService.compareReport(this.selectedReportId, request).subscribe({
       next: (res) => {
         this.loadingCompare = false;
         this.compareResult = res;
@@ -1123,6 +1432,47 @@ export class ReportsComponent
         }
       },
     });
+  }
+
+  addCompareToleranceRow() {
+    this.compareToleranceRows = [...this.compareToleranceRows, { field: '', tolerance: '' }];
+  }
+
+  removeCompareToleranceRow(index: number) {
+    this.compareToleranceRows = this.compareToleranceRows.filter((_, idx) => idx !== index);
+    if (!this.compareToleranceRows.length) this.compareToleranceError = '';
+  }
+
+  private buildComparisonTolerances(): Record<string, number> | null {
+    const tolerances: Record<string, number> = {};
+
+    for (const row of this.compareToleranceRows) {
+      const field = String(row.field ?? '').trim();
+      const rawTolerance = String(row.tolerance ?? '').trim();
+      const isCompletelyEmpty = !field && !rawTolerance;
+      if (isCompletelyEmpty) continue;
+
+      if (!field) {
+        this.compareToleranceError = 'Preencha o nome do campo em todas as tolerâncias.';
+        return null;
+      }
+
+      const numericTolerance = Number(rawTolerance);
+      if (!rawTolerance || !Number.isFinite(numericTolerance)) {
+        this.compareToleranceError = 'A tolerância deve ser numérica e finita.';
+        return null;
+      }
+
+      if (numericTolerance < 0) {
+        this.compareToleranceError = 'A tolerância deve ser maior ou igual a zero.';
+        return null;
+      }
+
+      tolerances[field] = numericTolerance;
+    }
+
+    this.compareToleranceError = '';
+    return tolerances;
   }
 
   private rebuildFolders(apiFolders: ReportFolder[]) {

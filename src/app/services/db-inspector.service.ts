@@ -8,6 +8,22 @@ export interface EmailSendPayload {
   to: string;
   cc?: string;
   subject?: string;
+  message?: string;
+  comparisonTitle?: string;
+  comparisonNote?: string;
+  reportId?: string;
+  attachPdf?: boolean;
+  pdfMode?: 'report' | 'scheduled_sql';
+  pdfTitle?: string;
+  pdfSubtitle?: string;
+  pdfIncludeSummary?: boolean;
+  pdfMaxRows?: number;
+  attachXlsx?: boolean;
+  compareWithSap?: boolean;
+  secondSql?: string;
+  comparisonKey?: string;
+  comparisonTolerances?: Record<string, number>;
+  sendOnlyIfDifferent?: boolean;
   time?: string;
   days?: string[];
   asDict?: boolean;
@@ -15,7 +31,7 @@ export interface EmailSendPayload {
 }
 
 export interface EmailSendResponse {
-  status: 'sent' | 'scheduled';
+  status: 'sent' | 'scheduled' | 'skipped';
   previewRows?: number;
   attachedCsv?: boolean;
   scheduleId?: string;
@@ -37,9 +53,25 @@ export interface EmailTestResponse {
 export interface ApiEmailSchedule {
   id: string;
   sql: string;
+  secondSql?: string;
+  compareWithSap?: boolean;
+  comparisonKey?: string;
+  comparisonTolerances?: Record<string, number>;
+  sendOnlyIfDifferent?: boolean;
   to: string;
   cc: string;
   subject: string;
+  message?: string;
+  comparisonTitle?: string;
+  comparisonNote?: string;
+  reportId?: string;
+  attachPdf?: boolean;
+  pdfMode?: 'report' | 'scheduled_sql';
+  pdfTitle?: string;
+  pdfSubtitle?: string;
+  pdfIncludeSummary?: boolean;
+  pdfMaxRows?: number;
+  attachXlsx?: boolean;
   time: string;
   days: string[];
   status?: string;

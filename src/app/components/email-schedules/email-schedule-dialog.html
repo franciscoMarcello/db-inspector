@@ -17,7 +17,48 @@
   <div class="body">
     <section class="section">
       <div class="section-head">
-        <h4>1. Consulta</h4>
+        <h4>1. Envio padrão</h4>
+      </div>
+      <div class="grid grid--message">
+        <label class="field">
+          <span>Assunto</span>
+          <input
+            type="text"
+            [(ngModel)]="subject"
+            placeholder="Relatorio - SQL"
+            autocomplete="off"
+          />
+          <small>Use um texto claro para identificar o relatorio.</small>
+        </label>
+
+        <label class="field">
+          <div class="field-head">
+            <span>Mensagem (opcional)</span>
+            <button type="button" class="link-btn" (click)="toggleMessageExpanded()">
+              {{ messageExpanded ? 'Recolher mensagem' : 'Expandir mensagem' }}
+            </button>
+          </div>
+          <textarea
+            class="message-area"
+            [(ngModel)]="message"
+            [rows]="messageExpanded ? 10 : 5"
+            placeholder="Mensagem livre no corpo do e-mail"
+          ></textarea>
+          <small>
+            Variáveis disponíveis:
+            <span class="token-hint token-hint--stack" *ngFor="let token of messageVariables">{{ token }}</span>
+          </small>
+          <small>
+            Também aceitamos o formato simples com uma chave: &#123;status&#125;,
+            &#123;linhas_diferentes&#125;, etc.
+          </small>
+        </label>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h4>2. Consulta principal</h4>
         <button type="button" class="link-btn" (click)="toggleSqlExpanded()">
           {{ sqlExpanded ? 'Recolher SQL' : 'Expandir SQL' }}
         </button>
@@ -33,7 +74,7 @@
 
     <section class="section">
       <div class="section-head">
-        <h4>2. Destinatários</h4>
+        <h4>3. Destinatários</h4>
       </div>
       <div class="grid">
         <label class="field">
@@ -79,25 +120,149 @@
         </label>
       </div>
 
-      <div class="grid">
-        <label class="field">
-          <span>Assunto</span>
-          <input
-            type="text"
-            [(ngModel)]="subject"
-            placeholder="Relatorio - SQL"
-            autocomplete="off"
-          />
-          <small>Use um texto claro para identificar o relatorio.</small>
-        </label>
-      </div>
     </section>
 
     <section class="section">
       <div class="section-head">
-        <h4>3. Agendamento</h4>
+        <h4>4. Comparar com SAP</h4>
+        <button type="button" class="link-btn" (click)="toggleCompareWithSap()">
+          {{ compareWithSap ? 'Desativar' : 'Ativar' }}
+        </button>
       </div>
-      <div class="grid">
+      <small>
+        {{ compareWithSap ? 'Comparação SAP ativada.' : 'Ative para comparar a consulta principal com SQL SAP.' }}
+      </small>
+      <div *ngIf="compareWithSap" class="compare-layout">
+        <label class="field compare-layout__sql">
+          <div class="field-head">
+            <span>SQL SAP</span>
+            <button type="button" class="link-btn" (click)="toggleSecondSqlExpanded()">
+              {{ secondSqlExpanded ? 'Recolher SQL SAP' : 'Expandir SQL SAP' }}
+            </button>
+          </div>
+          <textarea
+            [(ngModel)]="secondSql"
+            [rows]="secondSqlExpanded ? 10 : 4"
+            placeholder="SELECT ... FROM SAP_VENDAS"
+          ></textarea>
+        </label>
+        <div class="grid compare-layout__meta">
+          <label class="field">
+            <span>Chave de comparação (opcional)</span>
+            <input type="text" [(ngModel)]="comparisonKey" placeholder="doc_id" autocomplete="off" />
+          </label>
+          <label class="field">
+            <span>Título executivo (opcional)</span>
+            <input
+              type="text"
+              [(ngModel)]="comparisonTitle"
+              placeholder="Comparacao Agromobi x SAP"
+              autocomplete="off"
+            />
+          </label>
+          <label class="field">
+            <span>Nota executiva (opcional)</span>
+            <textarea
+              [(ngModel)]="comparisonNote"
+              rows="2"
+              placeholder="Consulte o anexo para detalhes por origem."
+            ></textarea>
+          </label>
+        </div>
+      </div>
+      <label class="check-row" *ngIf="compareWithSap">
+        <input type="checkbox" [(ngModel)]="sendOnlyIfDifferent" />
+        <span>Enviar somente quando houver divergência</span>
+      </label>
+      <label class="check-row" *ngIf="compareWithSap">
+        <input type="checkbox" [(ngModel)]="attachXlsx" />
+        <span>Anexar XLSX da comparação</span>
+      </label>
+      <small *ngIf="compareWithSap">
+        Quando ativo, o e-mail será enviado em formato executivo com resumo da comparação.
+      </small>
+      <small *ngIf="compareWithSap && attachXlsx">
+        Anexo esperado: comparacao-agromobi-sap.xlsx com abas agromobi e sap.
+      </small>
+      <div class="field" *ngIf="compareWithSap">
+        <span>Tolerâncias por campo (opcional)</span>
+        <div class="tolerance-list">
+          <div class="tolerance-item" *ngFor="let tolerance of tolerances; let i = index">
+            <input
+              type="text"
+              [(ngModel)]="tolerance.field"
+              (ngModelChange)="onToleranceChange()"
+              placeholder="Campo (ex.: total)"
+            />
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              [(ngModel)]="tolerance.value"
+              (ngModelChange)="onToleranceChange()"
+              placeholder="Tolerância"
+            />
+            <button type="button" class="link-btn" (click)="removeTolerance(i)">Remover</button>
+          </div>
+        </div>
+        <button type="button" class="link-btn" (click)="addTolerance()">Adicionar tolerância</button>
+      </div>
+      <small class="error-text" *ngIf="compareError || toleranceError">{{ compareError || toleranceError }}</small>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h4>5. Anexo em PDF</h4>
+        <button type="button" class="link-btn" (click)="toggleAttachPdf()">
+          {{ attachPdf ? 'Desativar' : 'Ativar' }}
+        </button>
+      </div>
+      <small>{{ attachPdf ? 'Anexo PDF ativado.' : 'Ative para anexar PDF Jasper do relatório.' }}</small>
+      <div class="field" *ngIf="attachPdf">
+        <span>Modo do PDF</span>
+        <div class="pdf-mode-switch">
+          <button type="button" class="preset" [class.active]="pdfMode === 'report'" (click)="setPdfMode('report')">Relatório</button>
+          <button type="button" class="preset" [class.active]="pdfMode === 'scheduled_sql'" (click)="setPdfMode('scheduled_sql')">SQL agendado</button>
+        </div>
+      </div>
+      <label class="field" *ngIf="attachPdf && pdfMode === 'report'">
+        <span>Relatório</span>
+        <select [(ngModel)]="reportId">
+          <option value="">Selecione</option>
+          <option *ngFor="let report of reports" [value]="report.id">{{ report.name }}</option>
+        </select>
+        <small>Selecionado: {{ selectedReportName }}</small>
+      </label>
+      <div class="grid" *ngIf="attachPdf && pdfMode === 'scheduled_sql'">
+        <label class="field">
+          <span>Título do PDF (opcional)</span>
+          <input type="text" [(ngModel)]="pdfTitle" placeholder="Pedidos do Dia" autocomplete="off" />
+        </label>
+        <label class="field">
+          <span>Subtítulo do PDF (opcional)</span>
+          <input type="text" [(ngModel)]="pdfSubtitle" placeholder="Base Agromobi" autocomplete="off" />
+        </label>
+        <label class="field">
+          <span>Máximo de linhas no PDF</span>
+          <input type="number" min="1" step="1" [(ngModel)]="pdfMaxRows" />
+        </label>
+        <label class="check-row">
+          <input type="checkbox" [(ngModel)]="pdfIncludeSummary" />
+          <span>Incluir resumo no PDF</span>
+        </label>
+      </div>
+      <small class="error-text" *ngIf="pdfError">{{ pdfError }}</small>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h4>6. Agendamento</h4>
+        <label class="check-row" *ngIf="!forceScheduleMode">
+          <input type="checkbox" [(ngModel)]="scheduleEnabled" />
+          <span>Agendar envio</span>
+        </label>
+      </div>
+      <div class="grid" *ngIf="forceScheduleMode || scheduleEnabled">
         <label class="field">
           <span>Horário</span>
           <input type="time" [(ngModel)]="time" />
@@ -130,6 +295,7 @@
         <span>{{ nextRunPreview }}</span>
         <small *ngIf="nextRunRelative">({{ nextRunRelative }})</small>
       </div>
+      <small *ngIf="!forceScheduleMode && !scheduleEnabled">Desativado: o envio será imediato (sem time/days no payload).</small>
       <small class="tz-note">Fuso horário: {{ browserTimezone }}</small>
     </section>
   </div>

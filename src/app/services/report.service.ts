@@ -188,6 +188,11 @@ export type ReportRunRequestOptions = {
   size?: number;
 };
 
+export type ReportCompareRequest = {
+  params?: Record<string, unknown>;
+  comparisonTolerances?: Record<string, number>;
+};
+
 export type ReportVariableOption = {
   valor: string | number | boolean | null;
   descricao: string;
@@ -340,10 +345,13 @@ export class ReportService {
 
   compareReport(
     id: string,
-    params?: Record<string, unknown> | null
+    request?: ReportCompareRequest | null
   ): Observable<ReportCompareResponse> {
     const body: Record<string, unknown> = {};
-    if (params && Object.keys(params).length) body['params'] = params;
+    if (request?.params && Object.keys(request.params).length) body['params'] = request.params;
+    if (request?.comparisonTolerances && Object.keys(request.comparisonTolerances).length) {
+      body['comparisonTolerances'] = request.comparisonTolerances;
+    }
     return this.http
       .post<any>(`${this.base}/reports/${encodeURIComponent(id)}/compare`, body)
       .pipe(map((res) => this.normalizeCompareResponse(res)));

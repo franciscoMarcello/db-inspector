@@ -3,7 +3,6 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatCardModule } from '@angular/material/card';
-import { MatTableModule } from '@angular/material/table';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MonacoEditorModule } from 'ngx-monaco-editor-v2';
 import { DbInspectorService } from '../../services/db-inspector.service';
@@ -20,6 +19,7 @@ import {
 import { MatIconModule } from '@angular/material/icon';
 import { createXlsxBlob } from '../../utils/xlsx-export';
 import { AppButtonComponent } from '../shared/app-button/app-button.component';
+import { ResultTableComponent } from '../shared/result-table/result-table.component';
 
 const STORAGE_KEY = 'dbi.query.state';
 const SNIPPETS_COLLAPSED_KEY = 'dbi.query.snippets_collapsed';
@@ -34,12 +34,12 @@ const REPORT_DRAFT_SQL_KEY = 'dbi.reports.pending_sql';
     FormsModule,
     MatProgressBarModule,
     MatCardModule,
-    MatTableModule,
     MatSnackBarModule,
     MonacoEditorModule,
     MatDialogModule,
     MatIconModule,
     AppButtonComponent,
+    ResultTableComponent,
   ],
   templateUrl: './query-runner.html',
   styleUrls: ['./query-runner.css'],
@@ -336,6 +336,12 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
       return;
     }
 
+    const runnableSql = this.stripSqlComments(q).trim();
+    if (!runnableSql) {
+      this.error = 'A SQL contém apenas comentários.';
+      return;
+    }
+
     const ok = await this.openParamsDialog();
     if (!ok) {
       return;
@@ -345,7 +351,7 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
 
     let finalSql: string;
     try {
-      finalSql = this.expandVariables(q, vars);
+      finalSql = this.expandVariables(runnableSql, vars);
     } catch (e: any) {
       this.error = e?.message || 'Erro ao expandir variáveis.';
       return;
@@ -635,7 +641,30 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
     dialogRef.afterClosed().subscribe((result?: EmailScheduleResult) => {
       if (!result) return;
       const payload = {
-        ...result,
+        sql: result.sql,
+        secondSql: result.secondSql || undefined,
+        compareWithSap: result.compareWithSap,
+        comparisonKey: result.comparisonKey || undefined,
+        comparisonTolerances: Object.keys(result.comparisonTolerances || {}).length
+          ? result.comparisonTolerances
+          : undefined,
+        sendOnlyIfDifferent: result.sendOnlyIfDifferent,
+        comparisonTitle: result.comparisonTitle || undefined,
+        comparisonNote: result.comparisonNote || undefined,
+        to: result.to,
+        cc: result.cc,
+        subject: result.subject,
+        message: result.message || undefined,
+        reportId: result.reportId || undefined,
+        attachPdf: result.attachPdf,
+        pdfMode: result.attachPdf ? result.pdfMode : undefined,
+        pdfTitle: result.pdfTitle || undefined,
+        pdfSubtitle: result.pdfSubtitle || undefined,
+        pdfIncludeSummary: result.attachPdf ? result.pdfIncludeSummary : undefined,
+        pdfMaxRows: result.attachPdf ? result.pdfMaxRows : undefined,
+        attachXlsx: result.attachXlsx,
+        time: result.time || undefined,
+        days: result.days?.length ? result.days : undefined,
         asDict: true,
         withDescription: true,
       };
@@ -645,6 +674,8 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
           if (res.status === 'scheduled') {
             const nxt = res.nextRun ? `Próxima: ${res.nextRun}` : '';
             this.snack(`Agendado com sucesso. ${nxt}`);
+          } else if (res.status === 'skipped') {
+            this.snack('Envio ignorado: sem dados ou sem divergência.');
           } else {
             this.snack('Relatório enviado por e-mail.');
           }
@@ -1004,7 +1035,7 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
   }
 
   private updateVariableNamesFromQuery() {
-    const sql = this.query || '';
+    const sql = this.stripSqlComments(this.query || '');
     const names = new Set<string>();
     let match: RegExpExecArray | null;
 
@@ -1013,6 +1044,58 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
     }
 
     this.variableNames = Array.from(names).sort();
+  }
+
+  private stripSqlComments(sql: string): string {
+    let out = '';
+    let i = 0;
+    let inSingleQuote = false;
+    let inDoubleQuote = false;
+
+    while (i < sql.length) {
+      const ch = sql[i];
+      const next = sql[i + 1];
+
+      if (!inSingleQuote && !inDoubleQuote && ch === '-' && next === '-') {
+        i += 2;
+        while (i < sql.length && sql[i] !== '\n') i += 1;
+        continue;
+      }
+
+      if (!inSingleQuote && !inDoubleQuote && ch === '/' && next === '*') {
+        i += 2;
+        while (i < sql.length) {
+          if (sql[i] === '*' && sql[i + 1] === '/') {
+            i += 2;
+            break;
+          }
+          i += 1;
+        }
+        continue;
+      }
+
+      out += ch;
+
+      if (!inDoubleQuote && ch === "'") {
+        if (inSingleQuote && next === "'") {
+          out += next;
+          i += 2;
+          continue;
+        }
+        inSingleQuote = !inSingleQuote;
+      } else if (!inSingleQuote && ch === '"') {
+        if (inDoubleQuote && next === '"') {
+          out += next;
+          i += 2;
+          continue;
+        }
+        inDoubleQuote = !inDoubleQuote;
+      }
+
+      i += 1;
+    }
+
+    return out;
   }
 
   private buildVariablesMap(): Record<string, any> {

@@ -4,24 +4,63 @@ import { FormsModule } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { DbInspectorService } from '../../services/db-inspector.service';
+import { ReportService, ReportDefinition } from '../../services/report.service';
 
 export interface EmailScheduleData {
   sql: string;
+  forceSchedule?: boolean;
+  secondSql?: string;
+  compareWithSap?: boolean;
+  comparisonKey?: string;
+  comparisonTolerances?: Record<string, number>;
+  sendOnlyIfDifferent?: boolean;
+  comparisonTitle?: string;
+  comparisonNote?: string;
   to?: string;
   cc?: string;
   subject?: string;
+  message?: string;
+  reportId?: string;
+  attachPdf?: boolean;
+  pdfMode?: 'report' | 'scheduled_sql';
+  pdfTitle?: string;
+  pdfSubtitle?: string;
+  pdfIncludeSummary?: boolean;
+  pdfMaxRows?: number;
+  attachXlsx?: boolean;
   time?: string;
   days?: string[];
 }
 
-export interface EmailScheduleResult extends Required<EmailScheduleData> {
+export interface EmailScheduleResult {
   sql: string;
+  secondSql: string;
+  compareWithSap: boolean;
+  comparisonKey: string;
+  comparisonTolerances: Record<string, number>;
+  sendOnlyIfDifferent: boolean;
+  comparisonTitle: string;
+  comparisonNote: string;
   to: string;
   cc: string;
   subject: string;
+  message: string;
+  reportId: string;
+  attachPdf: boolean;
+  pdfMode: 'report' | 'scheduled_sql';
+  pdfTitle: string;
+  pdfSubtitle: string;
+  pdfIncludeSummary: boolean;
+  pdfMaxRows: number;
+  attachXlsx: boolean;
   time: string;
   days: string[];
 }
+
+type ToleranceEntry = {
+  field: string;
+  value: string;
+};
 
 const DAYS = [
   { id: 'mon', label: 'Seg' },
@@ -42,6 +81,22 @@ const DAYS = [
 })
 export class EmailScheduleDialogComponent {
   sql = '';
+  secondSql = '';
+  compareWithSap = false;
+  comparisonKey = '';
+  sendOnlyIfDifferent = true;
+  comparisonTitle = '';
+  comparisonNote = '';
+  attachPdf = false;
+  pdfMode: 'report' | 'scheduled_sql' = 'report';
+  pdfTitle = '';
+  pdfSubtitle = '';
+  pdfIncludeSummary = true;
+  pdfMaxRows = 3000;
+  attachXlsx = true;
+  reportId = '';
+  message = '';
+  scheduleEnabled = true;
   toInput = '';
   ccInput = '';
   toChips: string[] = [];
@@ -50,30 +105,71 @@ export class EmailScheduleDialogComponent {
   time = '08:00';
   days: Set<string> = new Set(['mon', 'tue', 'wed', 'thu', 'fri']);
   sqlExpanded = false;
+  messageExpanded = false;
+  secondSqlExpanded = false;
 
   readonly daysOptions = DAYS;
+  readonly messageVariables = [
+    '{{status}}',
+    '{{apenas_agromobi}}',
+    '{{apenas_sap}}',
+    '{{linhas_diferentes}}',
+    '{{linhas_correspondentes}}',
+    '{{data_execucao}}',
+    '{{schedule_id}}',
+  ];
   sendingTest = false;
   recipientError = '';
   ccError = '';
   readonly maxRecipients = 30;
   readonly browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
   readonly isEditMode: boolean;
+  readonly forceScheduleMode: boolean;
+  readonly reports: ReportDefinition[] = [];
+  tolerances: ToleranceEntry[] = [];
+  compareError = '';
+  pdfError = '';
+  toleranceError = '';
 
   constructor(
     @Inject(MAT_DIALOG_DATA) data: EmailScheduleData,
     private dialogRef: MatDialogRef<EmailScheduleDialogComponent, EmailScheduleResult>,
     private snackBar: MatSnackBar,
-    private api: DbInspectorService
+    private api: DbInspectorService,
+    private reportService: ReportService
   ) {
+    this.forceScheduleMode = Boolean(data?.forceSchedule);
     this.isEditMode = Boolean(data?.subject || data?.to || data?.cc || data?.days?.length);
     this.sql = (data?.sql || '').trim();
+    this.secondSql = (data?.secondSql || '').trim();
+    this.compareWithSap = Boolean(data?.compareWithSap);
+    this.comparisonKey = data?.comparisonKey || '';
+    this.sendOnlyIfDifferent = data?.sendOnlyIfDifferent !== false;
+    this.comparisonTitle = data?.comparisonTitle || '';
+    this.comparisonNote = data?.comparisonNote || '';
+    this.attachPdf = Boolean(data?.attachPdf);
+    this.pdfMode = data?.pdfMode === 'scheduled_sql' ? 'scheduled_sql' : 'report';
+    this.pdfTitle = data?.pdfTitle || '';
+    this.pdfSubtitle = data?.pdfSubtitle || '';
+    this.pdfIncludeSummary = data?.pdfIncludeSummary !== false;
+    this.pdfMaxRows = Number(data?.pdfMaxRows) > 0 ? Number(data?.pdfMaxRows) : 3000;
+    this.attachXlsx = data?.attachXlsx !== false;
+    this.reportId = data?.reportId || '';
+    this.message = data?.message || '';
     this.toChips = this.parseEmails(data?.to || '');
     this.ccChips = this.parseEmails(data?.cc || '');
     this.subject = data?.subject || '';
     this.time = data?.time || '08:00';
     if (data?.days?.length) {
       this.days = new Set(data.days);
+      this.scheduleEnabled = true;
+    } else if (this.forceScheduleMode) {
+      this.scheduleEnabled = true;
+    } else {
+      this.scheduleEnabled = false;
     }
+    this.tolerances = this.normalizeToleranceEntries(data?.comparisonTolerances);
+    this.loadReports();
   }
 
   toggleDay(dayId: string) {
@@ -85,14 +181,18 @@ export class EmailScheduleDialogComponent {
   }
 
   get canSave(): boolean {
+    this.validateAdvancedFields();
+    const hasSchedule = this.forceScheduleMode || this.scheduleEnabled;
     return Boolean(
       this.sql.trim() &&
         this.toChips.length &&
         this.subject.trim() &&
-        this.time &&
-        this.days.size &&
+        (!hasSchedule || (this.time && this.days.size)) &&
         !this.recipientError &&
-        !this.ccError
+        !this.ccError &&
+        !this.compareError &&
+        !this.pdfError &&
+        !this.toleranceError
     );
   }
 
@@ -102,6 +202,12 @@ export class EmailScheduleDialogComponent {
 
   get modalTitle(): string {
     return this.isEditMode ? 'Editar agendamento por SQL' : 'Criar agendamento por SQL';
+  }
+
+  get selectedReportName(): string {
+    if (!this.reportId) return 'Selecione um relatório';
+    const selected = this.reports.find((report) => report.id === this.reportId);
+    return selected?.name || this.reportId;
   }
 
   get sqlSnippet(): string {
@@ -178,20 +284,73 @@ export class EmailScheduleDialogComponent {
 
   save() {
     this.flushPendingInputs();
+    this.validateAdvancedFields();
     if (!this.canSave) return;
     const payload: EmailScheduleResult = {
       sql: this.sql.trim(),
+      secondSql: this.secondSql.trim(),
+      compareWithSap: this.compareWithSap,
+      comparisonKey: this.comparisonKey.trim(),
+      comparisonTolerances: this.toToleranceRecord(),
+      sendOnlyIfDifferent: this.sendOnlyIfDifferent,
+      comparisonTitle: this.comparisonTitle.trim(),
+      comparisonNote: this.comparisonNote.trim(),
       to: this.toChips.join(','),
       cc: this.ccChips.join(','),
       subject: this.subject.trim(),
-      time: this.time,
-      days: Array.from(this.days),
+      message: this.message.trim(),
+      reportId: this.reportId,
+      attachPdf: this.attachPdf,
+      pdfMode: this.pdfMode,
+      pdfTitle: this.pdfTitle.trim(),
+      pdfSubtitle: this.pdfSubtitle.trim(),
+      pdfIncludeSummary: this.pdfIncludeSummary,
+      pdfMaxRows: Number(this.pdfMaxRows) || 0,
+      attachXlsx: this.attachXlsx,
+      time: this.forceScheduleMode || this.scheduleEnabled ? this.time : '',
+      days: this.forceScheduleMode || this.scheduleEnabled ? Array.from(this.days) : [],
     };
     this.dialogRef.close(payload);
   }
 
+  toggleCompareWithSap() {
+    this.compareWithSap = !this.compareWithSap;
+    this.validateAdvancedFields();
+  }
+
+  toggleAttachPdf() {
+    this.attachPdf = !this.attachPdf;
+    this.validateAdvancedFields();
+  }
+
+  setPdfMode(mode: 'report' | 'scheduled_sql') {
+    this.pdfMode = mode;
+    this.validateAdvancedFields();
+  }
+
+  addTolerance() {
+    this.tolerances.push({ field: '', value: '' });
+  }
+
+  removeTolerance(index: number) {
+    this.tolerances.splice(index, 1);
+    this.validateAdvancedFields();
+  }
+
+  onToleranceChange() {
+    this.validateAdvancedFields();
+  }
+
   toggleSqlExpanded() {
     this.sqlExpanded = !this.sqlExpanded;
+  }
+
+  toggleMessageExpanded() {
+    this.messageExpanded = !this.messageExpanded;
+  }
+
+  toggleSecondSqlExpanded() {
+    this.secondSqlExpanded = !this.secondSqlExpanded;
   }
 
   applyDayPreset(preset: 'workdays' | 'everyday' | 'weekend') {
@@ -290,7 +449,7 @@ export class EmailScheduleDialogComponent {
   }
 
   private calculateNextRunDate(): Date | null {
-    if (!this.time || !this.days.size) return null;
+    if (!this.scheduleEnabled || !this.time || !this.days.size) return null;
     const [hoursRaw, minutesRaw] = this.time.split(':');
     const hours = Number(hoursRaw);
     const minutes = Number(minutesRaw);
@@ -309,5 +468,74 @@ export class EmailScheduleDialogComponent {
       return candidate;
     }
     return null;
+  }
+
+  private loadReports() {
+    this.reportService.listReports().subscribe({
+      next: (reports) => {
+        this.reports.splice(0, this.reports.length, ...(reports || []));
+      },
+      error: () => {
+        this.snackBar.open('Nao foi possivel carregar relatórios para anexo em PDF.', 'OK', {
+          duration: 2200,
+        });
+      },
+    });
+  }
+
+  private normalizeToleranceEntries(
+    tolerances: Record<string, number> | undefined
+  ): ToleranceEntry[] {
+    if (!tolerances) return [];
+    return Object.entries(tolerances).map(([field, value]) => ({
+      field,
+      value: Number.isFinite(value) ? String(value) : '',
+    }));
+  }
+
+  private toToleranceRecord(): Record<string, number> {
+    const out: Record<string, number> = {};
+    for (const tolerance of this.tolerances) {
+      const field = tolerance.field.trim();
+      if (!field) continue;
+      const numeric = Number(tolerance.value);
+      if (!Number.isFinite(numeric) || numeric < 0) continue;
+      out[field] = numeric;
+    }
+    return out;
+  }
+
+  private validateAdvancedFields() {
+    this.compareError = '';
+    this.pdfError = '';
+    this.toleranceError = '';
+
+    if (this.compareWithSap && !this.secondSql.trim()) {
+      this.compareError = 'Informe o SQL da fonte SAP para comparar.';
+    }
+
+    if (this.attachPdf && this.pdfMode === 'report' && !this.reportId.trim()) {
+      this.pdfError = 'Selecione um relatório para anexar PDF.';
+    }
+
+    if (this.attachPdf) {
+      const maxRows = Number(this.pdfMaxRows);
+      if (!Number.isFinite(maxRows) || maxRows <= 0) {
+        this.pdfError = 'Informe um limite de linhas para PDF maior que zero.';
+      }
+    }
+
+    const hasInvalidTolerance = this.tolerances.some((tolerance) => {
+      const hasField = tolerance.field.trim().length > 0;
+      const hasValue = tolerance.value.trim().length > 0;
+      if (!hasField && !hasValue) return false;
+      if (!hasField || !hasValue) return true;
+      const numeric = Number(tolerance.value);
+      return !Number.isFinite(numeric) || numeric < 0;
+    });
+
+    if (hasInvalidTolerance) {
+      this.toleranceError = 'Tolerâncias devem ter campo e valor numérico >= 0.';
+    }
   }
 }

@@ -142,13 +142,21 @@
   gap: 6px;
 }
 
+.field-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .field span {
   font-weight: 600;
   font-size: 13px;
 }
 
 textarea,
-input {
+input,
+select {
   width: 100%;
   box-sizing: border-box;
   border-radius: 10px;
@@ -165,7 +173,8 @@ textarea {
 }
 
 input:focus,
-textarea:focus {
+textarea:focus,
+select:focus {
   outline: none;
   border-color: var(--chip-bg-active);
   box-shadow: 0 0 0 3px rgba(76, 111, 255, 0.2);
@@ -175,6 +184,24 @@ textarea:focus {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 14px;
+}
+
+.grid--message {
+  grid-template-columns: 1fr;
+  align-items: start;
+}
+
+.message-area {
+  min-height: 120px;
+}
+
+.compare-layout {
+  display: grid;
+  gap: 12px;
+}
+
+.compare-layout__meta {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
 .sql-preview {
@@ -257,11 +284,60 @@ small {
   font-size: 12px;
 }
 
+.token-hint {
+  display: inline-flex;
+  align-items: center;
+  margin: 2px 4px 0 0;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: color-mix(in srgb, var(--bg-surface-alt) 80%, transparent);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  font-size: 11px;
+}
+
+.token-hint--stack {
+  display: block;
+  width: fit-content;
+  margin: 4px 0 0;
+}
+
 .error-text {
   color: #ef4444;
 }
 
+.check-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.check-row input {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+}
+
+.tolerance-list {
+  display: grid;
+  gap: 8px;
+}
+
+.tolerance-item {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) minmax(110px, 180px) auto;
+  gap: 8px;
+  align-items: center;
+}
+
 .days-preset {
+  display: inline-flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pdf-mode-switch {
   display: inline-flex;
   gap: 8px;
   flex-wrap: wrap;
@@ -403,7 +479,15 @@ button {
     grid-template-columns: 1fr;
   }
 
+  .grid--message {
+    grid-template-columns: 1fr;
+  }
+
   .actions {
     flex-wrap: wrap;
+  }
+
+  .tolerance-item {
+    grid-template-columns: 1fr;
   }
 }

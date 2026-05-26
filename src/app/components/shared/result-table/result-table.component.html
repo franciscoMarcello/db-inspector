@@ -1,0 +1,95 @@
+<div class="result-table-actions" *ngIf="enableColumnFilters && hasActiveFilters">
+  <button type="button" class="clear-all-filters-btn" (click)="clearAllFilters()">Limpar todos os filtros</button>
+</div>
+
+<div class="no-results" *ngIf="processedRows.length === 0">{{ emptyMessage }}</div>
+
+<table class="data-table" *ngIf="processedRows.length > 0">
+  <thead>
+    <tr class="group-header-row" *ngIf="hasGroupedHeader">
+      <th
+        *ngFor="let group of headerGroups"
+        class="group-header-cell"
+        [ngClass]="group.className || ''"
+        [attr.colspan]="group.span"
+        [attr.rowspan]="group.rowSpan || 1"
+        [style.top.px]="stickyTop"
+      >
+        {{ group.label }}
+      </th>
+    </tr>
+    <tr *ngIf="groupedDetailColumns.length > 0">
+      <th
+        *ngFor="let col of groupedDetailColumns"
+        class="sortable-header column-header-cell"
+        [class.sortable-header--active]="isSorted(col)"
+        [class.sortable-header--disabled]="!enableSort"
+        [style.top.px]="hasGroupedHeader ? groupedColumnTop : stickyTop"
+        (click)="toggleSort(col)"
+      >
+        <div class="header-content">
+          <button
+            type="button"
+            class="filter-toggle"
+            *ngIf="enableColumnFilters"
+            [class.filter-toggle--active]="isColumnFiltered(col)"
+            (click)="toggleFilterMenu(col, $event)"
+            title="Filtrar coluna"
+            aria-label="Filtrar coluna"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path
+                d="M3 5c0-.55.45-1 1-1h16a1 1 0 0 1 .77 1.64L14 13.9V19a1 1 0 0 1-.55.9l-3 1.5A1 1 0 0 1 9 20.5v-6.6L3.23 5.64A1 1 0 0 1 3 5Z"
+              />
+            </svg>
+          </button>
+          <span>{{ columnLabel(col) }}</span>
+          <span class="sort-indicator">{{ sortIndicator(col) }}</span>
+        </div>
+        <div
+          class="column-filter-menu"
+          [style.top.px]="filterMenuTop"
+          [style.left.px]="filterMenuLeft"
+          *ngIf="openFilterColumn === col"
+          (click)="stopMenuEvent($event)"
+        >
+          <input
+            type="text"
+            class="column-filter-search"
+            placeholder="Buscar valores"
+            [(ngModel)]="columnFilterSearchTerm[col]"
+          />
+
+          <div class="column-filter-actions">
+            <button type="button" (click)="selectAllDraftValues(col)">Todos</button>
+            <button type="button" (click)="clearAllDraftValues(col)">Nenhum</button>
+            <button type="button" (click)="clearDraftFilter(col)">Limpar filtro</button>
+          </div>
+
+          <div class="column-filter-values">
+            <label class="column-filter-item" *ngFor="let value of filteredColumnValues(col)">
+              <input
+                type="checkbox"
+                #valueCheckbox
+                [checked]="isDraftValueSelected(col, value)"
+                (change)="setDraftValue(col, value, valueCheckbox.checked)"
+              />
+              <span>{{ value || '(vazio)' }}</span>
+            </label>
+          </div>
+
+          <div class="column-filter-footer">
+            <button type="button" (click)="applyDraftFilter(col)">Aplicar</button>
+          </div>
+        </div>
+      </th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr *ngFor="let row of processedRows; let rowIndex = index">
+      <td *ngFor="let col of columns" [ngClass]="cellClass(row, col, rowIndex)">
+        {{ formatRowCell(row, col) }}
+      </td>
+    </tr>
+  </tbody>
+</table>
