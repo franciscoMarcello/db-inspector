@@ -38,7 +38,13 @@
           <span>{{ columnLabel(col) }}</span>
           <span class="sort-indicator">{{ sortIndicator(col) }}</span>
         </div>
-        <div class="column-filter-menu" *ngIf="openFilterColumn === col" (click)="stopMenuEvent($event)">
+        <div
+          class="column-filter-menu"
+          [style.top.px]="filterMenuTop"
+          [style.left.px]="filterMenuLeft"
+          *ngIf="openFilterColumn === col"
+          (click)="stopMenuEvent($event)"
+        >
           <input
             type="text"
             class="column-filter-search"
@@ -48,7 +54,8 @@
 
           <div class="column-filter-actions">
             <button type="button" (click)="selectAllDraftValues(col)">Todos</button>
-            <button type="button" (click)="clearDraftFilter(col)">Limpar</button>
+            <button type="button" (click)="clearAllDraftValues(col)">Nenhum</button>
+            <button type="button" (click)="clearDraftFilter(col)">Limpar filtro</button>
           </div>
 
           <div class="column-filter-values">

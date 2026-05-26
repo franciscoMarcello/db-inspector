@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, HostListener, Input } from '@angular/core';
+import { Component, ElementRef, HostListener, Input } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 type SortDirection = 'asc' | 'desc';
@@ -41,6 +41,8 @@ export class ResultTableComponent {
   sortColumn = '';
   sortDirection: SortDirection = 'asc';
   openFilterColumn = '';
+  filterMenuTop = 0;
+  filterMenuLeft = 0;
   columnFilterSearchTerm: Record<string, string> = {};
   private activeColumnFilters: Record<string, Set<string>> = {};
   private draftColumnFilters: Record<string, Set<string>> = {};
@@ -54,6 +56,8 @@ export class ResultTableComponent {
     enableSort: boolean;
     value: Record<string, unknown>[];
   } | null = null;
+
+  constructor(private readonly elementRef: ElementRef<HTMLElement>) {}
 
   get processedRows(): Record<string, unknown>[] {
     const filterSignature = this.filtersSignature();
@@ -182,8 +186,10 @@ export class ResultTableComponent {
     });
   }
 
-  @HostListener('document:click')
-  onDocumentClick(): void {
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    const target = event.target;
+    if (target instanceof Node && this.elementRef.nativeElement.contains(target)) return;
     this.closeFilterMenu();
   }
 
@@ -197,6 +203,9 @@ export class ResultTableComponent {
     }
 
     this.openFilterColumn = column;
+    const menuPosition = this.resolveMenuPosition(event);
+    this.filterMenuTop = menuPosition.top;
+    this.filterMenuLeft = menuPosition.left;
     this.columnFilterSearchTerm[column] = '';
     this.draftColumnFilters[column] = this.currentFilterSet(column);
   }
@@ -234,11 +243,15 @@ export class ResultTableComponent {
     this.columnFilterSearchTerm[column] = '';
   }
 
+  clearAllDraftValues(column: string): void {
+    this.draftColumnFilters[column] = new Set<string>();
+  }
+
   applyDraftFilter(column: string): void {
     const allValues = this.distinctColumnValues(column);
     const draft = this.currentDraftSet(column);
 
-    if (draft.size === 0 || draft.size === allValues.length) {
+    if (draft.size === allValues.length) {
       delete this.activeColumnFilters[column];
     } else {
       this.activeColumnFilters[column] = new Set(draft);
@@ -257,7 +270,7 @@ export class ResultTableComponent {
 
   private distinctColumnValues(column: string): string[] {
     const uniqueValues = new Set<string>();
-    for (const row of this.rows) {
+    for (const row of this.rowsForColumnOptions(column)) {
       uniqueValues.add(this.formatCell(row[column]));
     }
     return Array.from(uniqueValues).sort((a, b) =>
@@ -283,6 +296,10 @@ export class ResultTableComponent {
     return filter.has(this.formatCell(row[column]));
   }
 
+  private rowsForColumnOptions(column: string): Record<string, unknown>[] {
+    return this.rows.filter((row) => this.columns.every((col) => (col === column ? true : this.matchesColumnFilter(row, col))));
+  }
+
   private filtersSignature(): string {
     const columns = Object.keys(this.activeColumnFilters).sort((a, b) =>
       a.localeCompare(b, 'pt-BR', { sensitivity: 'base' }),
@@ -297,6 +314,31 @@ export class ResultTableComponent {
         return `${column}=${values.join('|')}`;
       })
       .join('||');
+  }
+
+  private resolveMenuPosition(event: MouseEvent): { top: number; left: number } {
+    const target = event.currentTarget;
+    if (!(target instanceof HTMLElement)) {
+      return { top: 8, left: 8 };
+    }
+
+    const rect = target.getBoundingClientRect();
+    const estimatedMenuHeight = 320;
+    const estimatedMenuWidth = 280;
+    const margin = 8;
+
+    const spaceBelow = window.innerHeight - rect.bottom;
+    const openUp = spaceBelow < estimatedMenuHeight;
+
+    let top = openUp ? rect.top - estimatedMenuHeight - 4 : rect.bottom + 4;
+    let left = rect.left;
+
+    const maxTop = window.innerHeight - estimatedMenuHeight - margin;
+    const maxLeft = window.innerWidth - estimatedMenuWidth - margin;
+    top = Math.max(margin, Math.min(top, maxTop));
+    left = Math.max(margin, Math.min(left, maxLeft));
+
+    return { top, left };
   }
 
   private compareValues(a: unknown, b: unknown): number {
