@@ -142,6 +142,13 @@
   gap: 6px;
 }
 
+.field-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .field span {
   font-weight: 600;
   font-size: 13px;
@@ -177,6 +184,24 @@ select:focus {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 14px;
+}
+
+.grid--message {
+  grid-template-columns: 1fr;
+  align-items: start;
+}
+
+.message-area {
+  min-height: 120px;
+}
+
+.compare-layout {
+  display: grid;
+  gap: 12px;
+}
+
+.compare-layout__meta {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
 .sql-preview {
@@ -259,6 +284,24 @@ small {
   font-size: 12px;
 }
 
+.token-hint {
+  display: inline-flex;
+  align-items: center;
+  margin: 2px 4px 0 0;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: color-mix(in srgb, var(--bg-surface-alt) 80%, transparent);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  font-size: 11px;
+}
+
+.token-hint--stack {
+  display: block;
+  width: fit-content;
+  margin: 4px 0 0;
+}
+
 .error-text {
   color: #ef4444;
 }
@@ -289,6 +332,12 @@ small {
 }
 
 .days-preset {
+  display: inline-flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pdf-mode-switch {
   display: inline-flex;
   gap: 8px;
   flex-wrap: wrap;
@@ -427,6 +476,10 @@ button {
   }
 
   .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .grid--message {
     grid-template-columns: 1fr;
   }
 

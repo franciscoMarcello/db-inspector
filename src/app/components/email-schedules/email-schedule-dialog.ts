@@ -14,12 +14,20 @@ export interface EmailScheduleData {
   comparisonKey?: string;
   comparisonTolerances?: Record<string, number>;
   sendOnlyIfDifferent?: boolean;
+  comparisonTitle?: string;
+  comparisonNote?: string;
   to?: string;
   cc?: string;
   subject?: string;
   message?: string;
   reportId?: string;
   attachPdf?: boolean;
+  pdfMode?: 'report' | 'scheduled_sql';
+  pdfTitle?: string;
+  pdfSubtitle?: string;
+  pdfIncludeSummary?: boolean;
+  pdfMaxRows?: number;
+  attachXlsx?: boolean;
   time?: string;
   days?: string[];
 }
@@ -31,12 +39,20 @@ export interface EmailScheduleResult {
   comparisonKey: string;
   comparisonTolerances: Record<string, number>;
   sendOnlyIfDifferent: boolean;
+  comparisonTitle: string;
+  comparisonNote: string;
   to: string;
   cc: string;
   subject: string;
   message: string;
   reportId: string;
   attachPdf: boolean;
+  pdfMode: 'report' | 'scheduled_sql';
+  pdfTitle: string;
+  pdfSubtitle: string;
+  pdfIncludeSummary: boolean;
+  pdfMaxRows: number;
+  attachXlsx: boolean;
   time: string;
   days: string[];
 }
@@ -69,7 +85,15 @@ export class EmailScheduleDialogComponent {
   compareWithSap = false;
   comparisonKey = '';
   sendOnlyIfDifferent = true;
+  comparisonTitle = '';
+  comparisonNote = '';
   attachPdf = false;
+  pdfMode: 'report' | 'scheduled_sql' = 'report';
+  pdfTitle = '';
+  pdfSubtitle = '';
+  pdfIncludeSummary = true;
+  pdfMaxRows = 3000;
+  attachXlsx = true;
   reportId = '';
   message = '';
   scheduleEnabled = true;
@@ -81,8 +105,19 @@ export class EmailScheduleDialogComponent {
   time = '08:00';
   days: Set<string> = new Set(['mon', 'tue', 'wed', 'thu', 'fri']);
   sqlExpanded = false;
+  messageExpanded = false;
+  secondSqlExpanded = false;
 
   readonly daysOptions = DAYS;
+  readonly messageVariables = [
+    '{{status}}',
+    '{{apenas_agromobi}}',
+    '{{apenas_sap}}',
+    '{{linhas_diferentes}}',
+    '{{linhas_correspondentes}}',
+    '{{data_execucao}}',
+    '{{schedule_id}}',
+  ];
   sendingTest = false;
   recipientError = '';
   ccError = '';
@@ -110,7 +145,15 @@ export class EmailScheduleDialogComponent {
     this.compareWithSap = Boolean(data?.compareWithSap);
     this.comparisonKey = data?.comparisonKey || '';
     this.sendOnlyIfDifferent = data?.sendOnlyIfDifferent !== false;
+    this.comparisonTitle = data?.comparisonTitle || '';
+    this.comparisonNote = data?.comparisonNote || '';
     this.attachPdf = Boolean(data?.attachPdf);
+    this.pdfMode = data?.pdfMode === 'scheduled_sql' ? 'scheduled_sql' : 'report';
+    this.pdfTitle = data?.pdfTitle || '';
+    this.pdfSubtitle = data?.pdfSubtitle || '';
+    this.pdfIncludeSummary = data?.pdfIncludeSummary !== false;
+    this.pdfMaxRows = Number(data?.pdfMaxRows) > 0 ? Number(data?.pdfMaxRows) : 3000;
+    this.attachXlsx = data?.attachXlsx !== false;
     this.reportId = data?.reportId || '';
     this.message = data?.message || '';
     this.toChips = this.parseEmails(data?.to || '');
@@ -250,12 +293,20 @@ export class EmailScheduleDialogComponent {
       comparisonKey: this.comparisonKey.trim(),
       comparisonTolerances: this.toToleranceRecord(),
       sendOnlyIfDifferent: this.sendOnlyIfDifferent,
+      comparisonTitle: this.comparisonTitle.trim(),
+      comparisonNote: this.comparisonNote.trim(),
       to: this.toChips.join(','),
       cc: this.ccChips.join(','),
       subject: this.subject.trim(),
       message: this.message.trim(),
       reportId: this.reportId,
       attachPdf: this.attachPdf,
+      pdfMode: this.pdfMode,
+      pdfTitle: this.pdfTitle.trim(),
+      pdfSubtitle: this.pdfSubtitle.trim(),
+      pdfIncludeSummary: this.pdfIncludeSummary,
+      pdfMaxRows: Number(this.pdfMaxRows) || 0,
+      attachXlsx: this.attachXlsx,
       time: this.forceScheduleMode || this.scheduleEnabled ? this.time : '',
       days: this.forceScheduleMode || this.scheduleEnabled ? Array.from(this.days) : [],
     };
@@ -269,6 +320,11 @@ export class EmailScheduleDialogComponent {
 
   toggleAttachPdf() {
     this.attachPdf = !this.attachPdf;
+    this.validateAdvancedFields();
+  }
+
+  setPdfMode(mode: 'report' | 'scheduled_sql') {
+    this.pdfMode = mode;
     this.validateAdvancedFields();
   }
 
@@ -287,6 +343,14 @@ export class EmailScheduleDialogComponent {
 
   toggleSqlExpanded() {
     this.sqlExpanded = !this.sqlExpanded;
+  }
+
+  toggleMessageExpanded() {
+    this.messageExpanded = !this.messageExpanded;
+  }
+
+  toggleSecondSqlExpanded() {
+    this.secondSqlExpanded = !this.secondSqlExpanded;
   }
 
   applyDayPreset(preset: 'workdays' | 'everyday' | 'weekend') {
@@ -450,8 +514,15 @@ export class EmailScheduleDialogComponent {
       this.compareError = 'Informe o SQL da fonte SAP para comparar.';
     }
 
-    if (this.attachPdf && !this.reportId.trim()) {
+    if (this.attachPdf && this.pdfMode === 'report' && !this.reportId.trim()) {
       this.pdfError = 'Selecione um relatório para anexar PDF.';
+    }
+
+    if (this.attachPdf) {
+      const maxRows = Number(this.pdfMaxRows);
+      if (!Number.isFinite(maxRows) || maxRows <= 0) {
+        this.pdfError = 'Informe um limite de linhas para PDF maior que zero.';
+      }
     }
 
     const hasInvalidTolerance = this.tolerances.some((tolerance) => {

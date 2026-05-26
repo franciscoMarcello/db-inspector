@@ -19,7 +19,7 @@
       <div class="section-head">
         <h4>1. Envio padrão</h4>
       </div>
-      <div class="grid">
+      <div class="grid grid--message">
         <label class="field">
           <span>Assunto</span>
           <input
@@ -32,8 +32,26 @@
         </label>
 
         <label class="field">
-          <span>Mensagem (opcional)</span>
-          <textarea [(ngModel)]="message" rows="3" placeholder="Mensagem livre no corpo do e-mail"></textarea>
+          <div class="field-head">
+            <span>Mensagem (opcional)</span>
+            <button type="button" class="link-btn" (click)="toggleMessageExpanded()">
+              {{ messageExpanded ? 'Recolher mensagem' : 'Expandir mensagem' }}
+            </button>
+          </div>
+          <textarea
+            class="message-area"
+            [(ngModel)]="message"
+            [rows]="messageExpanded ? 10 : 5"
+            placeholder="Mensagem livre no corpo do e-mail"
+          ></textarea>
+          <small>
+            Variáveis disponíveis:
+            <span class="token-hint token-hint--stack" *ngFor="let token of messageVariables">{{ token }}</span>
+          </small>
+          <small>
+            Também aceitamos o formato simples com uma chave: &#123;status&#125;,
+            &#123;linhas_diferentes&#125;, etc.
+          </small>
         </label>
       </div>
     </section>
@@ -114,20 +132,58 @@
       <small>
         {{ compareWithSap ? 'Comparação SAP ativada.' : 'Ative para comparar a consulta principal com SQL SAP.' }}
       </small>
-      <div class="grid" *ngIf="compareWithSap">
-        <label class="field">
-          <span>SQL SAP</span>
-          <textarea [(ngModel)]="secondSql" rows="4" placeholder="SELECT ... FROM SAP_VENDAS"></textarea>
+      <div *ngIf="compareWithSap" class="compare-layout">
+        <label class="field compare-layout__sql">
+          <div class="field-head">
+            <span>SQL SAP</span>
+            <button type="button" class="link-btn" (click)="toggleSecondSqlExpanded()">
+              {{ secondSqlExpanded ? 'Recolher SQL SAP' : 'Expandir SQL SAP' }}
+            </button>
+          </div>
+          <textarea
+            [(ngModel)]="secondSql"
+            [rows]="secondSqlExpanded ? 10 : 4"
+            placeholder="SELECT ... FROM SAP_VENDAS"
+          ></textarea>
         </label>
-        <label class="field">
-          <span>Chave de comparação (opcional)</span>
-          <input type="text" [(ngModel)]="comparisonKey" placeholder="doc_id" autocomplete="off" />
-        </label>
+        <div class="grid compare-layout__meta">
+          <label class="field">
+            <span>Chave de comparação (opcional)</span>
+            <input type="text" [(ngModel)]="comparisonKey" placeholder="doc_id" autocomplete="off" />
+          </label>
+          <label class="field">
+            <span>Título executivo (opcional)</span>
+            <input
+              type="text"
+              [(ngModel)]="comparisonTitle"
+              placeholder="Comparacao Agromobi x SAP"
+              autocomplete="off"
+            />
+          </label>
+          <label class="field">
+            <span>Nota executiva (opcional)</span>
+            <textarea
+              [(ngModel)]="comparisonNote"
+              rows="2"
+              placeholder="Consulte o anexo para detalhes por origem."
+            ></textarea>
+          </label>
+        </div>
       </div>
       <label class="check-row" *ngIf="compareWithSap">
         <input type="checkbox" [(ngModel)]="sendOnlyIfDifferent" />
         <span>Enviar somente quando houver divergência</span>
       </label>
+      <label class="check-row" *ngIf="compareWithSap">
+        <input type="checkbox" [(ngModel)]="attachXlsx" />
+        <span>Anexar XLSX da comparação</span>
+      </label>
+      <small *ngIf="compareWithSap">
+        Quando ativo, o e-mail será enviado em formato executivo com resumo da comparação.
+      </small>
+      <small *ngIf="compareWithSap && attachXlsx">
+        Anexo esperado: comparacao-agromobi-sap.xlsx com abas agromobi e sap.
+      </small>
       <div class="field" *ngIf="compareWithSap">
         <span>Tolerâncias por campo (opcional)</span>
         <div class="tolerance-list">
@@ -156,21 +212,46 @@
 
     <section class="section">
       <div class="section-head">
-        <h4>5. Anexar PDF do relatório</h4>
+        <h4>5. Anexo em PDF</h4>
         <button type="button" class="link-btn" (click)="toggleAttachPdf()">
           {{ attachPdf ? 'Desativar' : 'Ativar' }}
         </button>
       </div>
       <small>{{ attachPdf ? 'Anexo PDF ativado.' : 'Ative para anexar PDF Jasper do relatório.' }}</small>
-      <label class="field" *ngIf="attachPdf">
+      <div class="field" *ngIf="attachPdf">
+        <span>Modo do PDF</span>
+        <div class="pdf-mode-switch">
+          <button type="button" class="preset" [class.active]="pdfMode === 'report'" (click)="setPdfMode('report')">Relatório</button>
+          <button type="button" class="preset" [class.active]="pdfMode === 'scheduled_sql'" (click)="setPdfMode('scheduled_sql')">SQL agendado</button>
+        </div>
+      </div>
+      <label class="field" *ngIf="attachPdf && pdfMode === 'report'">
         <span>Relatório</span>
         <select [(ngModel)]="reportId">
           <option value="">Selecione</option>
           <option *ngFor="let report of reports" [value]="report.id">{{ report.name }}</option>
         </select>
         <small>Selecionado: {{ selectedReportName }}</small>
-        <small class="error-text" *ngIf="pdfError">{{ pdfError }}</small>
       </label>
+      <div class="grid" *ngIf="attachPdf && pdfMode === 'scheduled_sql'">
+        <label class="field">
+          <span>Título do PDF (opcional)</span>
+          <input type="text" [(ngModel)]="pdfTitle" placeholder="Pedidos do Dia" autocomplete="off" />
+        </label>
+        <label class="field">
+          <span>Subtítulo do PDF (opcional)</span>
+          <input type="text" [(ngModel)]="pdfSubtitle" placeholder="Base Agromobi" autocomplete="off" />
+        </label>
+        <label class="field">
+          <span>Máximo de linhas no PDF</span>
+          <input type="number" min="1" step="1" [(ngModel)]="pdfMaxRows" />
+        </label>
+        <label class="check-row">
+          <input type="checkbox" [(ngModel)]="pdfIncludeSummary" />
+          <span>Incluir resumo no PDF</span>
+        </label>
+      </div>
+      <small class="error-text" *ngIf="pdfError">{{ pdfError }}</small>
     </section>
 
     <section class="section">
