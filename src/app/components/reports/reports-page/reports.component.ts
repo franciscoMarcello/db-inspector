@@ -11,6 +11,7 @@ import { ActivatedRoute } from '@angular/router';
 import { catchError, firstValueFrom, forkJoin, of } from 'rxjs';
 import {
   JasperTemplateResponse,
+  ReportColumnsResponse,
   ReportCompareRequest,
   ReportCompareResponse,
   ReportDefinition,
@@ -37,6 +38,10 @@ import { MultiSelectOption, ReportsMultiSelectComponent } from '../controls/mult
 import { ReportsReportModalComponent } from '../modals/report-modal/reports-report-modal.component';
 import { ReportsTemplateManagerModalComponent } from '../modals/template-manager-modal/reports-template-manager-modal.component';
 import { AppButtonComponent } from '../../shared/app-button/app-button.component';
+import {
+  CompareToleranceRow,
+  ReportsCompareTolerancesComponent,
+} from './controls/reports-compare-tolerances.component';
 import {
   ResultTableCellContext,
   ResultTableComponent,
@@ -76,6 +81,7 @@ import { ReportsDraftHost, ReportsDraftLogic } from '../core/reports.component.d
     ReportsFolderManagerModalComponent,
     ReportsTemplateManagerModalComponent,
     ReportsMultiSelectComponent,
+    ReportsCompareTolerancesComponent,
     AppButtonComponent,
     ResultTableComponent,
   ],
@@ -90,8 +96,9 @@ import { ReportsDraftHost, ReportsDraftLogic } from '../core/reports.component.d
 export class ReportsComponent
   implements OnInit, OnDestroy, ReportsFolderTemplateHost, ReportsVariableOptionsHost, ReportsDraftHost {
 
-  compareToleranceRows: Array<{ field: string; tolerance: string | number }> = [];
+  compareToleranceRows: CompareToleranceRow[] = [];
   compareToleranceError = '';
+  comparisonColumnsPrefetch: string[] = [];
   folders: FolderNode[] = [];
   allFolders: ReportFolder[] = [];
   reports: ReportDefinition[] = [];
@@ -181,6 +188,7 @@ export class ReportsComponent
         rows: Record<string, unknown>[];
       }
     | null = null;
+  private compareColumnsLoadSeq = 0;
 
   constructor(
     private reportService: ReportService,
@@ -215,6 +223,26 @@ export class ReportsComponent
     return this.selectedFolderId
       ? this.folders.find((folder) => folder.id === this.selectedFolderId) ?? null
       : null;
+  }
+
+  get availableComparisonColumns(): string[] {
+    const options = new Set<string>();
+    for (const col of this.comparisonColumnsPrefetch) options.add(col);
+    if (this.compareResult) {
+      for (const col of this.compareResult.source1.columns) options.add(col);
+      for (const col of this.compareResult.source2.columns) options.add(col);
+    } else if (this.runResult) {
+      for (const col of this.runResult.columns) options.add(col);
+    }
+    return [...options]
+      .map((col) => String(col ?? '').trim())
+      .filter((col) => col.length > 0)
+      .sort((a, b) => a.localeCompare(b, 'pt-BR', { sensitivity: 'base' }));
+  }
+
+  onCompareToleranceRowsChange(rows: CompareToleranceRow[]) {
+    this.compareToleranceRows = rows;
+    if (!rows.length) this.compareToleranceError = '';
   }
 
   get displayedRows(): Record<string, unknown>[] {
@@ -811,6 +839,9 @@ export class ReportsComponent
       this.initVariableInputs();
       this.reloadVariableOptions();
       this.runResult = null;
+      this.loadComparisonColumnsForSelectedReport();
+    } else {
+      this.comparisonColumnsPrefetch = [];
     }
   }
 
@@ -834,6 +865,7 @@ export class ReportsComponent
     this.optionsParamsSignatureByKey = {};
     this.initVariableInputs();
     this.reloadVariableOptions();
+    this.loadComparisonColumnsForSelectedReport();
   }
 
   toggleSidebar() {
@@ -1332,6 +1364,7 @@ export class ReportsComponent
         this.runResult = null;
         this.selectedFolderId = null;
         this.selectedReportId = null;
+        this.comparisonColumnsPrefetch = [];
         this.statusMessage = this.resolveAclAwareError(err, 'Falha ao carregar relatorios/pastas.');
       },
     });
@@ -1434,15 +1467,6 @@ export class ReportsComponent
     });
   }
 
-  addCompareToleranceRow() {
-    this.compareToleranceRows = [...this.compareToleranceRows, { field: '', tolerance: '' }];
-  }
-
-  removeCompareToleranceRow(index: number) {
-    this.compareToleranceRows = this.compareToleranceRows.filter((_, idx) => idx !== index);
-    if (!this.compareToleranceRows.length) this.compareToleranceError = '';
-  }
-
   private buildComparisonTolerances(): Record<string, number> | null {
     const tolerances: Record<string, number> = {};
 
@@ -1542,6 +1566,7 @@ export class ReportsComponent
       this.variableOptions = {};
       this.loadingVariableOptions = {};
       this.optionsParamsSignatureByKey = {};
+      this.comparisonColumnsPrefetch = [];
       return;
     }
 
@@ -1553,6 +1578,27 @@ export class ReportsComponent
     this.lastLoadedPage = -1;
     this.loadingMoreRows = false;
     this.loadingAllRows = false;
+    this.loadComparisonColumnsForSelectedReport();
+  }
+
+  private loadComparisonColumnsForSelectedReport() {
+    const report = this.selectedReport;
+    if (!report?.id || !report.secondSql) {
+      this.comparisonColumnsPrefetch = [];
+      return;
+    }
+
+    const currentSeq = ++this.compareColumnsLoadSeq;
+    this.reportService.getReportColumns(report.id, 'both').subscribe({
+      next: (res: ReportColumnsResponse) => {
+        if (currentSeq !== this.compareColumnsLoadSeq) return;
+        this.comparisonColumnsPrefetch = res.mergedColumns || [];
+      },
+      error: () => {
+        if (currentSeq !== this.compareColumnsLoadSeq) return;
+        this.comparisonColumnsPrefetch = [];
+      },
+    });
   }
 
   private downloadBlob(blob: Blob, fileName: string) {

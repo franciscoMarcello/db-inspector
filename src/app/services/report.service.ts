@@ -193,6 +193,15 @@ export type ReportCompareRequest = {
   comparisonTolerances?: Record<string, number>;
 };
 
+export type ReportColumnsSource = 'primary' | 'secondary' | 'both';
+
+export type ReportColumnsResponse = {
+  reportId: string;
+  primaryColumns: string[];
+  secondaryColumns: string[];
+  mergedColumns: string[];
+};
+
 export type ReportVariableOption = {
   valor: string | number | boolean | null;
   descricao: string;
@@ -355,6 +364,14 @@ export class ReportService {
     return this.http
       .post<any>(`${this.base}/reports/${encodeURIComponent(id)}/compare`, body)
       .pipe(map((res) => this.normalizeCompareResponse(res)));
+  }
+
+  getReportColumns(id: string, source: ReportColumnsSource = 'both'): Observable<ReportColumnsResponse> {
+    return this.http
+      .get<any>(`${this.base}/reports/${encodeURIComponent(id)}/columns`, {
+        params: { source },
+      })
+      .pipe(map((res) => this.normalizeReportColumnsResponse(id, res)));
   }
 
   runReportAllWithParams(
@@ -822,5 +839,57 @@ export class ReportService {
       optionsQuery: optionsSql,
       options_query: optionsSql,
     };
+  }
+
+  private normalizeReportColumnsResponse(reportId: string, item: unknown): ReportColumnsResponse {
+    const primaryColumns = this.readColumnsList(
+      this.pickFirstDefined((item as Record<string, unknown>)?.['primaryColumns'], (item as Record<string, unknown>)?.['columns'])
+    );
+    const secondaryColumns = this.readColumnsList(
+      (item as Record<string, unknown>)?.['secondaryColumns']
+    );
+    const mergedColumnsRaw = this.readColumnsList((item as Record<string, unknown>)?.['mergedColumns']);
+    const mergedColumns = mergedColumnsRaw.length
+      ? mergedColumnsRaw
+      : this.uniqueColumns([...primaryColumns, ...secondaryColumns]);
+
+    return {
+      reportId,
+      primaryColumns,
+      secondaryColumns,
+      mergedColumns,
+    };
+  }
+
+  private readColumnsList(value: unknown): string[] {
+    if (Array.isArray(value)) {
+      return this.uniqueColumns(value.map((col) => String(col ?? '').trim()).filter((col) => col.length > 0));
+    }
+
+    if (value && typeof value === 'object') {
+      const record = value as Record<string, unknown>;
+      const directColumns = this.readColumnsList(record['columns']);
+      if (directColumns.length) return directColumns;
+      const sourceColumns = this.readColumnsList(record['source1'] ?? record['primary']);
+      if (sourceColumns.length) return sourceColumns;
+    }
+
+    return [];
+  }
+
+  private uniqueColumns(columns: string[]): string[] {
+    const out = new Set<string>();
+    for (const column of columns) {
+      const normalized = String(column ?? '').trim();
+      if (normalized) out.add(normalized);
+    }
+    return [...out];
+  }
+
+  private pickFirstDefined(...values: unknown[]): unknown {
+    for (const value of values) {
+      if (value !== undefined && value !== null) return value;
+    }
+    return undefined;
   }
 }

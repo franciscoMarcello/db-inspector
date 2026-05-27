@@ -525,45 +525,6 @@
   font-size: 12px;
 }
 
-.compare-tolerances {
-  margin-top: 10px;
-  display: grid;
-  gap: 8px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 10px;
-  padding: 10px;
-  background: color-mix(in srgb, var(--bg-surface-alt) 55%, transparent);
-}
-
-.compare-tolerances__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.compare-tolerances__add,
-.compare-tolerances__remove {
-  border: 1px solid var(--border-subtle);
-  background: var(--bg-surface-alt);
-  color: var(--text-primary);
-  border-radius: 8px;
-  padding: 6px 10px;
-  cursor: pointer;
-  font-size: 12px;
-}
-
-.compare-tolerances__remove {
-  color: #f87171;
-}
-
-.compare-tolerances__grid {
-  display: grid;
-  grid-template-columns: minmax(160px, 1fr) minmax(120px, 220px) auto;
-  gap: 8px;
-  align-items: center;
-}
-
 .actions {
   margin-top: 10px;
   display: flex;

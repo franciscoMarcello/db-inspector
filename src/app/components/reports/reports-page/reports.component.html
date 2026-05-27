@@ -280,35 +280,13 @@
 
       <p class="params-error" *ngIf="paramsError">{{ paramsError }}</p>
 
-      <div class="compare-tolerances" *ngIf="selectedReport?.secondSql">
-        <div class="compare-tolerances__head">
-          <strong>Tolerâncias de comparação</strong>
-          <button type="button" class="compare-tolerances__add" (click)="addCompareToleranceRow()">
-            + Adicionar tolerância
-          </button>
-        </div>
-        <small>Use para permitir pequenas variações por coluna (ex.: total = 0.01).</small>
-        <div class="compare-tolerances__grid" *ngFor="let row of compareToleranceRows; let i = index">
-          <input
-            type="text"
-            [(ngModel)]="row.field"
-            [ngModelOptions]="{ standalone: true }"
-            placeholder="Campo"
-          />
-          <input
-            type="number"
-            min="0"
-            step="0.01"
-            [(ngModel)]="row.tolerance"
-            [ngModelOptions]="{ standalone: true }"
-            placeholder="Tolerância"
-          />
-          <button type="button" class="compare-tolerances__remove" (click)="removeCompareToleranceRow(i)">
-            Remover
-          </button>
-        </div>
-        <p class="params-error" *ngIf="compareToleranceError">{{ compareToleranceError }}</p>
-      </div>
+      <app-reports-compare-tolerances
+        *ngIf="selectedReport?.secondSql"
+        [rows]="compareToleranceRows"
+        [availableColumns]="availableComparisonColumns"
+        [error]="compareToleranceError"
+        (rowsChange)="onCompareToleranceRowsChange($event)"
+      ></app-reports-compare-tolerances>
 
       <div class="actions" *ngIf="manageMode">
         <app-button type="button" tone="primary" variant="solid" (pressed)="applyFilters()" [disabled]="!canRunReport">
