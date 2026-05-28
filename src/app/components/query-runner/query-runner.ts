@@ -8,6 +8,7 @@ import { MonacoEditorModule } from 'ngx-monaco-editor-v2';
 import { DbInspectorService } from '../../services/db-inspector.service';
 import { ReportConnectionSource, ReportService } from '../../services/report.service';
 import { finalize } from 'rxjs/operators';
+import { Observable } from 'rxjs';
 import { SnippetStorageService, QuerySnippet } from '../../services/snippet-storage.service';
 import { QueryParam, QueryParamsDialog } from '../query-params-dialog/query-params-dialog';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
@@ -20,10 +21,16 @@ import { MatIconModule } from '@angular/material/icon';
 import { createXlsxBlob } from '../../utils/xlsx-export';
 import { AppButtonComponent } from '../shared/app-button/app-button.component';
 import { ResultTableComponent } from '../shared/result-table/result-table.component';
+import {
+  buildVariablesMap,
+  expandSqlVariables,
+  stripSqlComments,
+} from './query-runner.sql-utils';
+import { QueryEditor, QueryRunnerEditorHost, QueryRunnerEditorLogic } from './query-runner.editor.logic';
+import { QueryRunnerSnippetsHost, QueryRunnerSnippetsLogic } from './query-runner.snippets.logic';
 
 const STORAGE_KEY = 'dbi.query.state';
 const SNIPPETS_COLLAPSED_KEY = 'dbi.query.snippets_collapsed';
-const SQL_VARIABLE_RE = /(^|[^:]):([A-Za-z_][A-Za-z0-9_]*)/g;
 const REPORT_DRAFT_SQL_KEY = 'dbi.reports.pending_sql';
 
 @Component({
@@ -44,7 +51,8 @@ const REPORT_DRAFT_SQL_KEY = 'dbi.reports.pending_sql';
   templateUrl: './query-runner.html',
   styleUrls: ['./query-runner.css'],
 })
-export class QueryRunnerComponent implements OnInit, OnDestroy {
+export class QueryRunnerComponent
+  implements OnInit, OnDestroy, QueryRunnerEditorHost, QueryRunnerSnippetsHost {
   readonly defaultPageSize = 200;
   readonly maxPageSize = 1000;
   readonly defaultRunAllDisplayLimit = 5000;
@@ -65,7 +73,7 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
   loading = false;
   error: string | null = null;
   displayedColumns: string[] = [];
-  rows: any[] = [];
+  rows: Record<string, unknown>[] = [];
   rowCount = 0;
   elapsedMs = 0;
   page = 0;
@@ -84,6 +92,8 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
   connectionTestTone: 'ok' | 'error' | 'neutral' = 'neutral';
   lastSavedQuery = '';
   private lastExecutedSql: string | null = null;
+  private readonly editorLogic: QueryRunnerEditorLogic;
+  private readonly snippetsLogic: QueryRunnerSnippetsLogic;
 
   constructor(
     private api: DbInspectorService,
@@ -92,7 +102,10 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
     private dialog: MatDialog,
     private router: Router,
     private reportService: ReportService
-  ) {}
+  ) {
+    this.editorLogic = new QueryRunnerEditorLogic(this);
+    this.snippetsLogic = new QueryRunnerSnippetsLogic(this, snippetsStore);
+  }
 
   snippets: QuerySnippet[] = [];
   snippetsCollapsed = false;
@@ -101,8 +114,8 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
   folders: string[] = [];
   selectedFolder: string | null = null;
   isDraggingSnippetOverEditor = false;
-  private editor!: any;
-  private saveTimer: any = null;
+  editor?: QueryEditor;
+  private saveTimer: ReturnType<typeof setTimeout> | undefined;
   trackSnippetId = (_: number, s: QuerySnippet) => s.id;
   trackFolder = (_: number, folder: string) => folder;
   query = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null')?.query ?? 'SELECT 1 AS ok;';
@@ -114,166 +127,41 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
     this.refreshSnippets();
   }
 
-  onEditorInit(editor: any) {
-    const monaco = (window as any).monaco;
+  onEditorInit(editor: QueryEditor) {
+    const monaco = (window as unknown as { monaco?: unknown }).monaco as {
+      editor?: {
+        defineTheme?: (theme: string, data: unknown) => void;
+        setTheme?: (theme: string) => void;
+      };
+      KeyMod: { CtrlCmd: number };
+      KeyCode: { Enter: number };
+    };
     this.editor = editor;
-    if (monaco?.editor?.defineTheme) {
-      monaco.editor.defineTheme('dbi-sql-dark', {
-        base: 'vs-dark',
-        inherit: true,
-        rules: [],
-        colors: {
-          'editorLineNumber.foreground': '#64748b',
-          'editorLineNumber.activeForeground': '#94a3b8',
-        },
-      });
-      monaco.editor.setTheme('dbi-sql-dark');
-    }
-    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, () => this.runPaged());
-
-    const saved = this.loadState();
-    if (saved?.viewState) {
-      try {
-        editor.restoreViewState(saved.viewState);
-        editor.focus();
-      } catch {}
-    }
-
-    this.updateVariableNamesFromQuery();
-
-    editor.onDidChangeModelContent(() => {
-      this.query = editor.getValue();
-      this.updateVariableNamesFromQuery();
-      this.schedulePersist();
-    });
-
-    editor.onDidChangeCursorPosition((evt: any) => {
-      this.cursorLine = evt?.position?.lineNumber ?? 1;
-      this.cursorColumn = evt?.position?.column ?? 1;
-    });
-
-    const pos = editor.getPosition?.();
-    this.cursorLine = pos?.lineNumber ?? 1;
-    this.cursorColumn = pos?.column ?? 1;
+    this.editorLogic.onEditorInit(editor, monaco, () => this.loadState(), () => this.runPaged());
   }
 
-  private refreshSnippets() {
-    this.snippets = this.snippetsStore.list();
-    this.recomputeFolders();
-  }
+  private refreshSnippets() { this.snippetsLogic.refreshSnippets(); }
 
-  private recomputeFolders() {
-    const bucket = new Set<string>();
-    for (const sn of this.snippets) {
-      bucket.add(this.normalizeFolder(sn.folder));
-    }
-    if (this.selectedFolder !== null) {
-      bucket.add(this.normalizeFolder(this.selectedFolder));
-    }
-    const list = Array.from(bucket.values()).sort((a, b) => {
-      if (!a && b) return -1;
-      if (a && !b) return 1;
-      return a.localeCompare(b, undefined, { sensitivity: 'base' });
-    });
-    this.folders = list;
-  }
+  private recomputeFolders() { this.snippetsLogic.recomputeFolders(); }
 
   ngOnDestroy() {
     this.persistState();
   }
 
   saveCurrentAsSnippet() {
-    const sql = (this.query || '').trim();
-    if (!sql) {
-      this.snack('Nada para salvar.');
-      return;
-    }
-
-    let suggestedName = 'Consulta sem título';
-
-    while (true) {
-      const input = prompt('Nome do snippet:', suggestedName);
-      if (input === null) {
-        return;
-      }
-
-      const name = input.trim();
-      if (!name) {
-        this.snack('Informe um nome.');
-        suggestedName = 'Consulta sem título';
-        continue;
-      }
-
-      suggestedName = name;
-
-      const existing = this.snippets.find(
-        (s) => s.name.trim().toLowerCase() === name.toLowerCase()
-      );
-
-      if (!existing) {
-        const saved = this.snippetsStore.upsert({
-          name,
-          sql,
-          folder: this.selectedFolder ?? '',
-        });
-        this.refreshSnippets();
-        this.selectedSnippetId = saved.id;
-        this.lastSavedQuery = sql;
-        this.snack('Snippet salvo.');
-        return;
-      }
-
-      const overwrite = confirm(
-        `Já existe um snippet chamado "${name}".\n\n` + 'Deseja sobrescrever esse snippet?'
-      );
-
-      if (overwrite) {
-        const saved = this.snippetsStore.upsert({
-          id: existing.id,
-          name,
-          sql,
-          folder: this.selectedFolder ?? existing.folder ?? '',
-        });
-        this.refreshSnippets();
-        this.selectedSnippetId = saved.id;
-        this.lastSavedQuery = sql;
-        this.snack('Snippet atualizado.');
-        return;
-      }
-    }
+    this.snippetsLogic.saveCurrentAsSnippet();
   }
 
   loadSnippet(id: string) {
-    const sn = this.snippetsStore.get(id);
-    if (!sn) return;
-    this.selectedSnippetId = id;
-    this.query = sn.sql;
-    this.editor?.setValue(sn.sql);
-    this.lastSavedQuery = sn.sql;
+    this.snippetsLogic.loadSnippet(id);
     this.updateVariableNamesFromQuery();
-    this.persistState();
-    this.snack(`Carregado: ${sn.name}`);
   }
 
-  renameSnippet(id: string) {
-    const sn = this.snippetsStore.get(id);
-    if (!sn) return;
-    const name = prompt('Renomear snippet:', sn.name);
-    if (!name) return;
-    this.snippetsStore.rename(id, name.trim());
-    this.refreshSnippets();
-  }
+  renameSnippet(id: string) { this.snippetsLogic.renameSnippet(id); }
 
-  deleteSnippet(id: string) {
-    const sn = this.snippetsStore.get(id);
-    if (!sn) return;
-    if (!confirm(`Excluir "${sn.name}"?`)) return;
-    this.snippetsStore.remove(id);
-    if (this.selectedSnippetId === id) this.selectedSnippetId = null;
-    this.refreshSnippets();
-  }
+  deleteSnippet(id: string) { this.snippetsLogic.deleteSnippet(id); }
 
-  private schedulePersist() {
+  schedulePersist() {
     clearTimeout(this.saveTimer);
     this.saveTimer = setTimeout(() => this.persistState(), 300);
   }
@@ -295,7 +183,7 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
     }
   }
 
-  private persistState() {
+  persistState() {
     try {
       const viewState = this.editor?.saveViewState?.();
       const payload = { query: this.query ?? '', viewState };
@@ -303,7 +191,7 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
     } catch {}
   }
 
-  private loadState(): { query: string; viewState?: any } | null {
+  private loadState(): { query: string; viewState?: unknown } | null {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       return raw ? JSON.parse(raw) : null;
@@ -336,7 +224,7 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const runnableSql = this.stripSqlComments(q).trim();
+    const runnableSql = stripSqlComments(q).trim();
     if (!runnableSql) {
       this.error = 'A SQL contém apenas comentários.';
       return;
@@ -351,9 +239,9 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
 
     let finalSql: string;
     try {
-      finalSql = this.expandVariables(runnableSql, vars);
-    } catch (e: any) {
-      this.error = e?.message || 'Erro ao expandir variáveis.';
+      finalSql = expandSqlVariables(runnableSql, vars);
+    } catch (e: unknown) {
+      this.error = e instanceof Error ? e.message : 'Erro ao expandir variáveis.';
       return;
     }
 
@@ -436,7 +324,7 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
             this.rows = displayData;
           } else {
             this.displayedColumns = ['value'];
-            this.rows = displayData.map((v: any) => ({ value: v }));
+            this.rows = displayData.map((v: unknown) => ({ value: v }));
           }
           if (this.allModeTruncated) {
             this.snack(
@@ -444,9 +332,11 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
             );
           }
         },
-        error: (err: any) => {
+        error: (err: unknown) => {
           this.elapsedMs = Math.round(performance.now() - t0);
-          this.error = err?.error?.message || 'Falha ao executar a consulta.';
+          this.error =
+            (err as { error?: { message?: string } })?.error?.message ||
+            'Falha ao executar a consulta.';
         },
       });
   }
@@ -462,13 +352,13 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
         : 'Testando Agromobi com SELECT 1 AS ok...';
     this.connectionTestTone = 'neutral';
 
-    const request$: any =
+    const request$: Observable<{ valid?: boolean; errors?: string[]; ok?: boolean; message?: string; elapsedMs?: number }> =
       source === 'sap'
         ? this.reportService.testSapConnection()
         : this.reportService.testAgromobiConnection();
 
     request$.subscribe({
-      next: (res: any) => {
+      next: (res: { valid?: boolean; errors?: string[]; ok?: boolean; message?: string; elapsedMs?: number }) => {
         if ('valid' in res && !res.valid) {
           this.connectionTestStatus = res.errors?.join(' ') || 'Falha ao validar conexão Agromobi.';
           this.connectionTestTone = 'error';
@@ -485,7 +375,7 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
         this.connectionTestStatus = `Conexão ${label} OK (${elapsedMs} ms).`;
         this.connectionTestTone = 'ok';
       },
-      error: (err: any) => {
+      error: (err: unknown) => {
         const label = source === 'sap' ? 'SAP HANA' : 'Agromobi';
         this.connectionTestStatus = this.resolveConnectionTestError(err, `Falha ao testar conexão ${label}.`);
         this.connectionTestTone = 'error';
@@ -504,7 +394,14 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
 
     try {
       if ('showSaveFilePicker' in window) {
-        const handle = await (window as any).showSaveFilePicker({
+        const handle = await (
+          window as Window & {
+            showSaveFilePicker: (opts: unknown) => Promise<{
+              name: string;
+              createWritable: () => Promise<{ write: (data: Blob) => Promise<void>; close: () => Promise<void> }>;
+            }>;
+          }
+        ).showSaveFilePicker({
           suggestedName: this.makeFileName('resultado', 'xlsx'),
           types: [
             {
@@ -522,8 +419,8 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
         this.snack(`Arquivo ${handle.name} salvo.`);
         return;
       }
-    } catch (e: any) {
-      if (e?.name === 'AbortError') return;
+    } catch (e: unknown) {
+      if ((e as { name?: string })?.name === 'AbortError') return;
     }
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -540,7 +437,13 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
 
     try {
       if ('showSaveFilePicker' in window) {
-        const handle = await (window as any).showSaveFilePicker({
+        const handle = await (
+          window as Window & {
+            showSaveFilePicker: (opts: unknown) => Promise<{
+              createWritable: () => Promise<{ write: (data: Blob) => Promise<void>; close: () => Promise<void> }>;
+            }>;
+          }
+        ).showSaveFilePicker({
           suggestedName: this.makeFileName('consulta', 'sql'),
           types: [{ description: 'SQL', accept: { 'text/sql': ['.sql'] } }],
         });
@@ -551,8 +454,8 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
         this.snack('Consulta salva com sucesso.');
         return;
       }
-    } catch (e: any) {
-      if (e?.name === 'AbortError') return;
+    } catch (e: unknown) {
+      if ((e as { name?: string })?.name === 'AbortError') return;
     }
 
     const blob = new Blob([q + '\n'], { type: 'text/sql;charset=utf-8' });
@@ -588,12 +491,12 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
     )}${p(d.getMinutes())}${p(d.getSeconds())}.${ext}`;
   }
 
-  private snack(msg: string) {
+  snack(msg: string) {
     this.snackBar.open(msg, 'OK', { duration: 1500 });
   }
 
-  private resolveConnectionTestError(err: any, fallback: string): string {
-    const error = err?.error;
+  private resolveConnectionTestError(err: unknown, fallback: string): string {
+    const error = (err as { error?: { message?: string; error?: string } | string })?.error;
     if (typeof error === 'string') return error;
     if (typeof error?.message === 'string') return error.message;
     if (typeof error?.error === 'string') return error.error;
@@ -686,47 +589,18 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
       });
     });
   }
-  moveSnippetToFolder(id: string) {
-    const sn = this.snippetsStore.get(id);
-    if (!sn) return;
-    const current = sn.folder ?? '';
-    const input = prompt('Mover para qual pasta? (vazio = sem pasta)', current);
-    if (input === null) return;
-    const target = this.normalizeFolder(input);
-    this.snippetsStore.moveToFolder(id, target);
-    this.selectedFolder = target;
-    this.refreshSnippets();
-    this.snack(target ? `Movido para "${target}".` : 'Movido para "Sem pasta".');
-  }
+  moveSnippetToFolder(id: string) { this.snippetsLogic.moveSnippetToFolder(id); }
 
   folderLabel(folder: string | null): string {
     if (folder === null) return 'Todas as pastas';
     return folder ? folder : 'Sem pasta';
   }
 
-  selectFolder(folder: string | null) {
-    this.selectedFolder = folder;
-    this.snippetMenuOpenId = null;
-    this.recomputeFolders();
-  }
+  selectFolder(folder: string | null) { this.snippetsLogic.selectFolder(folder); }
 
-  createFolder() {
-    const input = prompt('Nome da nova pasta:');
-    if (input === null) return;
-    const name = this.normalizeFolder(input);
-    if (!name) {
-      this.snack('Informe um nome para a pasta.');
-      return;
-    }
-    this.selectedFolder = name;
-    this.recomputeFolders();
-    this.snack(`Pasta "${name}" criada. Salve ou mova favoritos para ela.`);
-  }
+  createFolder() { this.snippetsLogic.createFolder(); }
 
-  toggleSnippetsPanel() {
-    this.snippetsCollapsed = !this.snippetsCollapsed;
-    this.persistSnippetsCollapsedState();
-  }
+  toggleSnippetsPanel() { this.snippetsLogic.toggleSnippetsPanel(); }
 
   toggleExecuteMenu() {
     this.executeMenuOpen = !this.executeMenuOpen;
@@ -813,39 +687,14 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
     event.dataTransfer.effectAllowed = 'copy';
   }
 
-  onEditorDragOver(event: DragEvent) {
-    event.preventDefault();
-    this.isDraggingSnippetOverEditor = true;
-    if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
-  }
+  onEditorDragOver(event: DragEvent) { this.editorLogic.onEditorDragOver(event); }
 
   onEditorDrop(event: DragEvent) {
-    event.preventDefault();
-    this.isDraggingSnippetOverEditor = false;
-    const sql = event.dataTransfer?.getData('text/plain') ?? '';
-    if (!sql.trim()) return;
-    if (!this.editor) {
-      this.query = `${(this.query || '').trim()}\n\n${sql.trim()}\n`;
-      return;
-    }
-
-    const selection = this.editor.getSelection?.();
-    const range = selection ?? this.editor.getModel?.()?.getFullModelRange?.();
-    this.editor.executeEdits('snippet-drop', [{ range, text: sql }]);
-    this.editor.focus?.();
+    this.editorLogic.onEditorDrop(event, this.editor);
     this.snack('Snippet inserido no editor.');
   }
 
-  onEditorDragLeave(event: DragEvent) {
-    const relatedTarget = event.relatedTarget as Node | null;
-    if (!relatedTarget) {
-      this.isDraggingSnippetOverEditor = false;
-      return;
-    }
-    if (!(event.currentTarget as HTMLElement)?.contains(relatedTarget)) {
-      this.isDraggingSnippetOverEditor = false;
-    }
-  }
+  onEditorDragLeave(event: DragEvent) { this.editorLogic.onEditorDragLeave(event); }
 
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent) {
@@ -863,31 +712,19 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
     }
   }
 
-  private persistSnippetsCollapsedState() {
+  persistSnippetsCollapsedState() {
     try {
       localStorage.setItem(SNIPPETS_COLLAPSED_KEY, this.snippetsCollapsed ? '1' : '0');
     } catch {}
   }
 
-  shouldShowSnippet(sn: QuerySnippet): boolean {
-    const matchesFolder =
-      this.selectedFolder === null
-        ? true
-        : this.folderKey(sn.folder) === this.folderKey(this.selectedFolder);
-    const term = this.snippetFilter.trim().toLowerCase();
-    const matchesFilter = !term || sn.name.toLowerCase().includes(term);
-    return matchesFolder && matchesFilter;
-  }
+  shouldShowSnippet(sn: QuerySnippet): boolean { return this.snippetsLogic.shouldShowSnippet(sn); }
 
   get filteredSnippets(): QuerySnippet[] {
     return this.snippets.filter((sn) => this.shouldShowSnippet(sn));
   }
 
-  folderCount(folder: string | null): number {
-    if (folder === null) return this.snippets.length;
-    const key = this.folderKey(folder);
-    return this.snippets.filter((sn) => this.folderKey(sn.folder) === key).length;
-  }
+  folderCount(folder: string | null): number { return this.snippetsLogic.folderCount(folder); }
 
   toggleSnippetMenu(event: MouseEvent, id: string) {
     event.preventDefault();
@@ -911,28 +748,7 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
     this.deleteSnippet(id);
   }
 
-  duplicateSnippet(id: string) {
-    const sn = this.snippetsStore.get(id);
-    if (!sn) return;
-
-    const base = `${sn.name} (cópia)`;
-    let name = base;
-    let i = 2;
-    const existingNames = new Set(this.snippets.map((s) => s.name.trim().toLowerCase()));
-    while (existingNames.has(name.trim().toLowerCase())) {
-      name = `${base} ${i++}`;
-    }
-
-    const created = this.snippetsStore.upsert({
-      name,
-      sql: sn.sql,
-      folder: sn.folder,
-    });
-    this.refreshSnippets();
-    this.selectedSnippetId = created.id;
-    this.snippetMenuOpenId = null;
-    this.snack('Snippet duplicado.');
-  }
+  duplicateSnippet(id: string) { this.snippetsLogic.duplicateSnippet(id); }
 
   snippetPreview(sn: QuerySnippet): string {
     const compactSql = (sn.sql || '').replace(/\s+/g, ' ').trim();
@@ -940,194 +756,14 @@ export class QueryRunnerComponent implements OnInit, OnDestroy {
     return `${sn.name}\n\n${preview}`;
   }
 
-  private normalizeFolder(folder: string | null | undefined): string {
-    return (folder ?? '').trim();
-  }
+  exportSnippets() { this.snippetsLogic.exportSnippets((prefix, ext) => this.makeFileName(prefix, ext)); }
 
-  private folderKey(folder: string | null | undefined): string {
-    return this.normalizeFolder(folder).toLowerCase();
-  }
+  importSnippets() { this.snippetsLogic.importSnippets(); }
 
-  exportSnippets() {
-    try {
-      const json = this.snippetsStore.export() || '[]';
-      const blob = new Blob([json], { type: 'application/json;charset=utf-8' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = this.makeFileName('snippets', 'json');
-      a.click();
-      URL.revokeObjectURL(a.href);
-      this.snack('Snippets exportados.');
-    } catch {
-      this.snack('Falha ao exportar snippets.');
-    }
-  }
+  private updateVariableNamesFromQuery() { this.editorLogic.updateVariableNamesFromQuery(); }
 
-  importSnippets() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'application/json,.json';
-
-    input.addEventListener('change', async () => {
-      const file = input.files?.[0];
-      if (!file) {
-        input.remove();
-        return;
-      }
-
-      try {
-        const text = await file.text();
-        this.snippetsStore.import(text);
-        this.selectedSnippetId = null;
-        this.refreshSnippets();
-        this.snack('Snippets importados.');
-      } catch {
-        this.snack('Arquivo de snippets inválido.');
-      } finally {
-        input.remove();
-      }
-    });
-
-    input.click();
-  }
-
-  private formatDateTime(value: Date): string {
-    const pad = (n: number) => String(n).padStart(2, '0');
-    const yyyy = value.getFullYear();
-    const MM = pad(value.getMonth() + 1);
-    const dd = pad(value.getDate());
-    const HH = pad(value.getHours());
-    const mm = pad(value.getMinutes());
-    const ss = pad(value.getSeconds());
-    return `${yyyy}-${MM}-${dd} ${HH}:${mm}:${ss}`;
-  }
-
-  private expandVariables(sql: string, vars: Record<string, any>): string {
-    return sql.replace(SQL_VARIABLE_RE, (full, prefix, name) => {
-      if (!(name in vars)) return full;
-
-      const value = vars[name];
-
-      if (value === null || value === undefined) {
-        return `${prefix}NULL`;
-      }
-
-      if (value instanceof Date) {
-        const s = this.formatDateTime(value);
-        const escaped = s.replace(/'/g, "''");
-        return `${prefix}'${escaped}'`;
-      }
-
-      if (typeof value === 'number') {
-        if (!Number.isFinite(value)) {
-          throw new Error(`Valor numérico inválido para :${name}`);
-        }
-        return `${prefix}${value}`;
-      }
-
-      if (typeof value === 'boolean') {
-        return `${prefix}${value ? 'TRUE' : 'FALSE'}`;
-      }
-
-      const s = String(value).replace(/'/g, "''");
-      return `${prefix}'${s}'`;
-    });
-  }
-
-  private updateVariableNamesFromQuery() {
-    const sql = this.stripSqlComments(this.query || '');
-    const names = new Set<string>();
-    let match: RegExpExecArray | null;
-
-    while ((match = SQL_VARIABLE_RE.exec(sql)) !== null) {
-      names.add(match[2]);
-    }
-
-    this.variableNames = Array.from(names).sort();
-  }
-
-  private stripSqlComments(sql: string): string {
-    let out = '';
-    let i = 0;
-    let inSingleQuote = false;
-    let inDoubleQuote = false;
-
-    while (i < sql.length) {
-      const ch = sql[i];
-      const next = sql[i + 1];
-
-      if (!inSingleQuote && !inDoubleQuote && ch === '-' && next === '-') {
-        i += 2;
-        while (i < sql.length && sql[i] !== '\n') i += 1;
-        continue;
-      }
-
-      if (!inSingleQuote && !inDoubleQuote && ch === '/' && next === '*') {
-        i += 2;
-        while (i < sql.length) {
-          if (sql[i] === '*' && sql[i + 1] === '/') {
-            i += 2;
-            break;
-          }
-          i += 1;
-        }
-        continue;
-      }
-
-      out += ch;
-
-      if (!inDoubleQuote && ch === "'") {
-        if (inSingleQuote && next === "'") {
-          out += next;
-          i += 2;
-          continue;
-        }
-        inSingleQuote = !inSingleQuote;
-      } else if (!inSingleQuote && ch === '"') {
-        if (inDoubleQuote && next === '"') {
-          out += next;
-          i += 2;
-          continue;
-        }
-        inDoubleQuote = !inDoubleQuote;
-      }
-
-      i += 1;
-    }
-
-    return out;
-  }
-
-  private buildVariablesMap(): Record<string, any> {
-    const map: Record<string, any> = {};
-
-    for (const name of this.variableNames) {
-      const raw = (this.variablesRaw[name] ?? '').trim();
-
-      if (!raw) {
-        map[name] = null;
-        continue;
-      }
-
-      if (/^-?\d+(\.\d+)?$/.test(raw)) {
-        map[name] = Number(raw);
-        continue;
-      }
-
-      if (/^(true|false)$/i.test(raw)) {
-        map[name] = raw.toLowerCase() === 'true';
-        continue;
-      }
-
-      if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
-        map[name] = new Date(raw + 'T00:00:00');
-        continue;
-      }
-
-      map[name] = raw;
-    }
-
-    return map;
+  private buildVariablesMap(): Record<string, unknown> {
+    return buildVariablesMap(this.variableNames, this.variablesRaw);
   }
 
   private openParamsDialog(): Promise<boolean> {

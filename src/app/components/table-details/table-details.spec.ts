@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideHttpClient } from '@angular/common/http';
 
 import { TableDetailsComponent } from './table-details';
 
@@ -8,7 +9,8 @@ describe('TableDetails', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [TableDetailsComponent]
+      imports: [TableDetailsComponent],
+      providers: [provideHttpClient()],
     })
     .compileComponents();
 

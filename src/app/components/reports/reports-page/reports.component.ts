@@ -24,7 +24,6 @@ import {
 } from '../../../services/report.service';
 import { AuthService } from '../../../services/auth.service';
 import { DbInspectorService } from '../../../services/db-inspector.service';
-import { createXlsxBlob, createXlsxWorkbookBlob } from '../../../utils/xlsx-export';
 import { DraftVariable, FolderNode, ReportDraft, TemplateDraft } from '../core/reports.component.models';
 import {
   createEmptyReportDraft,
@@ -56,7 +55,6 @@ import {
   createReportDraftForEdit,
   detectDraftVariables,
   displayVariableOption,
-  normalizeFileName,
   rebuildFolderNodes,
   resolveRequestErrorMessage,
   resolveStatusTone,
@@ -66,6 +64,21 @@ import {
 } from '../core/reports.component.utils';
 import { ReportsVariableOptionsHost, ReportsVariableOptionsLogic } from '../core/reports.component.variable-options';
 import { ReportsDraftHost, ReportsDraftLogic } from '../core/reports.component.draft';
+import {
+  compareCellDiffClass,
+  compareColumnDiffValue,
+  compareDifferentFields,
+  compareDifferentFieldsCountLabel,
+  compareDifferentFieldsLabel,
+  CompareFieldDetail,
+  formatCompareDelta,
+  formatCompareDifferenceSummary,
+  formatCompareDiffPercent,
+} from '../core/reports.component.compare-utils';
+import { ReportsCompareLogic } from '../core/reports.component.compare.logic';
+import { ReportsRunHost, ReportsRunLogic } from '../core/reports.component.run.logic';
+import { ReportsExportHost, ReportsExportLogic } from '../core/reports.component.export.logic';
+import { ReportsSelectionHost, ReportsSelectionLogic } from '../core/reports.component.selection.logic';
 
 @Component({
   selector: 'app-reports',
@@ -94,7 +107,15 @@ import { ReportsDraftHost, ReportsDraftLogic } from '../core/reports.component.d
   ],
 })
 export class ReportsComponent
-  implements OnInit, OnDestroy, ReportsFolderTemplateHost, ReportsVariableOptionsHost, ReportsDraftHost {
+  implements
+    OnInit,
+    OnDestroy,
+    ReportsFolderTemplateHost,
+    ReportsVariableOptionsHost,
+    ReportsDraftHost,
+    ReportsRunHost,
+    ReportsExportHost,
+    ReportsSelectionHost {
 
   compareToleranceRows: CompareToleranceRow[] = [];
   compareToleranceError = '';
@@ -159,35 +180,23 @@ export class ReportsComponent
   templateFileName = '';
   loadingTemplate = false;
   creatingTemplate = false;
-  private persistedFolderExpandedState: Record<string, boolean> = {};
+  persistedFolderExpandedState: Record<string, boolean> = {};
   private pendingCreateSql: string | null = null;
   private optionsReloadTimer: ReturnType<typeof setTimeout> | null = null;
   optionsParamsSignatureByKey: Record<string, string> = {};
-  private readonly reportPageSize = 500;
-  private lastRunParams: Record<string, unknown> | null = null;
-  private lastRunReportId: string | null = null;
-  private lastLoadedPage = -1;
+  reportPageSize = 500;
+  lastRunParams: Record<string, unknown> | null = null;
+  lastRunReportId: string | null = null;
+  lastLoadedPage = -1;
   private readonly folderTemplateLogic: ReportsFolderTemplateLogic;
   private readonly treeLogic: ReportsTreeLogic;
   private readonly variableOptionsLogic: ReportsVariableOptionsLogic;
   private readonly draftLogic: ReportsDraftLogic;
+  private readonly runLogic: ReportsRunLogic;
+  private readonly exportLogic: ReportsExportLogic;
+  private readonly compareLogic: ReportsCompareLogic;
+  private readonly selectionLogic: ReportsSelectionLogic;
   private statusClearTimer: ReturnType<typeof setTimeout> | null = null;
-  private compareCompactCache:
-    | {
-        cmpRef: ReportCompareResponse;
-        columns: string[];
-        rows: Record<string, unknown>[];
-      }
-    | null = null;
-  private compareFullCache:
-    | {
-        cmpRef: ReportCompareResponse;
-        columns: string[];
-        labels: Record<string, string>;
-        groups: ResultTableHeaderGroup[];
-        rows: Record<string, unknown>[];
-      }
-    | null = null;
   private compareColumnsLoadSeq = 0;
 
   constructor(
@@ -200,6 +209,10 @@ export class ReportsComponent
     this.treeLogic = new ReportsTreeLogic();
     this.variableOptionsLogic = new ReportsVariableOptionsLogic(this, reportService);
     this.draftLogic = new ReportsDraftLogic(this, reportService, dbService);
+    this.runLogic = new ReportsRunLogic(this, reportService);
+    this.exportLogic = new ReportsExportLogic(this, reportService);
+    this.compareLogic = new ReportsCompareLogic();
+    this.selectionLogic = new ReportsSelectionLogic(this, this.treeLogic);
   }
 
   ngOnInit(): void {
@@ -404,101 +417,34 @@ export class ReportsComponent
 
   compareDifferenceSourceRow(
     cmp: ReportCompareResponse,
-    item: { key: string | null; source1Row?: Record<string, unknown> | null; source2Row?: Record<string, unknown> | null },
+    item: {
+      key: string | null;
+      fields: Record<string, CompareFieldDetail>;
+      source1Row?: Record<string, unknown> | null;
+      source2Row?: Record<string, unknown> | null;
+    },
     source: 'source1' | 'source2'
   ): Record<string, unknown> {
-    const directRow = source === 'source1' ? item.source1Row : item.source2Row;
-    if (directRow && typeof directRow === 'object') return directRow;
-    const key = item.key;
-    const comparisonKey = cmp.comparisonKey;
-    if (key === null || key === undefined || !comparisonKey) return {};
-    const rows = source === 'source1' ? cmp.source1.rows : cmp.source2.rows;
-    const matchesByKey = rows.filter((row) => String(row?.[comparisonKey] ?? '') === String(key));
-    if (!matchesByKey.length) return {};
-    if (matchesByKey.length === 1) return matchesByKey[0];
-
-    type DiffDetail = {
-      source1?: unknown;
-      source2?: unknown;
-      equal?: boolean;
-      diff?: unknown;
-    };
-
-    const fieldsRecord = (item as { fields?: Record<string, DiffDetail> }).fields;
-    if (!fieldsRecord) return matchesByKey[0];
-
-    const expectedValueKey = source === 'source1' ? 'source1' : 'source2';
-    let bestMatch = matchesByKey[0];
-    let bestScore = -1;
-
-    for (const candidate of matchesByKey) {
-      let score = 0;
-      for (const [fieldName, detail] of Object.entries(fieldsRecord)) {
-        if (!detail) continue;
-        const expected = detail[expectedValueKey];
-        if (expected === undefined) continue;
-        if (String(candidate?.[fieldName] ?? '') === String(expected ?? '')) {
-          score += 1;
-        }
-      }
-      if (score > bestScore) {
-        bestScore = score;
-        bestMatch = candidate;
-      }
-    }
-
-    return bestMatch;
+    return this.compareLogic.compareDifferenceSourceRow(cmp, item, source);
   }
 
-  compareDifferentFields(item: { fields: Record<string, any> }): string[] {
-    return Object.entries(item.fields || {})
-      .filter(([, detail]) => detail && !detail.equal)
-      .map(([fieldName]) => fieldName);
+  compareDifferentFields(item: { fields: Record<string, CompareFieldDetail> }): string[] {
+    return compareDifferentFields(item);
   }
 
-  compareDifferentFieldsLabel(item: { fields: Record<string, any> }): string {
-    return this.compareDifferentFields(item).join(', ');
+  compareDifferentFieldsLabel(item: { fields: Record<string, CompareFieldDetail> }): string {
+    return compareDifferentFieldsLabel(item);
   }
 
-  compareDifferentFieldsCountLabel(item: { fields: Record<string, any> }): string {
-    const count = this.compareDifferentFields(item).length;
-    return `${count} ${count === 1 ? 'divergência' : 'divergências'}`;
+  compareDifferentFieldsCountLabel(item: { fields: Record<string, CompareFieldDetail> }): string {
+    return compareDifferentFieldsCountLabel(item);
   }
 
-  compareDifferenceRows(cmp: ReportCompareResponse): Array<{
-    key: string | null;
-    field: string;
-    source1: unknown;
-    source2: unknown;
-    diff: unknown;
-    item: any;
-  }> {
-    const rows: Array<{ key: string | null; field: string; source1: unknown; source2: unknown; diff: unknown; item: any }> = [];
-    for (const item of cmp.diff?.withDifferences || []) {
-      for (const field of this.compareDifferentFields(item)) {
-        const detail = this.compareFieldDetail(item, field);
-        rows.push({
-          key: item.key,
-          field,
-          source1: detail.source1 ?? '',
-          source2: detail.source2 ?? '',
-          diff: detail.diff ?? '',
-          item,
-        });
-      }
-    }
-    return rows;
-  }
+  compareDifferenceRows(cmp: ReportCompareResponse) { return this.compareLogic.compareDifferenceRows(cmp); }
 
-  compareCompactTableColumns(cmp: ReportCompareResponse): string[] {
-    this.ensureCompareCompactCache(cmp);
-    return this.compareCompactCache?.columns ?? [];
-  }
+  compareCompactTableColumns(cmp: ReportCompareResponse): string[] { return this.compareLogic.compareCompactTableColumns(cmp); }
 
-  compareCompactTableRows(cmp: ReportCompareResponse): Record<string, unknown>[] {
-    this.ensureCompareCompactCache(cmp);
-    return this.compareCompactCache?.rows ?? [];
-  }
+  compareCompactTableRows(cmp: ReportCompareResponse): Record<string, unknown>[] { return this.compareLogic.compareCompactTableRows(cmp); }
 
   compareCompactCellClass = (context: ResultTableCellContext): string => {
     const classes = context.row['__cellClasses'];
@@ -508,213 +454,18 @@ export class ReportsComponent
     return typeof value === 'string' ? value : '';
   };
 
-  compareFullTableColumns(cmp: ReportCompareResponse): string[] {
-    this.ensureCompareFullCache(cmp);
-    return this.compareFullCache?.columns ?? [];
-  }
+  compareFullTableColumns(cmp: ReportCompareResponse): string[] { return this.compareLogic.compareFullTableColumns(cmp); }
 
   compareFullTableColumnLabels(cmp: ReportCompareResponse): Record<string, string> {
-    this.ensureCompareFullCache(cmp);
-    return this.compareFullCache?.labels ?? {};
+    return this.compareLogic.compareFullTableColumnLabels(cmp);
   }
 
   compareFullTableHeaderGroups(cmp: ReportCompareResponse): ResultTableHeaderGroup[] {
-    this.ensureCompareFullCache(cmp);
-    return this.compareFullCache?.groups ?? [];
+    return this.compareLogic.compareFullTableHeaderGroups(cmp);
   }
 
-  compareFullTableRows(cmp: ReportCompareResponse): Record<string, unknown>[] {
-    this.ensureCompareFullCache(cmp);
-    return this.compareFullCache?.rows ?? [];
-  }
+  compareFullTableRows(cmp: ReportCompareResponse): Record<string, unknown>[] { return this.compareLogic.compareFullTableRows(cmp); }
 
-  private ensureCompareCompactCache(cmp: ReportCompareResponse): void {
-    if (this.compareCompactCache?.cmpRef === cmp) return;
-
-    const source1Label = this.compareDisplayLabel(cmp.source1.label);
-    const source2Label = cmp.source2.label || 'SAP';
-    const columns = ['Chave', 'Coluna divergente', source1Label, source2Label, 'Diferença', 'Diferença %'];
-    const rows = this.compareDifferenceRows(cmp).map((row) => ({
-      Chave: row.key,
-      'Coluna divergente': row.field,
-      [source1Label]: row.source1,
-      [source2Label]: row.source2,
-      Diferença: this.formatCompareDelta(row.diff) || '≠',
-      'Diferença %': this.formatCompareDiffPercent({ source2: row.source2, diff: row.diff }),
-      __cellClasses: {
-        'Coluna divergente': 'diff-fields-list',
-        [source1Label]: 'diff-cell-value diff-cell--changed',
-        [source2Label]: 'diff-cell-value diff-cell--changed',
-        Diferença: 'diff-cell-value diff-delta',
-        'Diferença %': 'diff-cell-value diff-delta',
-      },
-    }));
-
-    this.compareCompactCache = { cmpRef: cmp, columns, rows };
-  }
-
-  private ensureCompareFullCache(cmp: ReportCompareResponse): void {
-    if (this.compareFullCache?.cmpRef === cmp) return;
-
-    const columns = [
-      'key',
-      'status',
-      'differentFields',
-      ...cmp.source1.columns.map((col) => `source1:${col}`),
-      ...cmp.source2.columns.map((col) => `source2:${col}`),
-      ...cmp.source1.columns.map((col) => `diff:${col}`),
-    ];
-
-    const labels: Record<string, string> = {
-      key: 'Chave',
-      status: 'Status',
-      differentFields: 'Colunas divergentes',
-    };
-
-    for (const col of cmp.source1.columns) labels[`source1:${col}`] = col;
-    for (const col of cmp.source2.columns) labels[`source2:${col}`] = col;
-    for (const col of cmp.source1.columns) labels[`diff:${col}`] = col;
-
-    const groups: ResultTableHeaderGroup[] = [
-      { label: '', span: 3, className: 'group-spacer' },
-      { label: this.compareDisplayLabel(cmp.source1.label), span: cmp.source1.columns.length, className: 'compare-group-head' },
-      { label: cmp.source2.label || 'SAP', span: cmp.source2.columns.length, className: 'compare-group-head' },
-      { label: 'Diferença', span: cmp.source1.columns.length, className: 'compare-group-head compare-group-head--diff' },
-    ];
-
-    const rows: Record<string, unknown>[] = [];
-    const source1ByKey = this.groupRowsByComparisonKey(cmp.source1.rows, cmp.comparisonKey);
-    const source2ByKey = this.groupRowsByComparisonKey(cmp.source2.rows, cmp.comparisonKey);
-    const source1UsageByKey = new Map<string, number>();
-    const source2UsageByKey = new Map<string, number>();
-
-    for (const item of cmp.diff?.withDifferences || []) {
-      const source1Row = this.pickCompareRowForFullTable(
-        cmp,
-        item,
-        'source1',
-        source1ByKey,
-        source1UsageByKey
-      );
-      const source2Row = this.pickCompareRowForFullTable(
-        cmp,
-        item,
-        'source2',
-        source2ByKey,
-        source2UsageByKey
-      );
-      const row: Record<string, unknown> = {
-        key: item.key,
-        status: 'Valor diferente',
-        differentFields: this.compareDifferentFieldsLabel(item),
-        __cellClasses: {
-          key: 'diff-key-cell',
-          status: 'diff-status-cell',
-          differentFields: 'diff-fields-list diff-fields-list--full',
-        },
-      };
-
-      const cellClasses = row['__cellClasses'] as Record<string, string>;
-
-      for (const col of cmp.source1.columns) {
-        const source1Key = `source1:${col}`;
-        const source2Key = `source2:${col}`;
-        const diffKey = `diff:${col}`;
-
-        row[source1Key] = source1Row[col];
-        row[source2Key] = source2Row[col];
-        row[diffKey] = this.compareColumnDiffValue(item, col);
-
-        const sourceClassMap = this.compareCellDiffClass(item, col);
-        const sourceClass = this.classMapToString(sourceClassMap);
-        if (sourceClass) {
-          cellClasses[source1Key] = sourceClass;
-          cellClasses[source2Key] = sourceClass;
-        }
-        if (row[diffKey]) {
-          cellClasses[diffKey] = 'diff-cell-value diff-delta diff-cell--changed';
-        } else {
-          cellClasses[diffKey] = 'diff-cell-value diff-delta';
-        }
-      }
-
-      rows.push(row);
-    }
-
-    this.compareFullCache = {
-      cmpRef: cmp,
-      columns,
-      labels,
-      groups,
-      rows,
-    };
-  }
-
-  private groupRowsByComparisonKey(
-    rows: Record<string, unknown>[],
-    comparisonKey: string | null | undefined
-  ): Map<string, Record<string, unknown>[]> {
-    const grouped = new Map<string, Record<string, unknown>[]>();
-    if (!comparisonKey) return grouped;
-
-    for (const row of rows) {
-      const key = String(row?.[comparisonKey] ?? '');
-      const list = grouped.get(key) ?? [];
-      list.push(row);
-      grouped.set(key, list);
-    }
-
-    return grouped;
-  }
-
-  private pickCompareRowForFullTable(
-    cmp: ReportCompareResponse,
-    item: { key: string | null; source1Row?: Record<string, unknown> | null; source2Row?: Record<string, unknown> | null },
-    source: 'source1' | 'source2',
-    groupedRows: Map<string, Record<string, unknown>[]>,
-    usageByKey: Map<string, number>
-  ): Record<string, unknown> {
-    const directRow = source === 'source1' ? item.source1Row : item.source2Row;
-    if (directRow && typeof directRow === 'object') return directRow;
-
-    const comparisonKey = cmp.comparisonKey;
-    const key = item.key;
-    if (!comparisonKey || key === null || key === undefined) return {};
-
-    const keyText = String(key);
-    const candidates = groupedRows.get(keyText) ?? [];
-    if (!candidates.length) return {};
-
-    const startIndex = usageByKey.get(keyText) ?? 0;
-    const fieldsRecord = (item as { fields?: Record<string, { source1?: unknown; source2?: unknown }> }).fields;
-    const expectedKey = source === 'source1' ? 'source1' : 'source2';
-
-    let bestAbsoluteIndex = startIndex;
-    let bestScore = -1;
-
-    for (let i = startIndex; i < candidates.length; i += 1) {
-      const candidate = candidates[i];
-      let score = 0;
-      if (fieldsRecord) {
-        for (const [fieldName, detail] of Object.entries(fieldsRecord)) {
-          if (!detail) continue;
-          const expected = detail[expectedKey];
-          if (expected === undefined) continue;
-          if (String(candidate?.[fieldName] ?? '') === String(expected ?? '')) {
-            score += 1;
-          }
-        }
-      }
-
-      if (score > bestScore) {
-        bestScore = score;
-        bestAbsoluteIndex = i;
-      }
-    }
-
-    usageByKey.set(keyText, Math.min(bestAbsoluteIndex + 1, candidates.length));
-    return candidates[bestAbsoluteIndex] ?? candidates[candidates.length - 1] ?? {};
-  }
 
   compareFullCellClass = (context: ResultTableCellContext): string => {
     const classes = context.row['__cellClasses'];
@@ -724,73 +475,34 @@ export class ReportsComponent
     return typeof value === 'string' ? value : '';
   };
 
-  private classMapToString(classMap: Record<string, boolean>): string {
-    return Object.entries(classMap)
-      .filter(([, enabled]) => enabled)
-      .map(([name]) => name)
-      .join(' ');
-  }
-
   compareFieldStats(cmp: ReportCompareResponse): Array<{ field: string; count: number }> {
-    const counts = new Map<string, number>();
-    for (const item of cmp.diff?.withDifferences || []) {
-      for (const field of this.compareDifferentFields(item)) {
-        counts.set(field, (counts.get(field) || 0) + 1);
-      }
-    }
-    return Array.from(counts.entries())
-      .map(([field, count]) => ({ field, count }))
-      .sort((a, b) => b.count - a.count || a.field.localeCompare(b.field))
-      .slice(0, 5);
+    return this.compareLogic.compareFieldStats(cmp);
   }
 
-  compareCellDiffClass(item: { fields: Record<string, any> }, column: string): Record<string, boolean> {
-    const detail = item.fields?.[column];
-    return {
-      'diff-cell--changed': Boolean(detail && !detail.equal),
-      'diff-cell--missing': detail !== undefined && (detail?.source1 === null || detail?.source1 === undefined || detail?.source2 === null || detail?.source2 === undefined),
-    };
+  compareCellDiffClass(item: { fields: Record<string, CompareFieldDetail> }, column: string): Record<string, boolean> {
+    return compareCellDiffClass(item, column);
   }
 
-  compareFieldDetail(item: { fields: Record<string, any> }, field: string): any {
+  compareFieldDetail(item: { fields: Record<string, CompareFieldDetail> }, field: string): CompareFieldDetail {
     return item.fields?.[field] ?? {};
   }
 
-  formatCompareDelta(value: unknown): string {
-    if (value === null || value === undefined || value === '') return '';
-    const numeric = Number(value);
-    if (!Number.isNaN(numeric)) return `${numeric > 0 ? '+' : ''}${value}`;
-    return String(value);
-  }
+  formatCompareDelta(value: unknown): string { return formatCompareDelta(value); }
 
-  compareColumnDiffValue(item: { fields: Record<string, any> }, column: string): string {
-    const detail = item.fields?.[column];
-    if (!detail || detail.equal) return '';
-    return this.formatCompareDelta(detail.diff) || '≠';
+  compareColumnDiffValue(item: { fields: Record<string, CompareFieldDetail> }, column: string): string {
+    return compareColumnDiffValue(item, column);
   }
 
   formatCompareDiffPercent(row: { source2: unknown; diff: unknown }): string {
-    const diff = Number(row.diff);
-    const base = Number(row.source2);
-    if (!Number.isFinite(diff) || !Number.isFinite(base) || base === 0) return '';
-    const percent = (diff / base) * 100;
-    return `${percent > 0 ? '+' : ''}${percent.toFixed(2)}%`;
+    return formatCompareDiffPercent(row);
   }
 
   compareValueTitle(value: unknown): string {
     return value === null || value === undefined ? '' : String(value);
   }
 
-  formatCompareDifferenceSummary(item: { fields: Record<string, any> }): string {
-    return Object.entries(item.fields || {})
-      .filter(([, detail]) => detail && !detail.equal)
-      .map(([fieldName, detail]) => {
-        const delta = detail.diff !== null && detail.diff !== undefined
-          ? ` (${detail.diff > 0 ? '+' : ''}${detail.diff})`
-          : '';
-        return `${fieldName}: ${detail.source1 ?? ''} → ${detail.source2 ?? ''}${delta}`;
-      })
-      .join('; ');
+  formatCompareDifferenceSummary(item: { fields: Record<string, CompareFieldDetail> }): string {
+    return formatCompareDifferenceSummary(item);
   }
 
   reportsByFolder(folder: FolderNode): ReportDefinition[] {
@@ -816,56 +528,21 @@ export class ReportsComponent
   reportCountByFolder(folder: FolderNode): number { return this.reportsByFolder(folder).length; }
 
   toggleFolder(folderId: string) {
-    this.folders = this.treeLogic.toggleFolder(this.folders, folderId);
-    this.persistFolderExpandedState();
+    this.selectionLogic.toggleFolder(folderId);
   }
 
   toggleAllFoldersExpanded() {
-    this.folders = this.treeLogic.toggleAllFoldersExpanded(this.folders, this.filteredFolders);
-    this.persistFolderExpandedState();
+    this.selectionLogic.toggleAllFoldersExpanded(this.filteredFolders);
   }
 
-  clearTreeFilter() { this.treeFilter = ''; }
+  clearTreeFilter() { this.treeFilter = this.selectionLogic.clearTreeFilter(); }
 
   selectFolder(folder: FolderNode) {
-    const next = this.treeLogic.selectFolder(folder, this.reports);
-    this.selectedFolderId = next.selectedFolderId;
-    this.selectedReportId = next.selectedReportId;
-    this.renameFolderName = folder.name;
-    this.runResult = null;
-    this.statusMessage = '';
-    this.optionsParamsSignatureByKey = {};
-    if (this.selectedReportId) {
-      this.initVariableInputs();
-      this.reloadVariableOptions();
-      this.runResult = null;
-      this.loadComparisonColumnsForSelectedReport();
-    } else {
-      this.comparisonColumnsPrefetch = [];
-    }
+    this.selectionLogic.selectFolder(folder);
   }
 
   selectReport(reportId: string) {
-    const selection = this.treeLogic.selectReport(reportId, this.reports, this.folders);
-    if (selection.selectedFolderId) {
-      this.selectedFolderId = selection.selectedFolderId;
-      this.folders = selection.folders;
-      this.persistFolderExpandedState();
-    }
-    this.selectedReportId = reportId;
-    this.statusMessage = '';
-    this.paramsError = '';
-    this.runResult = null;
-    this.compareResult = null;
-    this.compareExpanded = false;
-    this.compareRawRowLimit = 100;
-    this.compareSourceFilter = 'both';
-    this.compareQuickFilter = 'all';
-    this.compareDiffViewMode = 'compact';
-    this.optionsParamsSignatureByKey = {};
-    this.initVariableInputs();
-    this.reloadVariableOptions();
-    this.loadComparisonColumnsForSelectedReport();
+    this.selectionLogic.selectReport(reportId);
   }
 
   toggleSidebar() {
@@ -934,74 +611,11 @@ export class ReportsComponent
   }
 
   loadMoreResults() {
-    if (!this.canLoadMoreRows || !this.selectedReportId || !this.runResult) return;
-
-    const reportId = this.selectedReportId;
-    const params = this.resolveParamsForPagination(reportId);
-    if (params === null) return;
-
-    const nextPage = this.lastLoadedPage >= 0 ? this.lastLoadedPage + 1 : 1;
-
-    this.loadingMoreRows = true;
-    this.reportService
-      .runReportWithParamsAndOptions(reportId, params, {
-        safe: false,
-        page: nextPage,
-        size: this.reportPageSize,
-      })
-      .subscribe({
-        next: (res) => {
-          const merged = this.mergePagedResult(res, nextPage);
-          this.loadingMoreRows = false;
-
-          if (!merged.madeProgress) {
-            this.setStatusMessage(
-              'Nenhuma nova linha foi carregada. A paginação do backend pode estar retornando páginas repetidas.'
-            );
-          }
-        },
-        error: (err) => {
-          this.loadingMoreRows = false;
-          this.statusMessage = this.resolveAclAwareError(err, 'Falha ao carregar mais resultados.');
-        },
-      });
+    this.runLogic.loadMoreResults();
   }
 
   async loadAllResults() {
-    if (!this.canLoadAllRows || !this.selectedReportId || !this.runResult) return;
-
-    const reportId = this.selectedReportId;
-    const params = this.resolveParamsForPagination(reportId);
-    if (params === null) return;
-
-    this.loadingAllRows = true;
-    try {
-      this.setStatusMessage('Carregando todas as linhas do relatório...');
-      const res = await firstValueFrom(
-        this.reportService.runReportAllWithParams(reportId, params, false)
-      );
-      const rows = Array.isArray(res.rows) ? res.rows : [];
-      const totalRows = Number(res.meta?.rowCount ?? rows.length);
-
-      this.paramsError = '';
-      this.runResult = {
-        ...res,
-        rows,
-        meta: {
-          ...res.meta,
-          rowCount: totalRows > 0 ? totalRows : rows.length,
-          truncated: false,
-          page: 0,
-          size: rows.length,
-        },
-      };
-      this.lastLoadedPage = 0;
-      this.setStatusMessage(`Carga completa concluída (${rows.length} linhas).`, 2500);
-    } catch (err) {
-      this.statusMessage = this.resolveAclAwareError(err, 'Falha ao carregar todos os resultados.');
-    } finally {
-      this.loadingAllRows = false;
-    }
+    await this.runLogic.loadAllResults();
   }
 
   clearAllFilters() {
@@ -1114,195 +728,19 @@ export class ReportsComponent
   unarchiveSelectedReport() { this.updateSelectedReportArchived(false); }
 
   exportExcel() {
-    this.closeExportMenu();
-    const result = this.runResult;
-    const report = this.selectedReport;
-    if (!result || !report?.id) return;
-
-    this.loadingExcel = true;
-    const params = this.buildRunParams();
-    if (params === null) {
-      this.loadingExcel = false;
-      return;
-    }
-
-    firstValueFrom(this.reportService.runReportAllWithParams(report.id, params, false))
-      .then((fullResult) => {
-        this.loadingExcel = false;
-        const exportedRows = fullResult.rows || [];
-        const blob = createXlsxBlob(fullResult.columns || result.columns || [], exportedRows);
-        this.downloadBlob(blob, `${normalizeFileName(fullResult.name || result.name)}.xlsx`);
-        this.setStatusMessage(
-          `Exportacao Excel concluida para "${fullResult.name || result.name}" (${exportedRows.length} linhas).`,
-          3000
-        );
-      })
-      .catch((err) => {
-        this.loadingExcel = false;
-        this.setStatusMessage(this.resolveRequestError(err, 'Falha ao exportar Excel.'));
-      });
+    this.exportLogic.exportExcel();
   }
 
   exportCompareExcel() {
-    const cmp = this.compareResult;
-    if (!cmp?.diff) {
-      this.setStatusMessage('Não há diferenças para exportar.');
-      return;
-    }
-
-    this.loadingCompareExcel = true;
-    try {
-      const now = new Date();
-      const pad = (value: number) => String(value).padStart(2, '0');
-      const timestamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}`;
-      const reportName = normalizeFileName(cmp.name || this.selectedReport?.name || 'comparacao');
-
-      const diffRows = this.buildCompareDivergenceRows(cmp);
-      const missingSapRows = cmp.diff.onlyInSource1;
-      const missingSystemRows = cmp.diff.onlyInSource2;
-      const duplicateSystemRows = cmp.duplicateKeysSource1.map((item) => ({ chave: item.key, ocorrencias: item.count }));
-      const duplicateSapRows = cmp.duplicateKeysSource2.map((item) => ({ chave: item.key, ocorrencias: item.count }));
-
-      const sheets: Array<{ name: string; columns: string[]; rows: Record<string, unknown>[] }> = [];
-      sheets.push({
-        name: 'Resumo',
-        columns: ['relatorio', 'modo', 'comparisonKey', 'correspondencias', 'iguais', 'diferentes', 'faltantes_sap', 'faltantes_agromobi', 'gerado_em'],
-        rows: [{
-          relatorio: cmp.name || this.selectedReport?.name || '',
-          modo: cmp.mode,
-          comparisonKey: cmp.comparisonKey ?? '',
-          correspondencias: cmp.diff.matchCount,
-          iguais: cmp.diff.equalCount,
-          diferentes: cmp.diff.differentCount,
-          faltantes_sap: missingSapRows.length,
-          faltantes_agromobi: missingSystemRows.length,
-          gerado_em: now.toISOString(),
-        }],
-      });
-
-      const addEverything = this.compareQuickFilter === 'all';
-      if ((addEverything || this.compareQuickFilter === 'different') && diffRows.length) {
-        sheets.push({
-          name: 'Divergencias',
-          columns: ['chave', 'campo', 'agromobi', 'sap_hana', 'delta'],
-          rows: diffRows,
-        });
-      }
-      if ((addEverything || this.compareQuickFilter === 'missingInSap') && missingSapRows.length) {
-        sheets.push({
-          name: 'Faltantes_SAP',
-          columns: this.resolveColumns(cmp.source1.columns, missingSapRows),
-          rows: missingSapRows,
-        });
-      }
-      if ((addEverything || this.compareQuickFilter === 'missingInSystem') && missingSystemRows.length) {
-        sheets.push({
-          name: 'Faltantes_Agromobi',
-          columns: this.resolveColumns(cmp.source2.columns, missingSystemRows),
-          rows: missingSystemRows,
-        });
-      }
-      if ((addEverything || this.compareQuickFilter === 'duplicates') && duplicateSystemRows.length) {
-        sheets.push({
-          name: 'Duplicadas_Agromobi',
-          columns: ['chave', 'ocorrencias'],
-          rows: duplicateSystemRows,
-        });
-      }
-      if ((addEverything || this.compareQuickFilter === 'duplicates') && duplicateSapRows.length) {
-        sheets.push({
-          name: 'Duplicadas_SAP',
-          columns: ['chave', 'ocorrencias'],
-          rows: duplicateSapRows,
-        });
-      }
-
-      if (sheets.length === 1) {
-        this.setStatusMessage('Nenhum dado para exportar no filtro atual.');
-        return;
-      }
-
-      const blob = createXlsxWorkbookBlob(sheets);
-      this.downloadBlob(blob, `comparacao_${reportName}_${timestamp}.xlsx`);
-      this.setStatusMessage('Excel de diferenças exportado.', 2500);
-    } finally {
-      this.loadingCompareExcel = false;
-    }
+    this.exportLogic.exportCompareExcel();
   }
 
   exportCompareRawExcel() {
-    const cmp = this.compareResult;
-    if (!cmp) {
-      this.setStatusMessage('Não há resultados de comparação para exportar.');
-      return;
-    }
-
-    this.loadingCompareRawExcel = true;
-    try {
-      const now = new Date();
-      const pad = (value: number) => String(value).padStart(2, '0');
-      const timestamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}-${pad(now.getMinutes())}`;
-      const reportName = normalizeFileName(cmp.name || this.selectedReport?.name || 'comparacao');
-      const sheets: Array<{ name: string; columns: string[]; rows: Record<string, unknown>[] }> = [
-        {
-          name: 'Resumo',
-          columns: ['relatorio', 'modo', 'comparisonKey', 'linhas_agromobi', 'linhas_sap', 'gerado_em'],
-          rows: [{
-            relatorio: cmp.name || this.selectedReport?.name || '',
-            modo: cmp.mode,
-            comparisonKey: cmp.comparisonKey ?? '',
-            linhas_agromobi: cmp.source1.rowCount,
-            linhas_sap: cmp.source2.rowCount,
-            gerado_em: now.toISOString(),
-          }],
-        },
-        {
-          name: 'Agromobi',
-          columns: this.resolveColumns(cmp.source1.columns, cmp.source1.rows),
-          rows: cmp.source1.rows,
-        },
-        {
-          name: 'SAP_HANA',
-          columns: this.resolveColumns(cmp.source2.columns, cmp.source2.rows),
-          rows: cmp.source2.rows,
-        },
-      ];
-
-      const blob = createXlsxWorkbookBlob(sheets);
-      this.downloadBlob(blob, `resultados_comparacao_${reportName}_${timestamp}.xlsx`);
-      this.setStatusMessage('Excel de resultados da comparação exportado.', 2500);
-    } finally {
-      this.loadingCompareRawExcel = false;
-    }
+    this.exportLogic.exportCompareRawExcel();
   }
 
   exportPdf() {
-    this.closeExportMenu();
-    const report = this.selectedReport;
-    if (!report?.id) {
-      this.setStatusMessage('Selecione um relatório para exportar PDF.');
-      return;
-    }
-    if (!report.jasperTemplateId) {
-      this.setStatusMessage('Este relatório não possui template Jasper vinculado.');
-      return;
-    }
-
-    const params = this.buildRunParams();
-    if (params === null) return;
-
-    this.loadingPdf = true;
-    this.reportService.generateReportPdf(report.id, params, true).subscribe({
-      next: (blob) => {
-        this.loadingPdf = false;
-        this.downloadBlob(blob, `${normalizeFileName(report.name)}.pdf`);
-        this.setStatusMessage(`Exportacao PDF concluida para "${report.name}".`, 2500);
-      },
-      error: (err) => {
-        this.loadingPdf = false;
-        this.setStatusMessage(this.resolveRequestError(err, 'Falha ao exportar PDF.'));
-      },
-    });
+    this.exportLogic.exportPdf();
   }
 
   private loadData(preferredReportId?: string, preferredFolderId?: string) {
@@ -1371,48 +809,7 @@ export class ReportsComponent
   }
 
   private runSelectedReport() {
-    if (!this.selectedReportId) {
-      this.runResult = null;
-      this.lastRunParams = null;
-      this.lastRunReportId = null;
-      this.lastLoadedPage = -1;
-      return;
-    }
-
-    const params = this.buildRunParams();
-    if (params === null) {
-      this.runResult = null;
-      this.lastRunParams = null;
-      this.lastRunReportId = null;
-      this.lastLoadedPage = -1;
-      return;
-    }
-
-    this.loadingRun = true;
-    this.loadingMoreRows = false;
-    this.loadingAllRows = false;
-    this.reportService.runReportWithParamsAndOptions(this.selectedReportId, params, {
-      safe: false,
-      page: 0,
-      size: this.reportPageSize,
-    }).subscribe({
-      next: (res) => {
-        this.paramsError = '';
-        this.runResult = res;
-        this.lastRunParams = { ...params };
-        this.lastRunReportId = this.selectedReportId;
-        this.lastLoadedPage = Number.isFinite(Number(res.meta?.page)) ? Number(res.meta?.page) : 0;
-        this.loadingRun = false;
-      },
-      error: (err) => {
-        this.runResult = null;
-        this.lastRunParams = null;
-        this.lastRunReportId = null;
-        this.lastLoadedPage = -1;
-        this.loadingRun = false;
-        this.statusMessage = this.resolveAclAwareError(err, 'Falha ao executar relatorio.');
-      },
-    });
+    this.runLogic.runSelectedReport();
   }
 
   compareSelectedReport() {
@@ -1528,60 +925,17 @@ export class ReportsComponent
     return isDateLike || isTimeRangeLike;
   }
 
-  private loadPersistedUiState() {
-    const state = this.treeLogic.loadPersistedUiState();
-    this.sidebarCollapsed = state.sidebarCollapsed;
-    this.persistedFolderExpandedState = state.folderExpandedState;
-  }
+  private loadPersistedUiState() { this.selectionLogic.loadPersistedUiState(); }
 
-  private persistSidebarCollapsedState() {
-    this.treeLogic.persistSidebarCollapsedState(this.sidebarCollapsed);
-  }
+  private persistSidebarCollapsedState() { this.selectionLogic.persistSidebarCollapsedState(); }
 
-  private persistFolderExpandedState() {
-    const state = this.treeLogic.buildFolderExpandedState(this.folders);
-    this.persistedFolderExpandedState = state;
-    this.treeLogic.persistFolderExpandedState(state);
-  }
+  private persistFolderExpandedState() { this.selectionLogic.persistFolderExpandedState(); }
 
   private reconcileSelection(preferredReportId?: string, preferredFolderId?: string) {
-    const next = this.treeLogic.reconcileSelection(
-      this.reports,
-      this.folders,
-      this.selectedFolderId,
-      this.selectedReportId,
-      preferredReportId,
-      preferredFolderId
-    );
-    this.selectedFolderId = next.selectedFolderId;
-    this.selectedReportId = next.selectedReportId;
-
-    if (!this.selectedReportId) {
-      this.runResult = null;
-      this.lastRunParams = null;
-      this.lastRunReportId = null;
-      this.lastLoadedPage = -1;
-      this.loadingMoreRows = false;
-      this.loadingAllRows = false;
-      this.variableOptions = {};
-      this.loadingVariableOptions = {};
-      this.optionsParamsSignatureByKey = {};
-      this.comparisonColumnsPrefetch = [];
-      return;
-    }
-
-    this.initVariableInputs();
-    this.reloadVariableOptions();
-    this.runResult = null;
-    this.lastRunParams = null;
-    this.lastRunReportId = null;
-    this.lastLoadedPage = -1;
-    this.loadingMoreRows = false;
-    this.loadingAllRows = false;
-    this.loadComparisonColumnsForSelectedReport();
+    this.selectionLogic.reconcileSelection(preferredReportId, preferredFolderId);
   }
 
-  private loadComparisonColumnsForSelectedReport() {
+  loadComparisonColumnsForSelectedReport() {
     const report = this.selectedReport;
     if (!report?.id || !report.secondSql) {
       this.comparisonColumnsPrefetch = [];
@@ -1601,16 +955,7 @@ export class ReportsComponent
     });
   }
 
-  private downloadBlob(blob: Blob, fileName: string) {
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = fileName;
-    anchor.click();
-    URL.revokeObjectURL(url);
-  }
-
-  private initVariableInputs() {
+  initVariableInputs() {
     this.variableInputs = computeVariableInputs(this.selectedReportVariables, this.variableInputs);
     const nextSelections: Record<string, string[]> = {};
     for (const variable of this.selectedReportVariables) {
@@ -1681,9 +1026,9 @@ export class ReportsComponent
     return displayVariableOption(value);
   }
 
-  private reloadVariableOptions() { this.variableOptionsLogic.reloadVariableOptions(); }
+  reloadVariableOptions() { this.variableOptionsLogic.reloadVariableOptions(); }
 
-  private buildRunParams(): Record<string, unknown> | null {
+  buildRunParams(): Record<string, unknown> | null {
     const result = buildRunParams(this.selectedReportVariables, this.variableInputs);
     if (result.error) {
       this.paramsError = result.error;
@@ -1694,81 +1039,8 @@ export class ReportsComponent
     return result.params ?? {};
   }
 
-  private resolveParamsForPagination(reportId: string): Record<string, unknown> | null {
-    if (this.lastRunReportId === reportId && this.lastRunParams) return this.lastRunParams;
-    return this.buildRunParams();
-  }
-
-  private mergePagedResult(
-    res: ReportRunResponse,
-    page: number
-  ): { madeProgress: boolean; done: boolean; total: number; loaded: number } {
-    const previousRows = Array.isArray(this.runResult?.rows) ? this.runResult.rows : [];
-    const nextRows = Array.isArray(res?.rows) ? res.rows : [];
-    const totalRows = Number(res.meta?.rowCount ?? previousRows.length + nextRows.length);
-    let mergedRows = [...previousRows, ...nextRows];
-    if (totalRows > 0 && mergedRows.length > totalRows) {
-      mergedRows = mergedRows.slice(0, totalRows);
-    }
-
-    const madeProgress = mergedRows.length > previousRows.length;
-    const hasMoreByCount = totalRows > 0 && mergedRows.length < totalRows;
-    const hasMoreByApi = Boolean(res.meta?.truncated);
-    const truncated = madeProgress ? hasMoreByApi && hasMoreByCount : false;
-
-    this.paramsError = '';
-    this.runResult = {
-      ...res,
-      columns: res.columns?.length ? res.columns : this.runResult?.columns || [],
-      rows: mergedRows,
-      meta: {
-        ...res.meta,
-        page,
-        rowCount: totalRows > 0 ? totalRows : mergedRows.length,
-        size: this.reportPageSize,
-        truncated,
-      },
-    };
-    this.lastLoadedPage = page;
-
-    return {
-      madeProgress,
-      done: !truncated,
-      total: totalRows > 0 ? totalRows : mergedRows.length,
-      loaded: mergedRows.length,
-    };
-  }
-
   private syncDraftVariablesFromSql(existing: Array<Partial<DraftVariable>> = []) {
     this.reportDraftVariables = detectDraftVariables(this.reportDraft.sql, existing);
-  }
-
-  private buildCompareDivergenceRows(cmp: ReportCompareResponse): Record<string, unknown>[] {
-    if (!cmp.diff) return [];
-    const rows: Record<string, unknown>[] = [];
-    for (const item of cmp.diff.withDifferences) {
-      const fields = item.fields || {};
-      for (const [fieldName, detail] of Object.entries(fields)) {
-        if (detail?.equal) continue;
-        rows.push({
-          chave: item.key ?? '',
-          campo: fieldName,
-          agromobi: detail?.source1 ?? '',
-          sap_hana: detail?.source2 ?? '',
-          delta: detail?.diff ?? '',
-        });
-      }
-    }
-    return rows;
-  }
-
-  private resolveColumns(preferredColumns: string[], rows: Record<string, unknown>[]): string[] {
-    if (Array.isArray(preferredColumns) && preferredColumns.length) return preferredColumns;
-    const keys = new Set<string>();
-    for (const row of rows) {
-      for (const key of Object.keys(row || {})) keys.add(key);
-    }
-    return [...keys];
   }
 
   private syncValidationInputsWithDraftVariables() {
@@ -1832,7 +1104,7 @@ export class ReportsComponent
     return '';
   }
 
-  private resolveAclAwareError(error: unknown, fallback: string): string {
+  resolveAclAwareError(error: unknown, fallback: string): string {
     const status = Number((error as any)?.status ?? 0);
     if (status === 403) {
       return 'Acesso negado. Se o ACL padrão deny estiver ativo, solicite ao administrador a liberação de pasta/relatório para seu usuário ou perfil.';
@@ -1840,7 +1112,7 @@ export class ReportsComponent
     return this.resolveRequestError(error, fallback);
   }
 
-  private setStatusMessage(message: string, autoClearMs?: number) {
+  setStatusMessage(message: string, autoClearMs?: number) {
     if (this.statusClearTimer) {
       clearTimeout(this.statusClearTimer);
       this.statusClearTimer = null;

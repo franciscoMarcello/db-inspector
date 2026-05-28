@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideHttpClient } from '@angular/common/http';
 
 import { TableListComponent } from './table-list';
 
@@ -8,7 +9,8 @@ describe('TableListComponent', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [TableListComponent]
+      imports: [TableListComponent],
+      providers: [provideHttpClient()],
     })
     .compileComponents();
 
