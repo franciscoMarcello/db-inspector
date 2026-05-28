@@ -1,0 +1,38 @@
+<div class="compare-tolerances">
+  <div class="compare-tolerances__head">
+    <strong>Tolerâncias de comparação</strong>
+    <button type="button" class="compare-tolerances__add" (click)="addRow()">+ Adicionar tolerância</button>
+  </div>
+
+  <small>Use para permitir pequenas variações por coluna (ex.: total = 0.01).</small>
+  <small *ngIf="!hasFieldOptions">Execute ou compare o relatório para carregar as colunas sugeridas.</small>
+
+  <div class="compare-tolerances__grid" *ngFor="let row of rows; let i = index">
+    <select
+      class="compare-tolerances__field-select"
+      [ngModel]="row.field"
+      (ngModelChange)="onFieldChange(i, $event)"
+      [ngModelOptions]="{ standalone: true }"
+    >
+      <option value="">Selecione a coluna</option>
+      <option *ngIf="row.field && !fieldOptions.includes(row.field)" [value]="row.field">{{ row.field }}</option>
+      <option *ngFor="let column of fieldOptions; trackBy: trackByOption" [value]="column">{{ column }}</option>
+    </select>
+
+    <input
+      class="compare-tolerances__number-input"
+      type="number"
+      min="0"
+      step="0.01"
+      inputmode="decimal"
+      [ngModel]="row.tolerance"
+      (ngModelChange)="onToleranceChange(i, $event)"
+      [ngModelOptions]="{ standalone: true }"
+      placeholder="Tolerância"
+    />
+
+    <button type="button" class="compare-tolerances__remove" (click)="removeRow(i)">Remover</button>
+  </div>
+
+  <p class="params-error" *ngIf="error">{{ error }}</p>
+</div>

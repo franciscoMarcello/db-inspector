@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideHttpClient } from '@angular/common/http';
 
 import { SchemaListComponent } from './schema-list';
 
@@ -8,7 +9,8 @@ describe('SchemaList', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [SchemaListComponent]
+      imports: [SchemaListComponent],
+      providers: [provideHttpClient()],
     })
     .compileComponents();
 
