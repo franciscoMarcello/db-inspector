@@ -52,16 +52,6 @@
   padding: 10px 12px;
 }
 
-.toolbar select {
-  min-width: 180px;
-  height: 38px;
-  border-radius: 10px;
-  border: 1px solid var(--border-subtle);
-  background: var(--bg-surface-alt);
-  color: var(--text-primary);
-  padding: 0 10px;
-}
-
 .filter {
   display: inline-flex;
   align-items: center;
@@ -304,10 +294,6 @@
   .toolbar {
     flex-direction: column;
     align-items: stretch;
-  }
-
-  .toolbar select {
-    width: 100%;
   }
 
   .card__actions {

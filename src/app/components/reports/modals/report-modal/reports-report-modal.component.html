@@ -15,6 +15,7 @@
           <label class="var-field">
             <span>Nome</span>
             <input
+              class="ui-input"
               type="text"
               [(ngModel)]="reportDraft.name"
               [ngModelOptions]="{ standalone: true }"
@@ -41,6 +42,7 @@
           <label class="var-field report-draft-grid__full">
             <span>Descrição</span>
             <input
+              class="ui-input"
               type="text"
               [(ngModel)]="reportDraft.description"
               [ngModelOptions]="{ standalone: true }"
@@ -170,7 +172,7 @@ ORDER BY pd.dt, p.nome</code></pre>
         <label class="var-field">
           <span>SQL</span>
           <textarea
-            class="report-draft-sql"
+            class="report-draft-sql ui-textarea"
             rows="16"
             [(ngModel)]="reportDraft.sql"
             [ngModelOptions]="{ standalone: true }"
@@ -193,6 +195,7 @@ ORDER BY pd.dt, p.nome</code></pre>
               <span>{{ v.label || v.key }} <em *ngIf="v.required">*</em></span>
               <ng-container *ngIf="v.multiple; else singleValidationInput">
                 <textarea
+                  class="ui-textarea"
                   rows="2"
                   [ngModel]="validationInputs[v.key] || ''"
                   [ngModelOptions]="{ standalone: true }"
@@ -203,6 +206,7 @@ ORDER BY pd.dt, p.nome</code></pre>
               <ng-template #singleValidationInput>
                 <ng-container [ngSwitch]="v.type">
                   <input
+                    class="ui-input"
                     *ngSwitchCase="'date'"
                     type="date"
                     [ngModel]="validationInputs[v.key] || ''"
@@ -210,6 +214,7 @@ ORDER BY pd.dt, p.nome</code></pre>
                     (ngModelChange)="validationInputChange.emit({ key: v.key, value: $event })"
                   />
                   <input
+                    class="ui-input"
                     *ngSwitchCase="'datetime'"
                     type="datetime-local"
                     [ngModel]="validationInputs[v.key] || ''"
@@ -217,6 +222,7 @@ ORDER BY pd.dt, p.nome</code></pre>
                     (ngModelChange)="validationInputChange.emit({ key: v.key, value: $event })"
                   />
                   <input
+                    class="ui-input"
                     *ngSwitchCase="'number'"
                     type="number"
                     [ngModel]="validationInputs[v.key] || ''"
@@ -232,6 +238,7 @@ ORDER BY pd.dt, p.nome</code></pre>
                     (selectedValueChange)="validationInputChange.emit({ key: v.key, value: $event })"
                   ></app-reports-multi-select>
                   <input
+                    class="ui-input"
                     *ngSwitchDefault
                     type="text"
                     [ngModel]="validationInputs[v.key] || ''"
@@ -360,7 +367,7 @@ GROUP BY T0."U_IdAgromobi", T0."DocDate"</code></pre>
         <label class="var-field">
           <span>SQL SAP HANA</span>
           <textarea
-            class="report-draft-sql"
+            class="report-draft-sql ui-textarea"
             rows="8"
             [(ngModel)]="reportDraft.secondSql"
             [ngModelOptions]="{ standalone: true }"
@@ -370,6 +377,7 @@ GROUP BY T0."U_IdAgromobi", T0."DocDate"</code></pre>
         <label class="var-field" style="margin-top: 8px;">
           <span>Coluna de cruzamento (comparisonKey)</span>
           <input
+            class="ui-input"
             type="text"
             [(ngModel)]="reportDraft.comparisonKey"
             [ngModelOptions]="{ standalone: true }"
@@ -402,7 +410,7 @@ GROUP BY T0."U_IdAgromobi", T0."DocDate"</code></pre>
               </div>
               <div>{{ v.key }}</div>
               <div>
-                <input type="text" [(ngModel)]="v.label" [ngModelOptions]="{ standalone: true }" />
+                <input class="ui-input" type="text" [(ngModel)]="v.label" [ngModelOptions]="{ standalone: true }" />
               </div>
               <div>
                 <app-reports-multi-select
@@ -420,6 +428,7 @@ GROUP BY T0."U_IdAgromobi", T0."DocDate"</code></pre>
               </div>
               <div>
                 <input
+                  class="ui-input"
                   type="text"
                   [(ngModel)]="v.defaultValue"
                   [ngModelOptions]="{ standalone: true }"
@@ -428,6 +437,7 @@ GROUP BY T0."U_IdAgromobi", T0."DocDate"</code></pre>
               </div>
               <div>
                 <textarea
+                  class="ui-textarea"
                   rows="2"
                   [(ngModel)]="v.optionsSql"
                   [ngModelOptions]="{ standalone: true }"
@@ -450,7 +460,7 @@ GROUP BY T0."U_IdAgromobi", T0."DocDate"</code></pre>
         </ul>
         <label class="var-field" *ngIf="result.renderedQuery">
           <span>SQL renderizada</span>
-          <textarea rows="4" [value]="result.renderedQuery" readonly></textarea>
+          <textarea class="ui-textarea" rows="4" [value]="result.renderedQuery" readonly></textarea>
         </label>
       </div>
     </div>

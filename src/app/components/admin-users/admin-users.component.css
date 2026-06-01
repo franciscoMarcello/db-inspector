@@ -123,8 +123,7 @@
   height: 18px;
 }
 
-input,
-select {
+input {
   min-height: 36px;
   border-radius: 6px;
   border: 1px solid var(--border-subtle);
@@ -200,10 +199,6 @@ select {
   font-size: 13px;
   font-weight: 600;
   color: var(--text-primary);
-}
-
-.users-bulk-actions select {
-  min-width: 150px;
 }
 
 .users-bulk-empty {

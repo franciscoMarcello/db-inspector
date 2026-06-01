@@ -50,6 +50,7 @@
         <label class="var-field">
           <span>Nome</span>
           <input
+            class="ui-input"
             type="text"
             [(ngModel)]="templateDraft.name"
             [ngModelOptions]="{ standalone: true }"
@@ -60,6 +61,7 @@
         <label class="var-field template-field-secondary">
           <span>Descrição</span>
           <input
+            class="ui-input"
             type="text"
             [(ngModel)]="templateDraft.description"
             [ngModelOptions]="{ standalone: true }"
@@ -119,6 +121,7 @@
         <label class="var-field" *ngIf="inputMode === 'manual'">
           <span>Conteúdo JRXML</span>
           <textarea
+            class="ui-textarea"
             rows="12"
             [(ngModel)]="templateDraft.jrxml"
             [ngModelOptions]="{ standalone: true }"
