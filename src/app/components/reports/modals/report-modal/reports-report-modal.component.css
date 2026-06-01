@@ -84,32 +84,6 @@
   height: 16px;
 }
 
-.report-modal--draft :is(input:not([type='checkbox']), textarea) {
-  background: var(--bg-surface-alt);
-  color: var(--text-primary);
-  border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-}
-
-.report-modal--draft :is(input:not([type='checkbox'])) {
-  min-height: 36px;
-  padding: 0 10px;
-}
-
-.report-modal--draft textarea {
-  padding: 8px 10px;
-}
-
-.report-modal--draft :is(input:not([type='checkbox']), textarea)::placeholder {
-  color: var(--text-muted);
-}
-
-.report-modal--draft :is(input:not([type='checkbox']), textarea):focus {
-  outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px color-mix(in srgb, #3b82f6 28%, transparent);
-}
-
 .template-picker {
   display: grid;
   grid-template-columns: minmax(220px, 1fr) auto;
