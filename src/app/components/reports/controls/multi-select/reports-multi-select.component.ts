@@ -21,6 +21,7 @@ export class ReportsMultiSelectComponent {
   @Input() selectedValues: string[] = [];
   @Input() selectedValue = '';
   @Input() placeholder = 'Selecione opções';
+  @Input() size: 'md' | 'sm' = 'md';
   @Input() disabled = false;
   @Input() loading = false;
   @Output() selectedValuesChange = new EventEmitter<string[]>();

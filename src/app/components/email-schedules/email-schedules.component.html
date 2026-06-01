@@ -1,5 +1,5 @@
 <div class="page-wrap">
-  <header class="hero">
+  <header class="hero ui-card ui-section">
     <div>
       <p class="eyebrow">Envio por e-mail</p>
       <h2>Agendamentos</h2>
@@ -13,7 +13,7 @@
     </div>
   </header>
 
-  <div class="toolbar ui-toolbar">
+  <div class="toolbar ui-card ui-section ui-toolbar">
     <div class="filter">
       <mat-icon fontIcon="search"></mat-icon>
       <input
@@ -26,6 +26,7 @@
     <app-reports-multi-select
       [options]="sortByOptions"
       mode="single"
+      size="sm"
       [selectedValue]="sortBy"
       placeholder="Ordenar agendamentos por"
       (selectedValueChange)="onSortByChange($event)"
@@ -33,6 +34,7 @@
     <app-reports-multi-select
       [options]="sortDirectionOptions"
       mode="single"
+      size="sm"
       [selectedValue]="sortDirection"
       placeholder="Direcao da ordenacao"
       (selectedValueChange)="onSortDirectionChange($event)"

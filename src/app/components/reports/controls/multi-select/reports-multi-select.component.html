@@ -1,4 +1,10 @@
-<div class="multi-select" [class.open]="open" [class.disabled]="disabled">
+<div
+  class="multi-select"
+  [class.open]="open"
+  [class.disabled]="disabled"
+  [class.multi-select--single]="mode === 'single'"
+  [class.multi-select--sm]="size === 'sm'"
+>
   <button type="button" class="multi-select__trigger" (click)="toggleOpen()" [disabled]="disabled">
     <span class="multi-select__label">{{ summaryLabel }}</span>
     <span class="multi-select__caret">{{ open ? '▴' : '▾' }}</span>
