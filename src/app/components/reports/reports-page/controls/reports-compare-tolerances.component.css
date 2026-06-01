@@ -53,10 +53,13 @@
   align-items: center;
 }
 
-.compare-tolerances__grid select,
+.compare-tolerances__grid input,
+.compare-tolerances__field-select {
+  width: 100%;
+}
+
 .compare-tolerances__grid input {
   min-height: 34px;
-  width: 100%;
   box-sizing: border-box;
   padding: 0 8px;
   border-radius: 6px;
@@ -64,12 +67,6 @@
   background: var(--bg-surface-alt);
   color: var(--text-primary);
   font: inherit;
-}
-
-.compare-tolerances__field-select {
-  appearance: auto;
-  cursor: pointer;
-  padding-right: 8px;
 }
 
 .compare-tolerances__number-input {
@@ -102,7 +99,6 @@
   }
 }
 
-.compare-tolerances__grid select:focus-visible,
 .compare-tolerances__grid input:focus-visible,
 .compare-tolerances__add:focus-visible,
 .compare-tolerances__remove:focus-visible {
