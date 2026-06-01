@@ -5,6 +5,7 @@ import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/materia
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { DbInspectorService } from '../../services/db-inspector.service';
 import { ReportService, ReportDefinition } from '../../services/report.service';
+import { MultiSelectOption, ReportsMultiSelectComponent } from '../reports/controls/multi-select/reports-multi-select.component';
 
 export interface EmailScheduleData {
   sql: string;
@@ -75,7 +76,7 @@ const DAYS = [
 @Component({
   selector: 'app-email-schedule-dialog',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatDialogModule, MatSnackBarModule],
+  imports: [CommonModule, FormsModule, MatDialogModule, MatSnackBarModule, ReportsMultiSelectComponent],
   templateUrl: './email-schedule-dialog.html',
   styleUrls: ['./email-schedule-dialog.css'],
 })
@@ -208,6 +209,10 @@ export class EmailScheduleDialogComponent {
     if (!this.reportId) return 'Selecione um relatório';
     const selected = this.reports.find((report) => report.id === this.reportId);
     return selected?.name || this.reportId;
+  }
+
+  get reportOptions(): MultiSelectOption[] {
+    return this.reports.map((report) => ({ value: report.id, label: report.name }));
   }
 
   get sqlSnippet(): string {

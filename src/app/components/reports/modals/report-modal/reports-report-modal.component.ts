@@ -6,11 +6,12 @@ import { MatIconModule } from '@angular/material/icon';
 import { DraftVariable, FolderNode, ReportDraft } from '../../core/reports.component.models';
 import { JasperTemplateResponse, ReportValidationResponse } from '../../../../services/report.service';
 import { AppButtonComponent } from '../../../shared/app-button/app-button.component';
+import { MultiSelectOption, ReportsMultiSelectComponent } from '../../controls/multi-select/reports-multi-select.component';
 
 @Component({
   selector: 'app-reports-report-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule, DragDropModule, MatIconModule, AppButtonComponent],
+  imports: [CommonModule, FormsModule, DragDropModule, MatIconModule, AppButtonComponent, ReportsMultiSelectComponent],
   templateUrl: './reports-report-modal.component.html',
   styleUrls: [
     './reports-report-modal.component.css',
@@ -21,6 +22,18 @@ import { AppButtonComponent } from '../../../shared/app-button/app-button.compon
   ],
 })
 export class ReportsReportModalComponent {
+  readonly booleanOptions: MultiSelectOption[] = [
+    { value: 'true', label: 'true' },
+    { value: 'false', label: 'false' },
+  ];
+  readonly variableTypeOptions: MultiSelectOption[] = [
+    { value: 'string', label: 'string' },
+    { value: 'number', label: 'number' },
+    { value: 'date', label: 'date' },
+    { value: 'datetime', label: 'datetime' },
+    { value: 'boolean', label: 'boolean' },
+  ];
+
   @Input() open = false;
   @Input() mode: 'create' | 'edit' = 'create';
   @Input() reportDraft!: ReportDraft;
@@ -71,5 +84,21 @@ export class ReportsReportModalComponent {
 
   togglePdfTemplateGuide() {
     this.showPdfTemplateGuide = !this.showPdfTemplateGuide;
+  }
+
+  get folderOptions(): MultiSelectOption[] {
+    return this.folders.map((folder) => ({ value: folder.id, label: folder.name }));
+  }
+
+  get templateOptions(): MultiSelectOption[] {
+    return this.templates.map((template) => ({ value: template.id, label: template.name }));
+  }
+
+  onVariableTypeChange(index: number, value: string) {
+    const next =
+      value === 'string' || value === 'number' || value === 'date' || value === 'datetime' || value === 'boolean'
+        ? value
+        : 'string';
+    this.reportDraftVariables[index].type = next;
   }
 }

@@ -1,6 +1,6 @@
 <div class="multi-select" [class.open]="open" [class.disabled]="disabled">
   <button type="button" class="multi-select__trigger" (click)="toggleOpen()" [disabled]="disabled">
-    <span>{{ summaryLabel }}</span>
+    <span class="multi-select__label">{{ summaryLabel }}</span>
     <span class="multi-select__caret">{{ open ? '▴' : '▾' }}</span>
   </button>
 

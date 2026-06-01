@@ -181,6 +181,16 @@
                   aria-hidden="true"
                   title="Carregando opções"
                 ></span>
+                <span
+                  *ngIf="
+                    !variableOptionsLoading(v) &&
+                    !((variableOptionSearchText[v.key] || '').trim() || (variableInputs[v.key] || '').trim())
+                  "
+                  class="var-input-caret"
+                  aria-hidden="true"
+                >
+                  ▾
+                </span>
                 <button
                   *ngIf="
                     !variableOptionsLoading(v) &&
@@ -255,16 +265,14 @@
                   [ngModelOptions]="{ standalone: true }"
                   (ngModelChange)="onVariableInputChanged()"
                 />
-                <select
+                <app-reports-multi-select
                   *ngSwitchCase="'boolean'"
-                  [(ngModel)]="variableInputs[v.key]"
-                  [ngModelOptions]="{ standalone: true }"
-                  (ngModelChange)="onVariableInputChanged()"
-                >
-                  <option value="">(padrão)</option>
-                  <option value="true">true</option>
-                  <option value="false">false</option>
-                </select>
+                  [options]="booleanOptions"
+                  mode="single"
+                  [selectedValue]="variableInputs[v.key] || ''"
+                  placeholder="(padrao)"
+                  (selectedValueChange)="onVariableBooleanChange(v.key, $event)"
+                ></app-reports-multi-select>
                 <input
                   *ngSwitchDefault
                   type="text"

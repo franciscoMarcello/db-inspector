@@ -508,6 +508,17 @@
   pointer-events: none;
 }
 
+.var-input-caret {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1;
+  pointer-events: none;
+}
+
 @keyframes var-input-spin {
   to {
     transform: translateY(-50%) rotate(360deg);

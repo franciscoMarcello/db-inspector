@@ -25,9 +25,13 @@
           <label class="var-field">
             <span>Pasta</span>
             <div class="folder-picker">
-              <select [(ngModel)]="reportDraft.folderId" [ngModelOptions]="{ standalone: true }">
-                <option *ngFor="let folder of folders" [value]="folder.id">{{ folder.name }}</option>
-              </select>
+              <app-reports-multi-select
+                [options]="folderOptions"
+                mode="single"
+                [selectedValue]="reportDraft.folderId"
+                placeholder="Selecione uma pasta"
+                (selectedValueChange)="reportDraft.folderId = $event"
+              ></app-reports-multi-select>
               <app-button type="button" tone="neutral" variant="outline" (pressed)="createFolder.emit()">
                 + Pasta
               </app-button>
@@ -134,10 +138,13 @@ ORDER BY pd.dt, p.nome</code></pre>
         </label>
 
         <div class="template-picker" *ngIf="templatePickerVisible">
-          <select [(ngModel)]="reportDraft.jasperTemplateId" [ngModelOptions]="{ standalone: true }">
-            <option value="">Selecione um template</option>
-            <option *ngFor="let template of templates" [value]="template.id">{{ template.name }}</option>
-          </select>
+          <app-reports-multi-select
+            [options]="templateOptions"
+            mode="single"
+            [selectedValue]="reportDraft.jasperTemplateId"
+            placeholder="Selecione um template"
+            (selectedValueChange)="reportDraft.jasperTemplateId = $event"
+          ></app-reports-multi-select>
           <app-button type="button" tone="neutral" variant="outline" (pressed)="openTemplateManager.emit()">
             Gerenciar templates
           </app-button>
@@ -216,16 +223,14 @@ ORDER BY pd.dt, p.nome</code></pre>
                     [ngModelOptions]="{ standalone: true }"
                     (ngModelChange)="validationInputChange.emit({ key: v.key, value: $event })"
                   />
-                  <select
+                  <app-reports-multi-select
                     *ngSwitchCase="'boolean'"
-                    [ngModel]="validationInputs[v.key] || ''"
-                    [ngModelOptions]="{ standalone: true }"
-                    (ngModelChange)="validationInputChange.emit({ key: v.key, value: $event })"
-                  >
-                    <option value="">(vazio)</option>
-                    <option value="true">true</option>
-                    <option value="false">false</option>
-                  </select>
+                    [options]="booleanOptions"
+                    mode="single"
+                    [selectedValue]="validationInputs[v.key] || ''"
+                    placeholder="(vazio)"
+                    (selectedValueChange)="validationInputChange.emit({ key: v.key, value: $event })"
+                  ></app-reports-multi-select>
                   <input
                     *ngSwitchDefault
                     type="text"
@@ -391,7 +396,7 @@ GROUP BY T0."U_IdAgromobi", T0."DocDate"</code></pre>
           </div>
 
           <div cdkDropList [cdkDropListData]="reportDraftVariables" (cdkDropListDropped)="variablesDrop.emit($event)">
-            <div class="draft-vars-row" *ngFor="let v of reportDraftVariables" cdkDrag>
+            <div class="draft-vars-row" *ngFor="let v of reportDraftVariables; let i = index" cdkDrag>
               <div class="draft-order-controls" cdkDragHandle title="Arraste para ordenar">
                 ⋮⋮
               </div>
@@ -400,13 +405,12 @@ GROUP BY T0."U_IdAgromobi", T0."DocDate"</code></pre>
                 <input type="text" [(ngModel)]="v.label" [ngModelOptions]="{ standalone: true }" />
               </div>
               <div>
-                <select [(ngModel)]="v.type" [ngModelOptions]="{ standalone: true }">
-                  <option value="string">string</option>
-                  <option value="number">number</option>
-                  <option value="date">date</option>
-                  <option value="datetime">datetime</option>
-                  <option value="boolean">boolean</option>
-                </select>
+                <app-reports-multi-select
+                  [options]="variableTypeOptions"
+                  mode="single"
+                  [selectedValue]="v.type"
+                  (selectedValueChange)="onVariableTypeChange(i, $event)"
+                ></app-reports-multi-select>
               </div>
               <div>
                 <input type="checkbox" [(ngModel)]="v.required" [ngModelOptions]="{ standalone: true }" />

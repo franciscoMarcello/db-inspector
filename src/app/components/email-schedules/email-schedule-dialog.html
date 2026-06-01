@@ -227,10 +227,13 @@
       </div>
       <label class="field" *ngIf="attachPdf && pdfMode === 'report'">
         <span>Relatório</span>
-        <select [(ngModel)]="reportId">
-          <option value="">Selecione</option>
-          <option *ngFor="let report of reports" [value]="report.id">{{ report.name }}</option>
-        </select>
+        <app-reports-multi-select
+          [options]="reportOptions"
+          mode="single"
+          [selectedValue]="reportId"
+          placeholder="Selecione"
+          (selectedValueChange)="reportId = $event"
+        ></app-reports-multi-select>
         <small>Selecionado: {{ selectedReportName }}</small>
       </label>
       <div class="grid" *ngIf="attachPdf && pdfMode === 'scheduled_sql'">

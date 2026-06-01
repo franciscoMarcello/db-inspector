@@ -66,15 +66,14 @@
             <app-button size="sm" tone="neutral" variant="outline" [disabled]="bulkUsersLoading" (pressed)="revokeRefreshTokensBulk()">
               Revogar refresh
             </app-button>
-            <select
-              [(ngModel)]="bulkTargetRole"
-              [ngModelOptions]="{ standalone: true }"
+            <app-reports-multi-select
+              [options]="bulkRoleOptions()"
+              mode="single"
+              [selectedValue]="bulkTargetRole"
               [disabled]="bulkUsersLoading"
-              aria-label="Selecionar perfil para alterar em lote"
-            >
-              <option value="">Aplicar perfil...</option>
-              <option *ngFor="let role of roles" [value]="role.name">{{ role.name }}</option>
-            </select>
+              placeholder="Aplicar perfil..."
+              (selectedValueChange)="bulkTargetRole = $event"
+            ></app-reports-multi-select>
             <app-button size="sm" tone="neutral" variant="outline" [disabled]="bulkUsersLoading || !bulkTargetRole" (pressed)="applyBulkRole()">
               Aplicar perfil
             </app-button>

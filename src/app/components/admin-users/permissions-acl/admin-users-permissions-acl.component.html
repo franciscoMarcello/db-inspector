@@ -272,16 +272,14 @@
                 </button>
 
                 <div class="acl-tree-folder-controls">
-                  <select
+                  <app-reports-multi-select
                     class="acl-simple-row__select acl-simple-row__select--sm"
-                    [ngModel]="folderNode.allowed ? 'ALLOW' : 'DENY'"
-                    [ngModelOptions]="{ standalone: true }"
+                    [options]="aclAccessOptions"
+                    mode="single"
+                    [selectedValue]="folderNode.allowed ? 'ALLOW' : 'DENY'"
                     [disabled]="isSelectedAdminProfile()"
-                    (ngModelChange)="setFolderAclAllowed(folderNode.id, $event === 'ALLOW')"
-                  >
-                    <option value="ALLOW">Visualizar + executar</option>
-                    <option value="DENY">Sem permissão</option>
-                  </select>
+                    (selectedValueChange)="setFolderAclAllowed(folderNode.id, $event === 'ALLOW')"
+                  ></app-reports-multi-select>
                   <button
                     type="button"
                     class="acl-menu-trigger"
@@ -306,16 +304,14 @@
                         <span>{{ reportNode.name }}</span>
                       </div>
                       <div class="acl-tree-report-controls">
-                        <select
+                        <app-reports-multi-select
                           class="acl-simple-row__select acl-simple-row__select--sm"
-                          [ngModel]="reportNode.allowed ? 'ALLOW' : 'DENY'"
-                          [ngModelOptions]="{ standalone: true }"
+                          [options]="aclAccessOptions"
+                          mode="single"
+                          [selectedValue]="reportNode.allowed ? 'ALLOW' : 'DENY'"
                           [disabled]="isSelectedAdminProfile()"
-                          (ngModelChange)="setReportAclAllowed(folderNode.id, reportNode.id, $event === 'ALLOW')"
-                        >
-                          <option value="ALLOW">Visualizar + executar</option>
-                          <option value="DENY">Sem permissão</option>
-                        </select>
+                          (selectedValueChange)="setReportAclAllowed(folderNode.id, reportNode.id, $event === 'ALLOW')"
+                        ></app-reports-multi-select>
                       </div>
                     </div>
                   </div>

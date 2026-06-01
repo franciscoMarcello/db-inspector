@@ -163,6 +163,10 @@ export class AdminUsersComponent implements OnInit {
     this.userProfileFilters = (values || []).map((value) => String(value || '').trim()).filter(Boolean);
   }
 
+  bulkRoleOptions(): MultiSelectOption[] {
+    return this.roles.map((role) => ({ value: role.name, label: role.name }));
+  }
+
   userProfileFilterOptions(): MultiSelectOption[] {
     return this.roles
       .map((role) => ({
