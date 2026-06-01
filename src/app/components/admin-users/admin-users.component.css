@@ -12,13 +12,6 @@
   min-width: 0;
 }
 
-.card {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: 12px;
-  padding: 14px;
-}
-
 .card h2,
 .card h3 {
   margin: 0;

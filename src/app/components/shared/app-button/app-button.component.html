@@ -1,6 +1,7 @@
 <button
   class="app-btn"
   [ngClass]="buttonClasses"
+  [attr.aria-label]="ariaLabel || null"
   [attr.type]="type"
   [disabled]="disabled"
   (click)="onClick($event)"

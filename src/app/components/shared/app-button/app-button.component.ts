@@ -28,6 +28,7 @@ export class AppButtonComponent {
   @Input() icon = '';
   @Input() iconPosition: 'left' | 'right' = 'left';
   @Input() fullWidth = false;
+  @Input() ariaLabel = '';
 
   @Output() pressed = new EventEmitter<MouseEvent>();
 

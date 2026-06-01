@@ -4,13 +4,6 @@
   min-width: 0;
 }
 
-.card {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: 12px;
-  padding: 14px;
-}
-
 .card h3 {
   margin: 0;
   font-size: 18px;
@@ -40,8 +33,7 @@
   letter-spacing: 0.03em;
 }
 
-input,
-select {
+input {
   min-height: 36px;
   border-radius: 6px;
   border: 1px solid var(--border-subtle);

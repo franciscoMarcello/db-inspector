@@ -58,6 +58,12 @@ export class ReportsMultiSelectComponent {
     return `${this.selectedCount} selecionados`;
   }
 
+  get activeDescendantId(): string | null {
+    if (this.highlightedIndex < 0 || this.highlightedIndex >= this.filteredOptions.length) return null;
+    const option = this.filteredOptions[this.highlightedIndex];
+    return this.optionId(option.value);
+  }
+
   toggleOpen() {
     if (this.disabled) return;
     this.open = !this.open;
@@ -185,6 +191,10 @@ export class ReportsMultiSelectComponent {
     if (this.highlightedIndex < 0 || this.highlightedIndex >= this.filteredOptions.length) {
       this.highlightedIndex = 0;
     }
+  }
+
+  optionId(value: string): string {
+    return `${this.panelId}-opt-${encodeURIComponent(value)}`;
   }
 
   isChecked(value: string): boolean {
