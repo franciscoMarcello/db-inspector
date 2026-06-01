@@ -8,6 +8,7 @@
       <label class="field role-search">
         <span>Buscar perfil</span>
         <input
+          class="ui-input"
           type="text"
           [(ngModel)]="roleSearchTerm"
           [ngModelOptions]="{ standalone: true }"
@@ -81,6 +82,7 @@
         <label class="field">
           <span>Nome do perfil</span>
           <input
+            class="ui-input"
             type="text"
             [(ngModel)]="roleForm.name"
             [ngModelOptions]="{ standalone: true }"
@@ -92,6 +94,7 @@
           <span class="roles-label">Permissões</span>
           <div class="roles-picker-actions">
             <input
+              class="ui-input"
               type="text"
               [(ngModel)]="rolePermissionFilter"
               [ngModelOptions]="{ standalone: true }"
@@ -147,10 +150,11 @@
               >Não salvo ({{ pendingRolePermissionChangesCount() }})</span
             >
           </div>
-          <div class="permissions-filters">
+          <div class="permissions-filters ui-toolbar">
             <label class="field">
               <span>Buscar permissões</span>
               <input
+                class="ui-input"
                 type="text"
                 [(ngModel)]="selectedPermissionSearchTerm"
                 [ngModelOptions]="{ standalone: true }"
@@ -223,13 +227,14 @@
           <label class="field acl-search-field">
             <span>Buscar pasta ou relatório</span>
             <input
+              class="ui-input"
               type="text"
               [(ngModel)]="roleAclSearchTerm"
               [ngModelOptions]="{ standalone: true }"
               placeholder="Digite para filtrar"
             />
           </label>
-          <div class="acl-filter-actions">
+          <div class="acl-filter-actions ui-toolbar">
             <app-button
               size="sm"
               [tone]="roleAclAccessFilter === 'ALLOW' ? 'primary' : 'neutral'"

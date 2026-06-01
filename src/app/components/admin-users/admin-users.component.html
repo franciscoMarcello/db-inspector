@@ -25,6 +25,7 @@
         <h3>Lista de usuários</h3>
         <div class="users-head-actions">
           <input
+            class="ui-input"
             type="text"
             [(ngModel)]="userSearchTerm"
             [ngModelOptions]="{ standalone: true }"
@@ -37,7 +38,7 @@
         </div>
       </div>
 
-      <div class="users-toolbar">
+      <div class="users-toolbar ui-toolbar">
         <div class="users-status-filters">
           <app-button size="sm" [tone]="userStatusFilter === 'ALL' ? 'primary' : 'neutral'" [variant]="userStatusFilter === 'ALL' ? 'solid' : 'outline'" (pressed)="userStatusFilter = 'ALL'">Todos ({{ userStatusCount('ALL') }})</app-button>
           <app-button size="sm" [tone]="userStatusFilter === 'ACTIVE' ? 'primary' : 'neutral'" [variant]="userStatusFilter === 'ACTIVE' ? 'solid' : 'outline'" (pressed)="userStatusFilter = 'ACTIVE'">Ativos ({{ userStatusCount('ACTIVE') }})</app-button>
