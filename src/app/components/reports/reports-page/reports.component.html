@@ -21,6 +21,7 @@
 
     <div class="tree-filter">
       <input
+        class="ui-input"
         type="text"
         [(ngModel)]="treeFilter"
         [ngModelOptions]="{ standalone: true }"
@@ -118,7 +119,7 @@
   </aside>
 
   <main class="content-panel">
-    <section class="card filters" *ngIf="!analysisMode || !compareResult">
+    <section class="card ui-card ui-section filters" *ngIf="!analysisMode || !compareResult">
       <div class="title">
         <div class="title-row">
           <h2>{{ runResult?.name || selectedReport?.name || 'Relatorio' }}</h2>
@@ -167,7 +168,7 @@
               <div class="var-autocomplete-wrap">
                 <input
                   matInput
-                  class="var-autocomplete"
+                  class="var-autocomplete ui-input"
                   type="text"
                   placeholder="Selecione ou digite para filtrar"
                   [matAutocomplete]="varAuto"
@@ -234,7 +235,7 @@
           <ng-template #freeInput>
             <ng-container *ngIf="v.multiple; else singleValueInput">
               <textarea
-                class="var-multi-input"
+                class="var-multi-input ui-textarea"
                 rows="2"
                 [(ngModel)]="variableInputs[v.key]"
                 [ngModelOptions]="{ standalone: true }"
@@ -245,6 +246,7 @@
             <ng-template #singleValueInput>
               <ng-container [ngSwitch]="v.type">
                 <input
+                  class="ui-input"
                   *ngSwitchCase="'date'"
                   type="date"
                   [(ngModel)]="variableInputs[v.key]"
@@ -252,6 +254,7 @@
                   (ngModelChange)="onVariableInputChanged()"
                 />
                 <input
+                  class="ui-input"
                   *ngSwitchCase="'datetime'"
                   type="datetime-local"
                   [(ngModel)]="variableInputs[v.key]"
@@ -259,6 +262,7 @@
                   (ngModelChange)="onVariableInputChanged()"
                 />
                 <input
+                  class="ui-input"
                   *ngSwitchCase="'number'"
                   type="number"
                   [(ngModel)]="variableInputs[v.key]"
@@ -274,6 +278,7 @@
                   (selectedValueChange)="onVariableBooleanChange(v.key, $event)"
                 ></app-reports-multi-select>
                 <input
+                  class="ui-input"
                   *ngSwitchDefault
                   type="text"
                   [(ngModel)]="variableInputs[v.key]"
@@ -426,7 +431,7 @@
       </div>
     </section>
 
-    <section class="card table-card" *ngIf="runResult as result">
+    <section class="card ui-card ui-section table-card" *ngIf="runResult as result">
       <div class="table-meta">
         <span class="metric-chip">🧾 <strong>{{ result.meta.rowCount }}</strong> linhas</span>
         <span class="metric-chip" *ngIf="displayedRows.length !== result.meta.rowCount"
@@ -476,7 +481,7 @@
       <ng-container *ngTemplateOutlet="emptyState"></ng-container>
     </ng-container>
 
-    <section class="card table-card compare-card" [class.compare-card--expanded]="compareExpanded" *ngIf="compareResult as cmp">
+    <section class="card ui-card ui-section table-card compare-card" [class.compare-card--expanded]="compareExpanded" *ngIf="compareResult as cmp">
       <div class="table-meta">
         <span class="metric-chip">Agromobi: <strong>{{ cmp.source1.rowCount }}</strong> linhas</span>
         <span class="metric-chip">SAP HANA: <strong>{{ cmp.source2.rowCount }}</strong> linhas</span>
