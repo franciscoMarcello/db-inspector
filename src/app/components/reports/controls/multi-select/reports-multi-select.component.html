@@ -5,18 +5,29 @@
   [class.multi-select--single]="mode === 'single'"
   [class.multi-select--sm]="size === 'sm'"
 >
-  <button type="button" class="multi-select__trigger" (click)="toggleOpen()" [disabled]="disabled">
+  <button
+    type="button"
+    class="multi-select__trigger"
+    [attr.aria-expanded]="open"
+    [attr.aria-controls]="panelId"
+    [attr.aria-haspopup]="'listbox'"
+    (keydown)="onTriggerKeydown($event)"
+    (click)="toggleOpen()"
+    [disabled]="disabled"
+  >
     <span class="multi-select__label">{{ summaryLabel }}</span>
     <span class="multi-select__caret">{{ open ? '▴' : '▾' }}</span>
   </button>
 
-  <div class="multi-select__panel" *ngIf="open" (click)="$event.stopPropagation()">
+  <div class="multi-select__panel" *ngIf="open" [id]="panelId" role="listbox" (click)="$event.stopPropagation()">
     <div class="multi-select__toolbar">
       <input
         type="text"
         class="multi-select__search"
         placeholder="Buscar..."
         [(ngModel)]="searchTerm"
+        (ngModelChange)="onSearchTermChange()"
+        (keydown)="onSearchKeydown($event)"
         [ngModelOptions]="{ standalone: true }"
       />
       <button
@@ -31,7 +42,7 @@
     </div>
 
     <div class="multi-select__list" *ngIf="!loading; else loadingTpl">
-      <div class="multi-select__item" *ngFor="let opt of filteredOptions">
+      <div class="multi-select__item" *ngFor="let opt of filteredOptions; let i = index" [class.is-highlighted]="highlightedIndex === i">
         <input
           *ngIf="mode === 'multiple'"
           type="checkbox"
@@ -40,7 +51,16 @@
           (change)="toggleOption(opt.value, checkboxRef.checked)"
           #checkboxRef
         />
-        <span (click)="toggleOptionByClick(opt.value, $event)">{{ opt.label }}</span>
+        <button
+          type="button"
+          class="multi-select__item-action"
+          role="option"
+          [attr.aria-selected]="isChecked(opt.value)"
+          (keydown)="onOptionKeydown($event, i, opt.value)"
+          (click)="toggleOptionByClick(opt.value, $event)"
+        >
+          {{ opt.label }}
+        </button>
       </div>
       <div class="multi-select__empty" *ngIf="!filteredOptions.length">Sem opções</div>
     </div>

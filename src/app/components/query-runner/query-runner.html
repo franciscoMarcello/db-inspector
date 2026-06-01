@@ -1,7 +1,7 @@
 <h3>Executar SQL</h3>
 <div class="runner-layout" [class.snippets-hidden]="snippetsCollapsed">
   <aside class="snippets-panel" *ngIf="!snippetsCollapsed">
-    <div class="fav-bar">
+    <div class="fav-bar ui-card ui-section">
       <div class="fav-left">
         <div class="fav-left-main">
           <strong>Snippets</strong>
@@ -171,7 +171,7 @@
       </div>
     </div>
 
-    <div class="run-status" [class.run-status--loading]="loading">
+    <div class="run-status ui-card ui-section" [class.run-status--loading]="loading">
       <span class="run-status-main">
         <span class="run-status-icon">{{ runStatusIcon }}</span>
         <span>{{ runStatusLabel }}</span>
@@ -249,7 +249,7 @@
       </ng-template>
     </mat-card>
 
-    <div class="result-controls" *ngIf="!loading && !error">
+    <div class="result-controls ui-card ui-section" *ngIf="!loading && !error">
       <div class="btns">
         <app-button tone="neutral" variant="outline" *ngIf="!usingAllMode && canGoPrev" (pressed)="prevPage()">
           Página anterior

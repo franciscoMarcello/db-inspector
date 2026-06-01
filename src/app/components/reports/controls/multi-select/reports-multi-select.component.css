@@ -26,7 +26,7 @@
 .multi-select__trigger:focus-visible,
 .multi-select__search:focus-visible,
 .multi-select__action:focus-visible,
-.multi-select__item span:focus-visible {
+.multi-select__item-action:focus-visible {
   outline: 2px solid var(--chip-bg-active);
   outline-offset: 1px;
 }
@@ -113,13 +113,23 @@
   background: var(--bg-surface-alt);
 }
 
-.multi-select__item span {
+.multi-select__item.is-highlighted {
+  background: color-mix(in srgb, var(--chip-bg-active) 10%, var(--bg-surface-alt));
+}
+
+.multi-select__item-action {
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  text-align: left;
+  font: inherit;
   cursor: pointer;
   flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  padding: 0;
 }
 
 .multi-select__empty {
