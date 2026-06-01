@@ -3,6 +3,7 @@ import { Component, EventEmitter, HostListener, OnInit, Output, inject } from '@
 import { FormsModule } from '@angular/forms';
 import { Observable, forkJoin, of } from 'rxjs';
 import { AppButtonComponent } from '../../shared/app-button/app-button.component';
+import { MultiSelectOption, ReportsMultiSelectComponent } from '../../reports/controls/multi-select/reports-multi-select.component';
 import { AdminRole, AdminUserService, PermissionCatalogItem } from '../../../services/admin-user.service';
 import {
   AccessControlRule,
@@ -38,7 +39,7 @@ type PermissionGroup = {
 @Component({
   selector: 'app-admin-users-permissions-acl',
   standalone: true,
-  imports: [CommonModule, FormsModule, AppButtonComponent],
+  imports: [CommonModule, FormsModule, AppButtonComponent, ReportsMultiSelectComponent],
   templateUrl: './admin-users-permissions-acl.component.html',
   styleUrls: ['./admin-users-permissions-acl.component.css'],
 })
@@ -76,6 +77,11 @@ export class AdminUsersPermissionsAclComponent implements OnInit {
     name: '',
     permissions: new Set<string>(),
   };
+
+  readonly aclAccessOptions: MultiSelectOption[] = [
+    { value: 'ALLOW', label: 'Visualizar + executar' },
+    { value: 'DENY', label: 'Sem permissao' },
+  ];
 
   ngOnInit(): void {
     this.loadPermissionData();

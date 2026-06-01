@@ -10,6 +10,7 @@ import {
 } from './email-schedule-dialog';
 import { DbInspectorService, ApiEmailSchedule } from '../../services/db-inspector.service';
 import { AppButtonComponent } from '../shared/app-button/app-button.component';
+import { MultiSelectOption, ReportsMultiSelectComponent } from '../reports/controls/multi-select/reports-multi-select.component';
 
 type EmailSchedule = {
   id: string;
@@ -50,6 +51,7 @@ type EmailSchedule = {
     MatDialogModule,
     MatSnackBarModule,
     AppButtonComponent,
+    ReportsMultiSelectComponent,
   ],
   templateUrl: './email-schedules.component.html',
   styleUrls: ['./email-schedules.component.css'],
@@ -61,6 +63,16 @@ export class EmailSchedulesComponent implements OnInit {
   sortBy: 'nextRun' | 'name' | 'status' = 'nextRun';
   sortDirection: 'asc' | 'desc' = 'asc';
   openMenuId: string | null = null;
+
+  readonly sortByOptions: MultiSelectOption[] = [
+    { value: 'nextRun', label: 'Ordenar: proxima execucao' },
+    { value: 'name', label: 'Ordenar: nome' },
+    { value: 'status', label: 'Ordenar: status' },
+  ];
+  readonly sortDirectionOptions: MultiSelectOption[] = [
+    { value: 'asc', label: 'Crescente' },
+    { value: 'desc', label: 'Decrescente' },
+  ];
 
   dayLabels: Record<string, string> = {
     mon: 'Seg',
@@ -80,6 +92,16 @@ export class EmailSchedulesComponent implements OnInit {
 
   ngOnInit(): void {
     this.load();
+  }
+
+  onSortByChange(value: string) {
+    if (value === 'nextRun' || value === 'name' || value === 'status') {
+      this.sortBy = value;
+    }
+  }
+
+  onSortDirectionChange(value: string) {
+    this.sortDirection = value === 'desc' ? 'desc' : 'asc';
   }
 
   get filtered(): EmailSchedule[] {

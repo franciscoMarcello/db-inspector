@@ -29,3 +29,28 @@
 - Nao reimplementar auth/refresh/401/interceptors; a base ja esta em `src/app/services/auth.service.ts` e interceptors.
 - Nao instalar dependencias novas nem mexer em configs globais (`angular.json`, `tsconfig*`, tema Monaco/Tailwind) sem pedido explicito.
 - Formatar com Prettier do repo (single quote, `printWidth: 100`).
+
+## Diretrizes de UI (Tailwind + reuso)
+- Em novas funcionalidades de UI, sempre seguir esta ordem de decisao antes de criar codigo novo:
+  1) Reutilizar componente existente da base (ex.: `app-button`, `app-reports-multi-select`, `ui-*`).
+  2) Resolver com classes Tailwind no template.
+  3) Reutilizar classe global existente em `src/styles.css`.
+  4) Criar CSS local apenas para comportamento/visual especifico da feature.
+  5) Criar novo componente somente se houver justificativa real de reuso/complexidade.
+
+- Nao criar componente novo por padrao. Criar apenas quando pelo menos um criterio for verdadeiro:
+  - Reuso previsto em 2+ telas/fluxos.
+  - Comportamento complexo (estado proprio, acessibilidade, teclado, menu/painel, etc.).
+  - Encapsulamento necessario para evitar duplicacao relevante.
+
+- Tailwind deve ser a primeira opcao para layout, espacamento, responsividade e estados visuais simples.
+- Evitar CSS custom quando Tailwind ou classes globais existentes resolvem.
+- Evitar `@apply` em CSS de feature; usar apenas em estilos globais quando fizer sentido.
+
+## Checklist obrigatorio para mudancas de UI
+- Antes de finalizar uma feature de UI, validar e registrar de forma objetiva:
+  - Componente existente foi avaliado para reuso.
+  - Motivo para nao reutilizar (quando aplicavel).
+  - Decisao Tailwind vs CSS local (curta e objetiva).
+  - Acessibilidade basica (foco visivel, teclado e `aria-*` quando aplicavel).
+  - Build verde (`npm run build`).

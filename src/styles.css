@@ -1,3 +1,64 @@
+@import 'tailwindcss';
+
+@layer components {
+  .ui-input,
+  .ui-textarea {
+    width: 100%;
+    border: 1px solid var(--border-subtle);
+    border-radius: 0.625rem;
+    background: var(--bg-surface-alt);
+    color: var(--text-primary);
+    font: inherit;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .ui-input {
+    min-height: 2.25rem;
+    padding: 0 0.625rem;
+  }
+
+  .ui-textarea {
+    min-height: 5rem;
+    padding: 0.5rem 0.625rem;
+    resize: vertical;
+  }
+
+  .ui-input::placeholder,
+  .ui-textarea::placeholder {
+    color: var(--text-muted);
+  }
+
+  .ui-input:focus-visible,
+  .ui-textarea:focus-visible {
+    outline: 2px solid var(--chip-bg-active);
+    outline-offset: 1px;
+  }
+
+  .ui-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    flex-wrap: wrap;
+  }
+
+  .ui-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: 0.75rem;
+  }
+
+  .ui-section {
+    padding: 0.75rem;
+  }
+
+  .ui-field-label {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+  }
+}
+
 :root {
   --bg-page: #e5e7eb;
   --bg-surface: #f3f4f6;

@@ -135,23 +135,11 @@
   gap: 8px;
 }
 
-.tree-filter input,
-.var-field input,
-.var-field select,
-.var-field textarea {
-  border-radius: 6px;
-  border: 1px solid var(--border-subtle);
-  background: var(--bg-surface-alt);
-  color: var(--text-primary);
-}
-
 .tree-filter input {
   width: 100%;
   max-width: 100%;
   box-sizing: border-box;
   display: block;
-  min-height: 34px;
-  padding: 0 8px;
 }
 
 .tree-clear-filter {
@@ -429,21 +417,8 @@
   font-weight: 600;
 }
 
-.var-field input,
-.var-field select,
-.var-field textarea {
-  min-height: 34px;
-  padding: 0 8px;
-}
-
-.var-field select[multiple] {
-  min-height: 90px;
-  padding: 6px 8px;
-}
-
 .var-field textarea {
   min-height: 180px;
-  padding: 8px;
   resize: vertical;
 }
 
@@ -505,6 +480,17 @@
   border: 2px solid color-mix(in srgb, var(--text-muted) 40%, transparent);
   border-top-color: #60a5fa;
   animation: var-input-spin 0.8s linear infinite;
+  pointer-events: none;
+}
+
+.var-input-caret {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1;
   pointer-events: none;
 }
 

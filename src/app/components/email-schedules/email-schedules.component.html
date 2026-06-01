@@ -1,5 +1,5 @@
 <div class="page-wrap">
-  <header class="hero">
+  <header class="hero ui-card ui-section">
     <div>
       <p class="eyebrow">Envio por e-mail</p>
       <h2>Agendamentos</h2>
@@ -13,24 +13,32 @@
     </div>
   </header>
 
-  <div class="toolbar">
+  <div class="toolbar ui-card ui-section ui-toolbar">
     <div class="filter">
       <mat-icon fontIcon="search"></mat-icon>
       <input
+        class="ui-input"
         type="text"
         placeholder="Filtrar por e-mail, horário, SQL ou dia..."
         [(ngModel)]="filter"
       />
     </div>
-    <select [(ngModel)]="sortBy" aria-label="Ordenar agendamentos por">
-      <option value="nextRun">Ordenar: próxima execução</option>
-      <option value="name">Ordenar: nome</option>
-      <option value="status">Ordenar: status</option>
-    </select>
-    <select [(ngModel)]="sortDirection" aria-label="Direção da ordenação">
-      <option value="asc">Crescente</option>
-      <option value="desc">Decrescente</option>
-    </select>
+    <app-reports-multi-select
+      [options]="sortByOptions"
+      mode="single"
+      size="sm"
+      [selectedValue]="sortBy"
+      placeholder="Ordenar agendamentos por"
+      (selectedValueChange)="onSortByChange($event)"
+    ></app-reports-multi-select>
+    <app-reports-multi-select
+      [options]="sortDirectionOptions"
+      mode="single"
+      size="sm"
+      [selectedValue]="sortDirection"
+      placeholder="Direcao da ordenacao"
+      (selectedValueChange)="onSortDirectionChange($event)"
+    ></app-reports-multi-select>
     <span class="count">{{ filtered.length }} itens</span>
   </div>
 

@@ -1,6 +1,6 @@
 <section class="admin-shell">
   <div class="admin-grid" [class.permissions-mode]="adminSection === 'PERMISSIONS'">
-    <div class="card card-header">
+    <div class="card ui-card ui-section card-header">
       <div class="card-head">
         <div>
           <h2>{{ adminSection === 'USERS' ? 'Usuários' : 'Permissões' }}</h2>
@@ -20,11 +20,12 @@
       </div>
     </div>
 
-    <div class="card card-users" *ngIf="adminSection === 'USERS'">
+    <div class="card ui-card ui-section card-users" *ngIf="adminSection === 'USERS'">
       <div class="card-head">
         <h3>Lista de usuários</h3>
         <div class="users-head-actions">
           <input
+            class="ui-input"
             type="text"
             [(ngModel)]="userSearchTerm"
             [ngModelOptions]="{ standalone: true }"
@@ -37,7 +38,7 @@
         </div>
       </div>
 
-      <div class="users-toolbar">
+      <div class="users-toolbar ui-toolbar">
         <div class="users-status-filters">
           <app-button size="sm" [tone]="userStatusFilter === 'ALL' ? 'primary' : 'neutral'" [variant]="userStatusFilter === 'ALL' ? 'solid' : 'outline'" (pressed)="userStatusFilter = 'ALL'">Todos ({{ userStatusCount('ALL') }})</app-button>
           <app-button size="sm" [tone]="userStatusFilter === 'ACTIVE' ? 'primary' : 'neutral'" [variant]="userStatusFilter === 'ACTIVE' ? 'solid' : 'outline'" (pressed)="userStatusFilter = 'ACTIVE'">Ativos ({{ userStatusCount('ACTIVE') }})</app-button>
@@ -66,15 +67,15 @@
             <app-button size="sm" tone="neutral" variant="outline" [disabled]="bulkUsersLoading" (pressed)="revokeRefreshTokensBulk()">
               Revogar refresh
             </app-button>
-            <select
-              [(ngModel)]="bulkTargetRole"
-              [ngModelOptions]="{ standalone: true }"
+            <app-reports-multi-select
+              [options]="bulkRoleOptions()"
+              mode="single"
+              size="sm"
+              [selectedValue]="bulkTargetRole"
               [disabled]="bulkUsersLoading"
-              aria-label="Selecionar perfil para alterar em lote"
-            >
-              <option value="">Aplicar perfil...</option>
-              <option *ngFor="let role of roles" [value]="role.name">{{ role.name }}</option>
-            </select>
+              placeholder="Aplicar perfil..."
+              (selectedValueChange)="bulkTargetRole = $event"
+            ></app-reports-multi-select>
             <app-button size="sm" tone="neutral" variant="outline" [disabled]="bulkUsersLoading || !bulkTargetRole" (pressed)="applyBulkRole()">
               Aplicar perfil
             </app-button>

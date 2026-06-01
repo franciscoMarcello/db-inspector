@@ -155,8 +155,7 @@
 }
 
 textarea,
-input,
-select {
+input {
   width: 100%;
   box-sizing: border-box;
   border-radius: 10px;
@@ -173,8 +172,7 @@ textarea {
 }
 
 input:focus,
-textarea:focus,
-select:focus {
+textarea:focus {
   outline: none;
   border-color: var(--chip-bg-active);
   box-shadow: 0 0 0 3px rgba(76, 111, 255, 0.2);

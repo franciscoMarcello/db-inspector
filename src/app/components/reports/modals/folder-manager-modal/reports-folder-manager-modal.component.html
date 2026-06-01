@@ -11,6 +11,7 @@
         <label class="var-field">
           <span>Nova pasta</span>
           <input
+            class="ui-input"
             type="text"
             [ngModel]="newFolderName"
             [ngModelOptions]="{ standalone: true }"
@@ -28,16 +29,13 @@
         <h4 class="folder-manager-card__title">Gerenciar pasta existente</h4>
         <label class="var-field">
           <span>Pasta para gerenciar</span>
-          <select
-            [ngModel]="selectedFolderId || ''"
-            [ngModelOptions]="{ standalone: true }"
-            (ngModelChange)="selectedFolderIdChange.emit($event)"
-          >
-            <option value="">Selecione uma pasta</option>
-            <option *ngFor="let folder of folders" [value]="folder.id">
-              {{ folder.name }}{{ folder.archived ? ' (arquivada)' : '' }}
-            </option>
-          </select>
+          <app-reports-multi-select
+            [options]="folderOptions"
+            mode="single"
+            [selectedValue]="selectedFolderId || ''"
+            placeholder="Selecione uma pasta"
+            (selectedValueChange)="selectedFolderIdChange.emit($event)"
+          ></app-reports-multi-select>
         </label>
 
         <div class="folder-details-card" *ngIf="selectedFolder">
@@ -75,6 +73,7 @@
           <label class="var-field">
             <span>Novo nome</span>
             <input
+              class="ui-input"
               type="text"
               [ngModel]="renameFolderName"
               [ngModelOptions]="{ standalone: true }"

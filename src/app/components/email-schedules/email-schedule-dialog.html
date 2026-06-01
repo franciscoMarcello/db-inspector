@@ -23,6 +23,7 @@
         <label class="field">
           <span>Assunto</span>
           <input
+            class="ui-input"
             type="text"
             [(ngModel)]="subject"
             placeholder="Relatorio - SQL"
@@ -39,7 +40,7 @@
             </button>
           </div>
           <textarea
-            class="message-area"
+            class="message-area ui-textarea"
             [(ngModel)]="message"
             [rows]="messageExpanded ? 10 : 5"
             placeholder="Mensagem livre no corpo do e-mail"
@@ -68,7 +69,7 @@
       </div>
       <label class="field" *ngIf="sqlExpanded">
         <span>SQL</span>
-        <textarea [(ngModel)]="sql" rows="5" placeholder="SELECT * FROM pedidos WHERE status = 'PENDING';"></textarea>
+        <textarea class="ui-textarea" [(ngModel)]="sql" rows="5" placeholder="SELECT * FROM pedidos WHERE status = 'PENDING';"></textarea>
       </label>
     </section>
 
@@ -85,6 +86,7 @@
               <button type="button" (click)="removeChip('to', i)" aria-label="Remover e-mail">×</button>
             </span>
             <input
+              class="ui-input"
               type="text"
               [(ngModel)]="toInput"
               placeholder="Digite e-mail e pressione Enter"
@@ -106,6 +108,7 @@
               <button type="button" (click)="removeChip('cc', i)" aria-label="Remover e-mail">×</button>
             </span>
             <input
+              class="ui-input"
               type="text"
               [(ngModel)]="ccInput"
               placeholder="Opcional"
@@ -141,6 +144,7 @@
             </button>
           </div>
           <textarea
+            class="ui-textarea"
             [(ngModel)]="secondSql"
             [rows]="secondSqlExpanded ? 10 : 4"
             placeholder="SELECT ... FROM SAP_VENDAS"
@@ -149,11 +153,12 @@
         <div class="grid compare-layout__meta">
           <label class="field">
             <span>Chave de comparação (opcional)</span>
-            <input type="text" [(ngModel)]="comparisonKey" placeholder="doc_id" autocomplete="off" />
+            <input class="ui-input" type="text" [(ngModel)]="comparisonKey" placeholder="doc_id" autocomplete="off" />
           </label>
           <label class="field">
             <span>Título executivo (opcional)</span>
             <input
+              class="ui-input"
               type="text"
               [(ngModel)]="comparisonTitle"
               placeholder="Comparacao Agromobi x SAP"
@@ -163,6 +168,7 @@
           <label class="field">
             <span>Nota executiva (opcional)</span>
             <textarea
+              class="ui-textarea"
               [(ngModel)]="comparisonNote"
               rows="2"
               placeholder="Consulte o anexo para detalhes por origem."
@@ -189,12 +195,14 @@
         <div class="tolerance-list">
           <div class="tolerance-item" *ngFor="let tolerance of tolerances; let i = index">
             <input
+              class="ui-input"
               type="text"
               [(ngModel)]="tolerance.field"
               (ngModelChange)="onToleranceChange()"
               placeholder="Campo (ex.: total)"
             />
             <input
+              class="ui-input"
               type="number"
               min="0"
               step="0.01"
@@ -227,24 +235,27 @@
       </div>
       <label class="field" *ngIf="attachPdf && pdfMode === 'report'">
         <span>Relatório</span>
-        <select [(ngModel)]="reportId">
-          <option value="">Selecione</option>
-          <option *ngFor="let report of reports" [value]="report.id">{{ report.name }}</option>
-        </select>
+        <app-reports-multi-select
+          [options]="reportOptions"
+          mode="single"
+          [selectedValue]="reportId"
+          placeholder="Selecione"
+          (selectedValueChange)="reportId = $event"
+        ></app-reports-multi-select>
         <small>Selecionado: {{ selectedReportName }}</small>
       </label>
       <div class="grid" *ngIf="attachPdf && pdfMode === 'scheduled_sql'">
         <label class="field">
           <span>Título do PDF (opcional)</span>
-          <input type="text" [(ngModel)]="pdfTitle" placeholder="Pedidos do Dia" autocomplete="off" />
+          <input class="ui-input" type="text" [(ngModel)]="pdfTitle" placeholder="Pedidos do Dia" autocomplete="off" />
         </label>
         <label class="field">
           <span>Subtítulo do PDF (opcional)</span>
-          <input type="text" [(ngModel)]="pdfSubtitle" placeholder="Base Agromobi" autocomplete="off" />
+          <input class="ui-input" type="text" [(ngModel)]="pdfSubtitle" placeholder="Base Agromobi" autocomplete="off" />
         </label>
         <label class="field">
           <span>Máximo de linhas no PDF</span>
-          <input type="number" min="1" step="1" [(ngModel)]="pdfMaxRows" />
+          <input class="ui-input" type="number" min="1" step="1" [(ngModel)]="pdfMaxRows" />
         </label>
         <label class="check-row">
           <input type="checkbox" [(ngModel)]="pdfIncludeSummary" />
@@ -265,7 +276,7 @@
       <div class="grid" *ngIf="forceScheduleMode || scheduleEnabled">
         <label class="field">
           <span>Horário</span>
-          <input type="time" [(ngModel)]="time" />
+          <input class="ui-input" type="time" [(ngModel)]="time" />
         </label>
 
         <div class="field">

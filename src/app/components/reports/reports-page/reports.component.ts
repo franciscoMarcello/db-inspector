@@ -118,6 +118,10 @@ export class ReportsComponent
     ReportsSelectionHost {
 
   compareToleranceRows: CompareToleranceRow[] = [];
+  readonly booleanOptions: MultiSelectOption[] = [
+    { value: 'true', label: 'true' },
+    { value: 'false', label: 'false' },
+  ];
   compareToleranceError = '';
   comparisonColumnsPrefetch: string[] = [];
   folders: FolderNode[] = [];
@@ -971,6 +975,11 @@ export class ReportsComponent
   onVariableInputChanged() {
     if (this.optionsReloadTimer) clearTimeout(this.optionsReloadTimer);
     this.optionsReloadTimer = setTimeout(() => this.variableOptionsLogic.reloadVariableOptions(), 250);
+  }
+
+  onVariableBooleanChange(key: string, value: string) {
+    this.variableInputs[key] = value;
+    this.onVariableInputChanged();
   }
 
   hasVariableOptions(variable: ReportVariable): boolean {

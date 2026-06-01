@@ -15,6 +15,7 @@
           <label class="var-field">
             <span>Nome</span>
             <input
+              class="ui-input"
               type="text"
               [(ngModel)]="reportDraft.name"
               [ngModelOptions]="{ standalone: true }"
@@ -25,9 +26,13 @@
           <label class="var-field">
             <span>Pasta</span>
             <div class="folder-picker">
-              <select [(ngModel)]="reportDraft.folderId" [ngModelOptions]="{ standalone: true }">
-                <option *ngFor="let folder of folders" [value]="folder.id">{{ folder.name }}</option>
-              </select>
+              <app-reports-multi-select
+                [options]="folderOptions"
+                mode="single"
+                [selectedValue]="reportDraft.folderId"
+                placeholder="Selecione uma pasta"
+                (selectedValueChange)="reportDraft.folderId = $event"
+              ></app-reports-multi-select>
               <app-button type="button" tone="neutral" variant="outline" (pressed)="createFolder.emit()">
                 + Pasta
               </app-button>
@@ -37,6 +42,7 @@
           <label class="var-field report-draft-grid__full">
             <span>Descrição</span>
             <input
+              class="ui-input"
               type="text"
               [(ngModel)]="reportDraft.description"
               [ngModelOptions]="{ standalone: true }"
@@ -134,10 +140,13 @@ ORDER BY pd.dt, p.nome</code></pre>
         </label>
 
         <div class="template-picker" *ngIf="templatePickerVisible">
-          <select [(ngModel)]="reportDraft.jasperTemplateId" [ngModelOptions]="{ standalone: true }">
-            <option value="">Selecione um template</option>
-            <option *ngFor="let template of templates" [value]="template.id">{{ template.name }}</option>
-          </select>
+          <app-reports-multi-select
+            [options]="templateOptions"
+            mode="single"
+            [selectedValue]="reportDraft.jasperTemplateId"
+            placeholder="Selecione um template"
+            (selectedValueChange)="reportDraft.jasperTemplateId = $event"
+          ></app-reports-multi-select>
           <app-button type="button" tone="neutral" variant="outline" (pressed)="openTemplateManager.emit()">
             Gerenciar templates
           </app-button>
@@ -163,7 +172,7 @@ ORDER BY pd.dt, p.nome</code></pre>
         <label class="var-field">
           <span>SQL</span>
           <textarea
-            class="report-draft-sql"
+            class="report-draft-sql ui-textarea"
             rows="16"
             [(ngModel)]="reportDraft.sql"
             [ngModelOptions]="{ standalone: true }"
@@ -186,6 +195,7 @@ ORDER BY pd.dt, p.nome</code></pre>
               <span>{{ v.label || v.key }} <em *ngIf="v.required">*</em></span>
               <ng-container *ngIf="v.multiple; else singleValidationInput">
                 <textarea
+                  class="ui-textarea"
                   rows="2"
                   [ngModel]="validationInputs[v.key] || ''"
                   [ngModelOptions]="{ standalone: true }"
@@ -196,6 +206,7 @@ ORDER BY pd.dt, p.nome</code></pre>
               <ng-template #singleValidationInput>
                 <ng-container [ngSwitch]="v.type">
                   <input
+                    class="ui-input"
                     *ngSwitchCase="'date'"
                     type="date"
                     [ngModel]="validationInputs[v.key] || ''"
@@ -203,6 +214,7 @@ ORDER BY pd.dt, p.nome</code></pre>
                     (ngModelChange)="validationInputChange.emit({ key: v.key, value: $event })"
                   />
                   <input
+                    class="ui-input"
                     *ngSwitchCase="'datetime'"
                     type="datetime-local"
                     [ngModel]="validationInputs[v.key] || ''"
@@ -210,23 +222,23 @@ ORDER BY pd.dt, p.nome</code></pre>
                     (ngModelChange)="validationInputChange.emit({ key: v.key, value: $event })"
                   />
                   <input
+                    class="ui-input"
                     *ngSwitchCase="'number'"
                     type="number"
                     [ngModel]="validationInputs[v.key] || ''"
                     [ngModelOptions]="{ standalone: true }"
                     (ngModelChange)="validationInputChange.emit({ key: v.key, value: $event })"
                   />
-                  <select
+                  <app-reports-multi-select
                     *ngSwitchCase="'boolean'"
-                    [ngModel]="validationInputs[v.key] || ''"
-                    [ngModelOptions]="{ standalone: true }"
-                    (ngModelChange)="validationInputChange.emit({ key: v.key, value: $event })"
-                  >
-                    <option value="">(vazio)</option>
-                    <option value="true">true</option>
-                    <option value="false">false</option>
-                  </select>
+                    [options]="booleanOptions"
+                    mode="single"
+                    [selectedValue]="validationInputs[v.key] || ''"
+                    placeholder="(vazio)"
+                    (selectedValueChange)="validationInputChange.emit({ key: v.key, value: $event })"
+                  ></app-reports-multi-select>
                   <input
+                    class="ui-input"
                     *ngSwitchDefault
                     type="text"
                     [ngModel]="validationInputs[v.key] || ''"
@@ -355,7 +367,7 @@ GROUP BY T0."U_IdAgromobi", T0."DocDate"</code></pre>
         <label class="var-field">
           <span>SQL SAP HANA</span>
           <textarea
-            class="report-draft-sql"
+            class="report-draft-sql ui-textarea"
             rows="8"
             [(ngModel)]="reportDraft.secondSql"
             [ngModelOptions]="{ standalone: true }"
@@ -365,6 +377,7 @@ GROUP BY T0."U_IdAgromobi", T0."DocDate"</code></pre>
         <label class="var-field" style="margin-top: 8px;">
           <span>Coluna de cruzamento (comparisonKey)</span>
           <input
+            class="ui-input"
             type="text"
             [(ngModel)]="reportDraft.comparisonKey"
             [ngModelOptions]="{ standalone: true }"
@@ -391,22 +404,21 @@ GROUP BY T0."U_IdAgromobi", T0."DocDate"</code></pre>
           </div>
 
           <div cdkDropList [cdkDropListData]="reportDraftVariables" (cdkDropListDropped)="variablesDrop.emit($event)">
-            <div class="draft-vars-row" *ngFor="let v of reportDraftVariables" cdkDrag>
+            <div class="draft-vars-row" *ngFor="let v of reportDraftVariables; let i = index" cdkDrag>
               <div class="draft-order-controls" cdkDragHandle title="Arraste para ordenar">
                 ⋮⋮
               </div>
               <div>{{ v.key }}</div>
               <div>
-                <input type="text" [(ngModel)]="v.label" [ngModelOptions]="{ standalone: true }" />
+                <input class="ui-input" type="text" [(ngModel)]="v.label" [ngModelOptions]="{ standalone: true }" />
               </div>
               <div>
-                <select [(ngModel)]="v.type" [ngModelOptions]="{ standalone: true }">
-                  <option value="string">string</option>
-                  <option value="number">number</option>
-                  <option value="date">date</option>
-                  <option value="datetime">datetime</option>
-                  <option value="boolean">boolean</option>
-                </select>
+                <app-reports-multi-select
+                  [options]="variableTypeOptions"
+                  mode="single"
+                  [selectedValue]="v.type"
+                  (selectedValueChange)="onVariableTypeChange(i, $event)"
+                ></app-reports-multi-select>
               </div>
               <div>
                 <input type="checkbox" [(ngModel)]="v.required" [ngModelOptions]="{ standalone: true }" />
@@ -416,6 +428,7 @@ GROUP BY T0."U_IdAgromobi", T0."DocDate"</code></pre>
               </div>
               <div>
                 <input
+                  class="ui-input"
                   type="text"
                   [(ngModel)]="v.defaultValue"
                   [ngModelOptions]="{ standalone: true }"
@@ -424,6 +437,7 @@ GROUP BY T0."U_IdAgromobi", T0."DocDate"</code></pre>
               </div>
               <div>
                 <textarea
+                  class="ui-textarea"
                   rows="2"
                   [(ngModel)]="v.optionsSql"
                   [ngModelOptions]="{ standalone: true }"
@@ -446,7 +460,7 @@ GROUP BY T0."U_IdAgromobi", T0."DocDate"</code></pre>
         </ul>
         <label class="var-field" *ngIf="result.renderedQuery">
           <span>SQL renderizada</span>
-          <textarea rows="4" [value]="result.renderedQuery" readonly></textarea>
+          <textarea class="ui-textarea" rows="4" [value]="result.renderedQuery" readonly></textarea>
         </label>
       </div>
     </div>

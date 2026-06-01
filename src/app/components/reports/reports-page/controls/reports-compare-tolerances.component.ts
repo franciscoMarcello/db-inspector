@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { MultiSelectOption, ReportsMultiSelectComponent } from '../../controls/multi-select/reports-multi-select.component';
 
 export type CompareToleranceRow = {
   field: string;
@@ -10,7 +11,7 @@ export type CompareToleranceRow = {
 @Component({
   selector: 'app-reports-compare-tolerances',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ReportsMultiSelectComponent],
   templateUrl: './reports-compare-tolerances.component.html',
   styleUrl: './reports-compare-tolerances.component.css',
 })
@@ -35,6 +36,10 @@ export class ReportsCompareTolerancesComponent {
 
   get hasFieldOptions(): boolean {
     return this.fieldOptions.length > 0;
+  }
+
+  get fieldSelectOptions(): MultiSelectOption[] {
+    return this.fieldOptions.map((column) => ({ value: column, label: column }));
   }
 
   trackByOption(_: number, value: string): string {

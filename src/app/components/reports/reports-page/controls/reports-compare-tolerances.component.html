@@ -8,16 +8,14 @@
   <small *ngIf="!hasFieldOptions">Execute ou compare o relatório para carregar as colunas sugeridas.</small>
 
   <div class="compare-tolerances__grid" *ngFor="let row of rows; let i = index">
-    <select
+    <app-reports-multi-select
       class="compare-tolerances__field-select"
-      [ngModel]="row.field"
-      (ngModelChange)="onFieldChange(i, $event)"
-      [ngModelOptions]="{ standalone: true }"
-    >
-      <option value="">Selecione a coluna</option>
-      <option *ngIf="row.field && !fieldOptions.includes(row.field)" [value]="row.field">{{ row.field }}</option>
-      <option *ngFor="let column of fieldOptions; trackBy: trackByOption" [value]="column">{{ column }}</option>
-    </select>
+      mode="single"
+      [selectedValue]="row.field"
+      [options]="fieldSelectOptions"
+      placeholder="Selecione a coluna"
+      (selectedValueChange)="onFieldChange(i, $event)"
+    />
 
     <input
       class="compare-tolerances__number-input"

@@ -3,11 +3,12 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { FolderNode } from '../../core/reports.component.models';
 import { AppButtonComponent } from '../../../shared/app-button/app-button.component';
+import { MultiSelectOption, ReportsMultiSelectComponent } from '../../controls/multi-select/reports-multi-select.component';
 
 @Component({
   selector: 'app-reports-folder-manager-modal',
   standalone: true,
-  imports: [CommonModule, FormsModule, AppButtonComponent],
+  imports: [CommonModule, FormsModule, AppButtonComponent, ReportsMultiSelectComponent],
   templateUrl: './reports-folder-manager-modal.component.html',
   styleUrls: [
     './reports-folder-manager-modal.component.css',
@@ -67,6 +68,13 @@ export class ReportsFolderManagerModalComponent {
     } catch {
       return 'N/A';
     }
+  }
+
+  get folderOptions(): MultiSelectOption[] {
+    return this.folders.map((folder) => ({
+      value: folder.id,
+      label: `${folder.name}${folder.archived ? ' (arquivada)' : ''}`,
+    }));
   }
 
   onArchiveClick() {

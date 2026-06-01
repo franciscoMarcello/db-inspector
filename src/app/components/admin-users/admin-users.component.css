@@ -12,13 +12,6 @@
   min-width: 0;
 }
 
-.card {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  border-radius: 12px;
-  padding: 14px;
-}
-
 .card h2,
 .card h3 {
   margin: 0;
@@ -123,8 +116,7 @@
   height: 18px;
 }
 
-input,
-select {
+input {
   min-height: 36px;
   border-radius: 6px;
   border: 1px solid var(--border-subtle);
@@ -200,10 +192,6 @@ select {
   font-size: 13px;
   font-weight: 600;
   color: var(--text-primary);
-}
-
-.users-bulk-actions select {
-  min-width: 150px;
 }
 
 .users-bulk-empty {

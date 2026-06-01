@@ -1,11 +1,12 @@
 <h3>Executar SQL</h3>
 <div class="runner-layout" [class.snippets-hidden]="snippetsCollapsed">
   <aside class="snippets-panel" *ngIf="!snippetsCollapsed">
-    <div class="fav-bar">
+    <div class="fav-bar ui-card ui-section">
       <div class="fav-left">
         <div class="fav-left-main">
           <strong>Snippets</strong>
           <input
+            class="ui-input"
             type="text"
             placeholder="Filtrar..."
             [(ngModel)]="snippetFilter"
@@ -87,7 +88,7 @@
   </aside>
 
   <section class="runner-main">
-    <div class="toolbar top-toolbar">
+    <div class="toolbar ui-toolbar top-toolbar">
       <div class="btns toolbar-group toolbar-group--execute">
         <button class="group-btn group-btn--primary" [disabled]="loading" (click)="runPaged()">
           <span class="btn-spinner" *ngIf="loading" aria-hidden="true"></span>
@@ -101,6 +102,7 @@
               <label class="runall-limit-field">
                 Limite exibição
                 <input
+                  class="ui-input"
                   type="number"
                   min="100"
                   [max]="maxRunAllDisplayLimit"
@@ -169,7 +171,7 @@
       </div>
     </div>
 
-    <div class="run-status" [class.run-status--loading]="loading">
+    <div class="run-status ui-card ui-section" [class.run-status--loading]="loading">
       <span class="run-status-main">
         <span class="run-status-icon">{{ runStatusIcon }}</span>
         <span>{{ runStatusLabel }}</span>
@@ -213,7 +215,7 @@
       <div class="skeleton-row" *ngFor="let _ of [1,2,3,4,5]"></div>
     </div>
 
-    <mat-card class="result-card result-section" *ngIf="!loading && !error">
+    <mat-card class="result-card result-section ui-card" *ngIf="!loading && !error">
       <div *ngIf="rowCount === 0; else hasData" class="empty-state">
         <strong>{{ hasExecutedAtLeastOnce ? 'Consulta executada com sucesso.' : 'Nenhum resultado.' }}</strong>
         <span>{{ hasExecutedAtLeastOnce ? 'Nenhuma linha retornada.' : 'Verifique os filtros ou execute novamente.' }}</span>
@@ -227,7 +229,7 @@
           <label class="small size-field" *ngIf="!usingAllMode">
             Limite
             <input
-              class="page-size-input"
+              class="page-size-input ui-input"
               type="number"
               min="1"
               [max]="maxPageSize"
@@ -247,7 +249,7 @@
       </ng-template>
     </mat-card>
 
-    <div class="result-controls" *ngIf="!loading && !error">
+    <div class="result-controls ui-card ui-section" *ngIf="!loading && !error">
       <div class="btns">
         <app-button tone="neutral" variant="outline" *ngIf="!usingAllMode && canGoPrev" (pressed)="prevPage()">
           Página anterior
