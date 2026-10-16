@@ -24,16 +24,27 @@ import {
 } from '../../../services/report.service';
 import { AuthService } from '../../../services/auth.service';
 import { DbInspectorService } from '../../../services/db-inspector.service';
-import { DraftVariable, FolderNode, ReportDraft, TemplateDraft } from '../core/reports.component.models';
+import {
+  DraftVariable,
+  FolderNode,
+  ReportDraft,
+  TemplateDraft,
+} from '../core/reports.component.models';
 import {
   createEmptyReportDraft,
   createEmptyTemplateDraft,
   REPORT_DRAFT_SQL_KEY,
 } from '../core/reports.component.constants';
-import { ReportsFolderTemplateHost, ReportsFolderTemplateLogic } from '../core/reports.component.folder-template';
+import {
+  ReportsFolderTemplateHost,
+  ReportsFolderTemplateLogic,
+} from '../core/reports.component.folder-template';
 import { ReportsTreeLogic } from '../core/reports.component.tree';
 import { ReportsFolderManagerModalComponent } from '../modals/folder-manager-modal/reports-folder-manager-modal.component';
-import { MultiSelectOption, ReportsMultiSelectComponent } from '../controls/multi-select/reports-multi-select.component';
+import {
+  MultiSelectOption,
+  ReportsMultiSelectComponent,
+} from '../controls/multi-select/reports-multi-select.component';
 import { ReportsReportModalComponent } from '../modals/report-modal/reports-report-modal.component';
 import { ReportsTemplateManagerModalComponent } from '../modals/template-manager-modal/reports-template-manager-modal.component';
 import { AppButtonComponent } from '../../shared/app-button/app-button.component';
@@ -62,7 +73,10 @@ import {
   statusTitleFromTone,
   consumeStoredText,
 } from '../core/reports.component.utils';
-import { ReportsVariableOptionsHost, ReportsVariableOptionsLogic } from '../core/reports.component.variable-options';
+import {
+  ReportsVariableOptionsHost,
+  ReportsVariableOptionsLogic,
+} from '../core/reports.component.variable-options';
 import { ReportsDraftHost, ReportsDraftLogic } from '../core/reports.component.draft';
 import {
   compareCellDiffClass,
@@ -78,7 +92,10 @@ import {
 import { ReportsCompareLogic } from '../core/reports.component.compare.logic';
 import { ReportsRunHost, ReportsRunLogic } from '../core/reports.component.run.logic';
 import { ReportsExportHost, ReportsExportLogic } from '../core/reports.component.export.logic';
-import { ReportsSelectionHost, ReportsSelectionLogic } from '../core/reports.component.selection.logic';
+import {
+  ReportsSelectionHost,
+  ReportsSelectionLogic,
+} from '../core/reports.component.selection.logic';
 
 @Component({
   selector: 'app-reports',
@@ -115,8 +132,8 @@ export class ReportsComponent
     ReportsDraftHost,
     ReportsRunHost,
     ReportsExportHost,
-    ReportsSelectionHost {
-
+    ReportsSelectionHost
+{
   compareToleranceRows: CompareToleranceRow[] = [];
   readonly booleanOptions: MultiSelectOption[] = [
     { value: 'true', label: 'true' },
@@ -135,7 +152,8 @@ export class ReportsComponent
   compareExpanded = false;
   compareRawRowLimit = 100;
   compareSourceFilter: 'both' | 'source1' | 'source2' = 'both';
-  compareQuickFilter: 'all' | 'different' | 'missingInSystem' | 'missingInSap' | 'duplicates' = 'all';
+  compareQuickFilter: 'all' | 'different' | 'missingInSystem' | 'missingInSap' | 'duplicates' =
+    'all';
   compareDiffViewMode: 'compact' | 'full' = 'compact';
 
   selectedFolderId: string | null = null;
@@ -207,7 +225,7 @@ export class ReportsComponent
     private reportService: ReportService,
     private dbService: DbInspectorService,
     private route: ActivatedRoute,
-    private auth: AuthService
+    private auth: AuthService,
   ) {
     this.folderTemplateLogic = new ReportsFolderTemplateLogic(this, reportService);
     this.treeLogic = new ReportsTreeLogic();
@@ -232,13 +250,13 @@ export class ReportsComponent
 
   get selectedReport(): ReportDefinition | null {
     return this.selectedReportId
-      ? this.reports.find((report) => report.id === this.selectedReportId) ?? null
+      ? (this.reports.find((report) => report.id === this.selectedReportId) ?? null)
       : null;
   }
 
   get selectedFolder(): FolderNode | null {
     return this.selectedFolderId
-      ? this.folders.find((folder) => folder.id === this.selectedFolderId) ?? null
+      ? (this.folders.find((folder) => folder.id === this.selectedFolderId) ?? null)
       : null;
   }
 
@@ -427,7 +445,7 @@ export class ReportsComponent
       source1Row?: Record<string, unknown> | null;
       source2Row?: Record<string, unknown> | null;
     },
-    source: 'source1' | 'source2'
+    source: 'source1' | 'source2',
   ): Record<string, unknown> {
     return this.compareLogic.compareDifferenceSourceRow(cmp, item, source);
   }
@@ -444,11 +462,17 @@ export class ReportsComponent
     return compareDifferentFieldsCountLabel(item);
   }
 
-  compareDifferenceRows(cmp: ReportCompareResponse) { return this.compareLogic.compareDifferenceRows(cmp); }
+  compareDifferenceRows(cmp: ReportCompareResponse) {
+    return this.compareLogic.compareDifferenceRows(cmp);
+  }
 
-  compareCompactTableColumns(cmp: ReportCompareResponse): string[] { return this.compareLogic.compareCompactTableColumns(cmp); }
+  compareCompactTableColumns(cmp: ReportCompareResponse): string[] {
+    return this.compareLogic.compareCompactTableColumns(cmp);
+  }
 
-  compareCompactTableRows(cmp: ReportCompareResponse): Record<string, unknown>[] { return this.compareLogic.compareCompactTableRows(cmp); }
+  compareCompactTableRows(cmp: ReportCompareResponse): Record<string, unknown>[] {
+    return this.compareLogic.compareCompactTableRows(cmp);
+  }
 
   compareCompactCellClass = (context: ResultTableCellContext): string => {
     const classes = context.row['__cellClasses'];
@@ -458,7 +482,9 @@ export class ReportsComponent
     return typeof value === 'string' ? value : '';
   };
 
-  compareFullTableColumns(cmp: ReportCompareResponse): string[] { return this.compareLogic.compareFullTableColumns(cmp); }
+  compareFullTableColumns(cmp: ReportCompareResponse): string[] {
+    return this.compareLogic.compareFullTableColumns(cmp);
+  }
 
   compareFullTableColumnLabels(cmp: ReportCompareResponse): Record<string, string> {
     return this.compareLogic.compareFullTableColumnLabels(cmp);
@@ -468,8 +494,9 @@ export class ReportsComponent
     return this.compareLogic.compareFullTableHeaderGroups(cmp);
   }
 
-  compareFullTableRows(cmp: ReportCompareResponse): Record<string, unknown>[] { return this.compareLogic.compareFullTableRows(cmp); }
-
+  compareFullTableRows(cmp: ReportCompareResponse): Record<string, unknown>[] {
+    return this.compareLogic.compareFullTableRows(cmp);
+  }
 
   compareFullCellClass = (context: ResultTableCellContext): string => {
     const classes = context.row['__cellClasses'];
@@ -483,17 +510,28 @@ export class ReportsComponent
     return this.compareLogic.compareFieldStats(cmp);
   }
 
-  compareCellDiffClass(item: { fields: Record<string, CompareFieldDetail> }, column: string): Record<string, boolean> {
+  compareCellDiffClass(
+    item: { fields: Record<string, CompareFieldDetail> },
+    column: string,
+  ): Record<string, boolean> {
     return compareCellDiffClass(item, column);
   }
 
-  compareFieldDetail(item: { fields: Record<string, CompareFieldDetail> }, field: string): CompareFieldDetail {
+  compareFieldDetail(
+    item: { fields: Record<string, CompareFieldDetail> },
+    field: string,
+  ): CompareFieldDetail {
     return item.fields?.[field] ?? {};
   }
 
-  formatCompareDelta(value: unknown): string { return formatCompareDelta(value); }
+  formatCompareDelta(value: unknown): string {
+    return formatCompareDelta(value);
+  }
 
-  compareColumnDiffValue(item: { fields: Record<string, CompareFieldDetail> }, column: string): string {
+  compareColumnDiffValue(
+    item: { fields: Record<string, CompareFieldDetail> },
+    column: string,
+  ): string {
     return compareColumnDiffValue(item, column);
   }
 
@@ -518,7 +556,9 @@ export class ReportsComponent
   }
 
   get allFilteredFoldersExpanded(): boolean {
-    return this.filteredFolders.length > 0 && this.filteredFolders.every((folder) => folder.expanded);
+    return (
+      this.filteredFolders.length > 0 && this.filteredFolders.every((folder) => folder.expanded)
+    );
   }
 
   get filteredFolders(): FolderNode[] {
@@ -529,7 +569,9 @@ export class ReportsComponent
     return this.treeLogic.filteredReportsByFolder(folder, this.reports, this.treeFilter);
   }
 
-  reportCountByFolder(folder: FolderNode): number { return this.reportsByFolder(folder).length; }
+  reportCountByFolder(folder: FolderNode): number {
+    return this.reportsByFolder(folder).length;
+  }
 
   toggleFolder(folderId: string) {
     this.selectionLogic.toggleFolder(folderId);
@@ -539,7 +581,9 @@ export class ReportsComponent
     this.selectionLogic.toggleAllFoldersExpanded(this.filteredFolders);
   }
 
-  clearTreeFilter() { this.treeFilter = this.selectionLogic.clearTreeFilter(); }
+  clearTreeFilter() {
+    this.treeFilter = this.selectionLogic.clearTreeFilter();
+  }
 
   selectFolder(folder: FolderNode) {
     this.selectionLogic.selectFolder(folder);
@@ -595,15 +639,25 @@ export class ReportsComponent
     this.folderTemplateLogic.onFolderManagerSelectionChange(folderId);
   }
 
-  createFolder() { this.folderTemplateLogic.createFolder(); }
+  createFolder() {
+    this.folderTemplateLogic.createFolder();
+  }
 
-  createFolderFromReportModal() { this.folderTemplateLogic.createFolderFromReportModal(); }
+  createFolderFromReportModal() {
+    this.folderTemplateLogic.createFolderFromReportModal();
+  }
 
-  renameSelectedFolder() { this.folderTemplateLogic.renameSelectedFolder(); }
+  renameSelectedFolder() {
+    this.folderTemplateLogic.renameSelectedFolder();
+  }
 
-  archiveSelectedFolder() { this.folderTemplateLogic.archiveSelectedFolder(); }
+  archiveSelectedFolder() {
+    this.folderTemplateLogic.archiveSelectedFolder();
+  }
 
-  unarchiveSelectedFolder() { this.folderTemplateLogic.unarchiveSelectedFolder(); }
+  unarchiveSelectedFolder() {
+    this.folderTemplateLogic.unarchiveSelectedFolder();
+  }
 
   applyFilters() {
     if (!this.selectedReport) {
@@ -623,7 +677,10 @@ export class ReportsComponent
   }
 
   clearAllFilters() {
-    const next = buildClearedFilterState(this.selectedReportVariables, this.variableOptionSearchText);
+    const next = buildClearedFilterState(
+      this.selectedReportVariables,
+      this.variableOptionSearchText,
+    );
     this.variableInputs = next.inputs;
     this.variableOptionSearchText = next.search;
     this.paramsError = '';
@@ -701,35 +758,57 @@ export class ReportsComponent
     this.resetReportDraftPreviewState();
   }
 
-  openTemplateManager() { this.folderTemplateLogic.openTemplateManager(); }
+  openTemplateManager() {
+    this.folderTemplateLogic.openTemplateManager();
+  }
 
-  closeTemplateManager() { this.folderTemplateLogic.closeTemplateManager(); }
+  closeTemplateManager() {
+    this.folderTemplateLogic.closeTemplateManager();
+  }
 
-  startNewTemplate() { this.folderTemplateLogic.startNewTemplate(); }
+  startNewTemplate() {
+    this.folderTemplateLogic.startNewTemplate();
+  }
 
-  selectTemplate(templateId: string) { this.folderTemplateLogic.selectTemplate(templateId); }
+  selectTemplate(templateId: string) {
+    this.folderTemplateLogic.selectTemplate(templateId);
+  }
 
   async onTemplateManagerFileSelected(event: Event) {
     await this.folderTemplateLogic.onTemplateManagerFileSelected(event);
   }
 
-  saveTemplateFromModal() { this.folderTemplateLogic.saveTemplateFromModal(); }
+  saveTemplateFromModal() {
+    this.folderTemplateLogic.saveTemplateFromModal();
+  }
 
-  deleteTemplateFromManager() { this.folderTemplateLogic.deleteTemplateFromManager(); }
+  deleteTemplateFromManager() {
+    this.folderTemplateLogic.deleteTemplateFromManager();
+  }
 
-  saveReportFromModal() { this.draftLogic.saveReportFromModal(); }
+  saveReportFromModal() {
+    this.draftLogic.saveReportFromModal();
+  }
 
   validateReportDraftQuery(onDone?: (result: ReportValidationResponse | null) => void) {
     this.draftLogic.validateReportDraftQuery(onDone);
   }
 
-  saveAndTestReportFromModal() { this.draftLogic.saveAndTestReportFromModal(); }
+  saveAndTestReportFromModal() {
+    this.draftLogic.saveAndTestReportFromModal();
+  }
 
-  executeReportDraftPreview() { this.draftLogic.executeReportDraftPreview(); }
+  executeReportDraftPreview() {
+    this.draftLogic.executeReportDraftPreview();
+  }
 
-  archiveSelectedReport() { this.updateSelectedReportArchived(true); }
+  archiveSelectedReport() {
+    this.updateSelectedReportArchived(true);
+  }
 
-  unarchiveSelectedReport() { this.updateSelectedReportArchived(false); }
+  unarchiveSelectedReport() {
+    this.updateSelectedReportArchived(false);
+  }
 
   exportExcel() {
     this.exportLogic.exportExcel();
@@ -758,7 +837,7 @@ export class ReportsComponent
             return of<ReportFolder[]>([]);
           }
           throw err;
-        })
+        }),
       ),
       reports: this.reportService.listReports(),
       templates: this.reportService.listTemplates().pipe(
@@ -768,27 +847,25 @@ export class ReportsComponent
             return of<JasperTemplateResponse[]>([]);
           }
           throw err;
-        })
+        }),
       ),
     }).subscribe({
       next: ({ folders, reports, templates }) => {
         const apiFolders = folders || [];
         const apiReports = reports || [];
-        const visibleReportsByAcl = this.manageMode ? apiReports : apiReports.filter((report) => this.hasReportAccess(report));
+        const visibleReportsByAcl = this.manageMode
+          ? apiReports
+          : apiReports.filter((report) => this.hasReportAccess(report));
         this.allFolders = apiFolders;
         this.reports = this.manageMode
           ? apiReports
           : visibleReportsByAcl.filter((r) => !r.archived);
         this.templates = (templates || []).filter((t) => !t.archived);
-        const baseFolders = this.manageMode
-          ? apiFolders
-          : apiFolders.filter((f) => !f.archived);
+        const baseFolders = this.manageMode ? apiFolders : apiFolders.filter((f) => !f.archived);
         const visibleFolders = this.manageMode
           ? baseFolders
           : this.buildTreeFolders(baseFolders, this.reports);
-        this.rebuildFolders(
-          visibleFolders
-        );
+        this.rebuildFolders(visibleFolders);
         this.reconcileSelection(preferredReportId, preferredFolderId);
         if (foldersDenied || templatesDenied) {
           this.statusMessage = '';
@@ -850,7 +927,8 @@ export class ReportsComponent
         const backendMessage = this.extractErrorMessage(err).toLowerCase();
         if (
           status === 400 &&
-          (backendMessage.includes('campo de comparacao') || backendMessage.includes('campo de comparação')) &&
+          (backendMessage.includes('campo de comparacao') ||
+            backendMessage.includes('campo de comparação')) &&
           backendMessage.includes('ausente')
         ) {
           this.statusMessage =
@@ -901,16 +979,26 @@ export class ReportsComponent
   }
 
   private rebuildFolders(apiFolders: ReportFolder[]) {
-    this.folders = rebuildFolderNodes(apiFolders || [], this.folders, this.persistedFolderExpandedState);
+    this.folders = rebuildFolderNodes(
+      apiFolders || [],
+      this.folders,
+      this.persistedFolderExpandedState,
+    );
 
-    if (this.selectedFolderId && !this.folders.some((folder) => folder.id === this.selectedFolderId)) {
+    if (
+      this.selectedFolderId &&
+      !this.folders.some((folder) => folder.id === this.selectedFolderId)
+    ) {
       this.selectedFolderId = null;
     }
 
     this.persistFolderExpandedState();
   }
 
-  private buildTreeFolders(apiFolders: ReportFolder[], reports: ReportDefinition[]): ReportFolder[] {
+  private buildTreeFolders(
+    apiFolders: ReportFolder[],
+    reports: ReportDefinition[],
+  ): ReportFolder[] {
     return this.treeLogic.buildTreeFolders(apiFolders, reports);
   }
 
@@ -925,15 +1013,23 @@ export class ReportsComponent
   private isPrimaryVariable(variable: ReportVariable): boolean {
     const text = `${variable.key} ${variable.label || ''}`.toLowerCase();
     const isDateLike = variable.type === 'date' || variable.type === 'datetime';
-    const isTimeRangeLike = /(data|date|periodo|period|inicial|final|inicio|fim|from|to)/i.test(text);
+    const isTimeRangeLike = /(data|date|periodo|period|inicial|final|inicio|fim|from|to)/i.test(
+      text,
+    );
     return isDateLike || isTimeRangeLike;
   }
 
-  private loadPersistedUiState() { this.selectionLogic.loadPersistedUiState(); }
+  private loadPersistedUiState() {
+    this.selectionLogic.loadPersistedUiState();
+  }
 
-  private persistSidebarCollapsedState() { this.selectionLogic.persistSidebarCollapsedState(); }
+  private persistSidebarCollapsedState() {
+    this.selectionLogic.persistSidebarCollapsedState();
+  }
 
-  private persistFolderExpandedState() { this.selectionLogic.persistFolderExpandedState(); }
+  private persistFolderExpandedState() {
+    this.selectionLogic.persistFolderExpandedState();
+  }
 
   private reconcileSelection(preferredReportId?: string, preferredFolderId?: string) {
     this.selectionLogic.reconcileSelection(preferredReportId, preferredFolderId);
@@ -974,7 +1070,10 @@ export class ReportsComponent
 
   onVariableInputChanged() {
     if (this.optionsReloadTimer) clearTimeout(this.optionsReloadTimer);
-    this.optionsReloadTimer = setTimeout(() => this.variableOptionsLogic.reloadVariableOptions(), 250);
+    this.optionsReloadTimer = setTimeout(
+      () => this.variableOptionsLogic.reloadVariableOptions(),
+      250,
+    );
   }
 
   onVariableBooleanChange(key: string, value: string) {
@@ -1035,7 +1134,9 @@ export class ReportsComponent
     return displayVariableOption(value);
   }
 
-  reloadVariableOptions() { this.variableOptionsLogic.reloadVariableOptions(); }
+  reloadVariableOptions() {
+    this.variableOptionsLogic.reloadVariableOptions();
+  }
 
   buildRunParams(): Record<string, unknown> | null {
     const result = buildRunParams(this.selectedReportVariables, this.variableInputs);
@@ -1057,7 +1158,8 @@ export class ReportsComponent
     for (const v of this.reportDraftVariables) {
       const current = this.reportValidationInputs[v.key];
       if (current !== undefined) next[v.key] = current;
-      else if (v.defaultValue !== null && v.defaultValue !== undefined) next[v.key] = String(v.defaultValue);
+      else if (v.defaultValue !== null && v.defaultValue !== undefined)
+        next[v.key] = String(v.defaultValue);
       else next[v.key] = '';
     }
     this.reportValidationInputs = next;
@@ -1095,7 +1197,7 @@ export class ReportsComponent
       error: (err) => {
         this.statusMessage = this.resolveRequestError(
           err,
-          `Falha ao ${archived ? 'arquivar' : 'desarquivar'} relatório.`
+          `Falha ao ${archived ? 'arquivar' : 'desarquivar'} relatório.`,
         );
       },
     });
@@ -1138,5 +1240,4 @@ export class ReportsComponent
   private consumePendingSql(): string | null {
     return consumeStoredText(REPORT_DRAFT_SQL_KEY);
   }
-
 }

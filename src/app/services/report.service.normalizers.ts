@@ -59,7 +59,9 @@ function uniqueColumns(columns: string[]): string[] {
 
 function readColumnsList(value: unknown): string[] {
   if (Array.isArray(value)) {
-    return uniqueColumns(value.map((col) => String(col ?? '').trim()).filter((col) => col.length > 0));
+    return uniqueColumns(
+      value.map((col) => String(col ?? '').trim()).filter((col) => col.length > 0),
+    );
   }
 
   if (value && typeof value === 'object') {
@@ -82,7 +84,9 @@ function pickFirstDefined(...values: unknown[]): unknown {
 
 export function normalizeReportColumnsResponse(reportId: string, item: unknown) {
   const data = item as Record<string, unknown>;
-  const primaryColumns = readColumnsList(pickFirstDefined(data?.['primaryColumns'], data?.['columns']));
+  const primaryColumns = readColumnsList(
+    pickFirstDefined(data?.['primaryColumns'], data?.['columns']),
+  );
   const secondaryColumns = readColumnsList(data?.['secondaryColumns']);
   const mergedColumnsRaw = readColumnsList(data?.['mergedColumns']);
   const mergedColumns = mergedColumnsRaw.length
@@ -98,7 +102,9 @@ export function normalizeReportColumnsResponse(reportId: string, item: unknown) 
 }
 
 function normalizeCompareSource(item: any) {
-  const columns = Array.isArray(item?.columns) ? item.columns.map((col: unknown) => String(col)) : [];
+  const columns = Array.isArray(item?.columns)
+    ? item.columns.map((col: unknown) => String(col))
+    : [];
   const rows = Array.isArray(item?.rows)
     ? item.rows.filter((row: unknown) => !!row && typeof row === 'object')
     : [];
@@ -150,7 +156,12 @@ function normalizeCompareDiff(item: any) {
 
 export function normalizeCompareResponse(item: any) {
   const comparisonKey = item?.comparisonKey != null ? String(item.comparisonKey) : null;
-  const mode = item?.mode === 'content' || item?.mode === 'keyed' ? item.mode : comparisonKey ? 'keyed' : 'content';
+  const mode =
+    item?.mode === 'content' || item?.mode === 'keyed'
+      ? item.mode
+      : comparisonKey
+        ? 'keyed'
+        : 'content';
   return {
     name: String(item?.name ?? ''),
     mode,

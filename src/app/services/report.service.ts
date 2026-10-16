@@ -334,33 +334,42 @@ export class ReportService {
   }
 
   runReport(id: string): Observable<ReportRunResponse> {
-    return this.http.post<ReportRunResponse>(`${this.base}/reports/${encodeURIComponent(id)}/run`, {});
+    return this.http.post<ReportRunResponse>(
+      `${this.base}/reports/${encodeURIComponent(id)}/run`,
+      {},
+    );
   }
 
   runReportWithParams(
     id: string,
-    params?: Record<string, unknown> | null
+    params?: Record<string, unknown> | null,
   ): Observable<ReportRunResponse> {
     const body = params && Object.keys(params).length ? { params } : null;
-    return this.http.post<ReportRunResponse>(`${this.base}/reports/${encodeURIComponent(id)}/run`, body);
+    return this.http.post<ReportRunResponse>(
+      `${this.base}/reports/${encodeURIComponent(id)}/run`,
+      body,
+    );
   }
 
   runReportWithParamsAndOptions(
     id: string,
     params?: Record<string, unknown> | null,
-    options?: ReportRunRequestOptions
+    options?: ReportRunRequestOptions,
   ): Observable<ReportRunResponse> {
     const body: Record<string, unknown> = {};
     if (params && Object.keys(params).length) body['params'] = params;
     if (options?.safe !== undefined) body['safe'] = options.safe;
     if (options?.page !== undefined) body['page'] = options.page;
     if (options?.size !== undefined) body['size'] = options.size;
-    return this.http.post<ReportRunResponse>(`${this.base}/reports/${encodeURIComponent(id)}/run`, body);
+    return this.http.post<ReportRunResponse>(
+      `${this.base}/reports/${encodeURIComponent(id)}/run`,
+      body,
+    );
   }
 
   compareReport(
     id: string,
-    request?: ReportCompareRequest | null
+    request?: ReportCompareRequest | null,
   ): Observable<ReportCompareResponse> {
     const body: Record<string, unknown> = {};
     if (request?.params && Object.keys(request.params).length) body['params'] = request.params;
@@ -372,7 +381,10 @@ export class ReportService {
       .pipe(map((res) => normalizeCompareResponse(res) as ReportCompareResponse));
   }
 
-  getReportColumns(id: string, source: ReportColumnsSource = 'both'): Observable<ReportColumnsResponse> {
+  getReportColumns(
+    id: string,
+    source: ReportColumnsSource = 'both',
+  ): Observable<ReportColumnsResponse> {
     return this.http
       .get<any>(`${this.base}/reports/${encodeURIComponent(id)}/columns`, {
         params: { source },
@@ -383,26 +395,29 @@ export class ReportService {
   runReportAllWithParams(
     id: string,
     params?: Record<string, unknown> | null,
-    safe?: boolean
+    safe?: boolean,
   ): Observable<ReportRunResponse> {
     const body: Record<string, unknown> = {};
     if (params && Object.keys(params).length) body['params'] = params;
     if (safe !== undefined) body['safe'] = safe;
-    return this.http.post<ReportRunResponse>(`${this.base}/reports/${encodeURIComponent(id)}/run/all`, body);
+    return this.http.post<ReportRunResponse>(
+      `${this.base}/reports/${encodeURIComponent(id)}/run/all`,
+      body,
+    );
   }
 
   listVariableOptions(
     reportId: string,
     key: string,
     params?: Record<string, unknown> | null,
-    limit = 100
+    limit = 100,
   ): Observable<ReportVariableOption[]> {
     const body: Record<string, unknown> = { limit };
     if (params && Object.keys(params).length) body['params'] = params;
     return this.http
       .post<any>(
         `${this.base}/reports/${encodeURIComponent(reportId)}/variables/${encodeURIComponent(key)}/options`,
-        body
+        body,
       )
       .pipe(map((res) => normalizeVariableOptions(res) as ReportVariableOption[]));
   }
@@ -410,7 +425,7 @@ export class ReportService {
   generateReportPdf(
     id: string,
     params?: Record<string, unknown> | null,
-    safe?: boolean
+    safe?: boolean,
   ): Observable<Blob> {
     const body: Record<string, unknown> = {};
     if (params && Object.keys(params).length) body['params'] = params;
@@ -447,13 +462,20 @@ export class ReportService {
       .pipe(map((res) => this.normalizeAclRules(res)));
   }
 
-  upsertFolderAcl(folderId: string, payload: AccessControlRuleInput): Observable<AccessControlRule> {
+  upsertFolderAcl(
+    folderId: string,
+    payload: AccessControlRuleInput,
+  ): Observable<AccessControlRule> {
     return this.http
       .put<any>(`${this.adminBase}/report-folders/${encodeURIComponent(folderId)}/acl`, payload)
       .pipe(map((res) => this.normalizeAclRule(res)));
   }
 
-  deleteFolderAcl(folderId: string, subjectType: AclSubjectType, subject: string): Observable<void> {
+  deleteFolderAcl(
+    folderId: string,
+    subjectType: AclSubjectType,
+    subject: string,
+  ): Observable<void> {
     return this.http.delete<void>(
       `${this.adminBase}/report-folders/${encodeURIComponent(folderId)}/acl`,
       {
@@ -461,7 +483,7 @@ export class ReportService {
           subjectType,
           subject,
         },
-      }
+      },
     );
   }
 
@@ -471,22 +493,26 @@ export class ReportService {
       .pipe(map((res) => this.normalizeAclRules(res)));
   }
 
-  upsertReportAcl(reportId: string, payload: AccessControlRuleInput): Observable<AccessControlRule> {
+  upsertReportAcl(
+    reportId: string,
+    payload: AccessControlRuleInput,
+  ): Observable<AccessControlRule> {
     return this.http
       .put<any>(`${this.adminBase}/reports/${encodeURIComponent(reportId)}/acl`, payload)
       .pipe(map((res) => this.normalizeAclRule(res)));
   }
 
-  deleteReportAcl(reportId: string, subjectType: AclSubjectType, subject: string): Observable<void> {
-    return this.http.delete<void>(
-      `${this.adminBase}/reports/${encodeURIComponent(reportId)}/acl`,
-      {
-        params: {
-          subjectType,
-          subject,
-        },
-      }
-    );
+  deleteReportAcl(
+    reportId: string,
+    subjectType: AclSubjectType,
+    subject: string,
+  ): Observable<void> {
+    return this.http.delete<void>(`${this.adminBase}/reports/${encodeURIComponent(reportId)}/acl`, {
+      params: {
+        subjectType,
+        subject,
+      },
+    });
   }
 
   private normalizeFolders(res: any): ReportFolder[] {
@@ -530,7 +556,9 @@ export class ReportService {
   private normalizeReport(item: any): ReportDefinition {
     const canView = extractAclFlag(item, 'view');
     const canRun = extractAclFlag(item, 'run');
-    const jasperTemplate = this.normalizeTemplateSummary(item?.jasperTemplate ?? item?.jasper_template);
+    const jasperTemplate = this.normalizeTemplateSummary(
+      item?.jasperTemplate ?? item?.jasper_template,
+    );
     return {
       id: String(item?.id ?? ''),
       name: String(item?.name ?? ''),
@@ -540,8 +568,8 @@ export class ReportService {
         item?.templateName !== undefined
           ? String(item.templateName ?? '')
           : item?.template_name !== undefined
-          ? String(item.template_name ?? '')
-          : undefined,
+            ? String(item.template_name ?? '')
+            : undefined,
       jasperTemplateId: this.extractJasperTemplateId(item),
       jasperTemplate,
       sql: String(item?.sql ?? ''),
@@ -562,14 +590,12 @@ export class ReportService {
     };
   }
 
-
   private normalizeTemplates(res: any): JasperTemplateResponse[] {
     const data = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
     return data
       .map((item: any) => this.normalizeTemplate(item))
       .filter((item: JasperTemplateResponse | null): item is JasperTemplateResponse => !!item);
   }
-
 
   private normalizeTemplate(item: any): JasperTemplateResponse {
     return {
@@ -607,7 +633,9 @@ export class ReportService {
   private normalizeAclRule(item: any): AccessControlRule {
     return {
       id: String(item?.id ?? ''),
-      subjectType: String(item?.subjectType ?? item?.subject_type ?? 'ROLE').toUpperCase() as AclSubjectType,
+      subjectType: String(
+        item?.subjectType ?? item?.subject_type ?? 'ROLE',
+      ).toUpperCase() as AclSubjectType,
       subject: String(item?.subject ?? ''),
       canView: Boolean(item?.canView ?? item?.can_view),
       canRun: Boolean(item?.canRun ?? item?.can_run),
@@ -634,7 +662,10 @@ export class ReportService {
 
     const rawMultiple = item?.multiple ?? item?.isMultiple ?? item?.is_multiple ?? false;
     const multiple =
-      rawMultiple === true || rawMultiple === 1 || rawMultiple === '1' || String(rawMultiple).toLowerCase() === 'true';
+      rawMultiple === true ||
+      rawMultiple === 1 ||
+      rawMultiple === '1' ||
+      String(rawMultiple).toLowerCase() === 'true';
 
     return {
       id: item?.id ? String(item.id) : undefined,
@@ -651,7 +682,6 @@ export class ReportService {
       optionsSql,
     };
   }
-
 
   private normalizeVariableType(value: any): ReportVariableType {
     const t = String(value ?? 'string').toLowerCase();
@@ -711,5 +741,4 @@ export class ReportService {
       options_query: optionsSql,
     };
   }
-
 }

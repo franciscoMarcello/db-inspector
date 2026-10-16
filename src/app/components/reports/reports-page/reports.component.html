@@ -1,9 +1,21 @@
-<div class="reports-shell" [class.sidebar-collapsed]="sidebarCollapsed" [class.analysis-mode]="analysisMode" (click)="closeExportMenu()">
+<div
+  class="reports-shell"
+  [class.sidebar-collapsed]="sidebarCollapsed"
+  [class.analysis-mode]="analysisMode"
+  (click)="closeExportMenu()"
+>
   <aside class="tree-panel" *ngIf="!sidebarCollapsed">
     <div class="tree-header">
       <div class="tree-header__row">
         <h3>Visualizador de Relatorios</h3>
-        <app-button type="button" class="icon-btn" tone="neutral" variant="outline" size="sm" (pressed)="toggleSidebar()">
+        <app-button
+          type="button"
+          class="icon-btn"
+          tone="neutral"
+          variant="outline"
+          size="sm"
+          (pressed)="toggleSidebar()"
+        >
           ◀
         </app-button>
       </div>
@@ -11,10 +23,22 @@
     </div>
 
     <div class="folder-create" *ngIf="manageMode">
-      <app-button type="button" tone="primary" variant="solid" [fullWidth]="true" (pressed)="openFolderManager()">
+      <app-button
+        type="button"
+        tone="primary"
+        variant="solid"
+        [fullWidth]="true"
+        (pressed)="openFolderManager()"
+      >
         Gerenciar pastas
       </app-button>
-      <app-button type="button" tone="neutral" variant="outline" [fullWidth]="true" (pressed)="openTemplateManager()">
+      <app-button
+        type="button"
+        tone="neutral"
+        variant="outline"
+        [fullWidth]="true"
+        (pressed)="openTemplateManager()"
+      >
         Gerenciar templates PDF
       </app-button>
     </div>
@@ -46,7 +70,9 @@
         [fullWidth]="true"
         (pressed)="toggleAllFoldersExpanded()"
       >
-        <span class="tree-toggle-all__icon" aria-hidden="true">{{ allFilteredFoldersExpanded ? '⤡' : '⤢' }}</span>
+        <span class="tree-toggle-all__icon" aria-hidden="true">{{
+          allFilteredFoldersExpanded ? '⤡' : '⤢'
+        }}</span>
         {{ allFilteredFoldersExpanded ? 'Recolher tudo' : 'Expandir tudo' }}
       </app-button>
     </div>
@@ -97,9 +123,13 @@
             (click)="selectReport(report.id)"
           >
             <span>{{ report.name }}</span>
-            <span class="archived-badge archived-badge--leaf" *ngIf="report.archived">Arquivado</span>
+            <span class="archived-badge archived-badge--leaf" *ngIf="report.archived"
+              >Arquivado</span
+            >
           </button>
-          <div class="tree-empty" *ngIf="filteredReportsByFolder(folder).length === 0">Sem relatórios</div>
+          <div class="tree-empty" *ngIf="filteredReportsByFolder(folder).length === 0">
+            Sem relatórios
+          </div>
         </div>
       </div>
       <div class="tree-empty tree-empty--filter" *ngIf="filteredFolders.length === 0">
@@ -146,7 +176,9 @@
           <div class="vars-group__title">Filtros principais</div>
           <div class="vars-grid">
             <ng-container *ngFor="let v of primaryReportVariables">
-              <ng-container *ngTemplateOutlet="variableField; context: { $implicit: v }"></ng-container>
+              <ng-container
+                *ngTemplateOutlet="variableField; context: { $implicit: v }"
+              ></ng-container>
             </ng-container>
           </div>
         </div>
@@ -154,7 +186,9 @@
           <div class="vars-group__title">Filtros adicionais</div>
           <div class="vars-grid">
             <ng-container *ngFor="let v of additionalReportVariables">
-              <ng-container *ngTemplateOutlet="variableField; context: { $implicit: v }"></ng-container>
+              <ng-container
+                *ngTemplateOutlet="variableField; context: { $implicit: v }"
+              ></ng-container>
             </ng-container>
           </div>
         </div>
@@ -185,7 +219,10 @@
                 <span
                   *ngIf="
                     !variableOptionsLoading(v) &&
-                    !((variableOptionSearchText[v.key] || '').trim() || (variableInputs[v.key] || '').trim())
+                    !(
+                      (variableOptionSearchText[v.key] || '').trim() ||
+                      (variableInputs[v.key] || '').trim()
+                    )
                   "
                   class="var-input-caret"
                   aria-hidden="true"
@@ -195,7 +232,8 @@
                 <button
                   *ngIf="
                     !variableOptionsLoading(v) &&
-                    ((variableOptionSearchText[v.key] || '').trim() || (variableInputs[v.key] || '').trim())
+                    ((variableOptionSearchText[v.key] || '').trim() ||
+                      (variableInputs[v.key] || '').trim())
                   "
                   type="button"
                   class="var-input-clear"
@@ -302,7 +340,13 @@
       ></app-reports-compare-tolerances>
 
       <div class="actions" *ngIf="manageMode">
-        <app-button type="button" tone="primary" variant="solid" (pressed)="applyFilters()" [disabled]="!canRunReport">
+        <app-button
+          type="button"
+          tone="primary"
+          variant="solid"
+          (pressed)="applyFilters()"
+          [disabled]="!canRunReport"
+        >
           <span class="btn-icon">▶</span> {{ loadingRun ? 'Executando...' : 'Executar' }}
         </app-button>
         <app-button
@@ -371,7 +415,11 @@
             <span class="btn-icon">⤓</span> Exportar ▾
           </app-button>
           <div class="export-menu" *ngIf="exportMenuOpen">
-            <button type="button" (click)="exportExcel()" [disabled]="!hasResultRows || loadingExcel">
+            <button
+              type="button"
+              (click)="exportExcel()"
+              [disabled]="!hasResultRows || loadingExcel"
+            >
               {{ loadingExcel ? 'Gerando Excel...' : 'Excel (.xlsx)' }}
             </button>
             <button
@@ -387,7 +435,13 @@
       </div>
 
       <div class="actions" *ngIf="!manageMode">
-        <app-button type="button" tone="primary" variant="solid" (pressed)="applyFilters()" [disabled]="!canRunReport">
+        <app-button
+          type="button"
+          tone="primary"
+          variant="solid"
+          (pressed)="applyFilters()"
+          [disabled]="!canRunReport"
+        >
           <span class="btn-icon">▶</span> {{ loadingRun ? 'Executando...' : 'Executar' }}
         </app-button>
         <app-button
@@ -415,7 +469,11 @@
             <span class="btn-icon">⤓</span> Exportar ▾
           </app-button>
           <div class="export-menu" *ngIf="exportMenuOpen">
-            <button type="button" (click)="exportExcel()" [disabled]="!hasResultRows || loadingExcel">
+            <button
+              type="button"
+              (click)="exportExcel()"
+              [disabled]="!hasResultRows || loadingExcel"
+            >
               {{ loadingExcel ? 'Gerando Excel...' : 'Excel (.xlsx)' }}
             </button>
             <button
@@ -433,12 +491,18 @@
 
     <section class="card ui-card ui-section table-card" *ngIf="runResult as result">
       <div class="table-meta">
-        <span class="metric-chip">🧾 <strong>{{ result.meta.rowCount }}</strong> linhas</span>
+        <span class="metric-chip"
+          >🧾 <strong>{{ result.meta.rowCount }}</strong> linhas</span
+        >
         <span class="metric-chip" *ngIf="displayedRows.length !== result.meta.rowCount"
           >📄 exibindo <strong>{{ displayedRows.length }}</strong></span
         >
-        <span class="metric-chip">📦 lote <strong>{{ result.meta.size || 500 }}</strong></span>
-        <span class="metric-chip" *ngIf="result.meta.elapsedMs">⚡ <strong>{{ result.meta.elapsedMs }} ms</strong></span>
+        <span class="metric-chip"
+          >📦 lote <strong>{{ result.meta.size || 500 }}</strong></span
+        >
+        <span class="metric-chip" *ngIf="result.meta.elapsedMs"
+          >⚡ <strong>{{ result.meta.elapsedMs }} ms</strong></span
+        >
       </div>
       <div class="table-wrap">
         <div class="result-loading-overlay" *ngIf="loadingRun" aria-live="polite" aria-busy="true">
@@ -452,7 +516,10 @@
           searchPlaceholder="Pesquisar no resultado SQL..."
         ></app-result-table>
       </div>
-      <div class="table-more-actions" *ngIf="result.meta.truncated || loadingMoreRows || loadingAllRows">
+      <div
+        class="table-more-actions"
+        *ngIf="result.meta.truncated || loadingMoreRows || loadingAllRows"
+      >
         <app-button
           type="button"
           tone="neutral"
@@ -469,7 +536,9 @@
           (pressed)="loadAllResults()"
           [disabled]="!canLoadAllRows"
         >
-          {{ loadingAllRows ? 'Carregando todos os resultados...' : 'Carregar todos os resultados' }}
+          {{
+            loadingAllRows ? 'Carregando todos os resultados...' : 'Carregar todos os resultados'
+          }}
         </app-button>
         <span class="table-more-hint" *ngIf="!loadingMoreRows && !loadingAllRows">
           Existem mais linhas disponíveis no relatório.
@@ -481,16 +550,42 @@
       <ng-container *ngTemplateOutlet="emptyState"></ng-container>
     </ng-container>
 
-    <section class="card ui-card ui-section table-card compare-card" [class.compare-card--expanded]="compareExpanded" *ngIf="compareResult as cmp">
+    <section
+      class="card ui-card ui-section table-card compare-card"
+      [class.compare-card--expanded]="compareExpanded"
+      *ngIf="compareResult as cmp"
+    >
       <div class="table-meta">
-        <span class="metric-chip">Agromobi: <strong>{{ cmp.source1.rowCount }}</strong> linhas</span>
-        <span class="metric-chip">SAP HANA: <strong>{{ cmp.source2.rowCount }}</strong> linhas</span>
+        <span class="metric-chip"
+          >Agromobi: <strong>{{ cmp.source1.rowCount }}</strong> linhas</span
+        >
+        <span class="metric-chip"
+          >SAP HANA: <strong>{{ cmp.source2.rowCount }}</strong> linhas</span
+        >
         <ng-container *ngIf="cmp.diff">
-          <span class="metric-chip">Correspondências: <strong>{{ cmp.diff.matchCount }}</strong></span>
-          <span class="metric-chip compare-chip--ok">Registros iguais: <strong>{{ cmp.diff.equalCount }} de {{ cmp.diff.matchCount }} — {{ compareEqualPercent(cmp) }}%</strong></span>
-          <span class="metric-chip compare-chip--diff compare-chip--primary">Registros diferentes: <strong>{{ cmp.diff.differentCount }} de {{ cmp.diff.matchCount }} — {{ compareDifferentPercent(cmp) }}%</strong></span>
-          <span class="metric-chip compare-chip--warn">Faltantes no SAP: <strong>{{ cmp.diff.onlyInSource1.length }}</strong></span>
-          <span class="metric-chip compare-chip--warn">Faltantes no Agromobi: <strong>{{ cmp.diff.onlyInSource2.length }}</strong></span>
+          <span class="metric-chip"
+            >Correspondências: <strong>{{ cmp.diff.matchCount }}</strong></span
+          >
+          <span class="metric-chip compare-chip--ok"
+            >Registros iguais:
+            <strong
+              >{{ cmp.diff.equalCount }} de {{ cmp.diff.matchCount }} —
+              {{ compareEqualPercent(cmp) }}%</strong
+            ></span
+          >
+          <span class="metric-chip compare-chip--diff compare-chip--primary"
+            >Registros diferentes:
+            <strong
+              >{{ cmp.diff.differentCount }} de {{ cmp.diff.matchCount }} —
+              {{ compareDifferentPercent(cmp) }}%</strong
+            ></span
+          >
+          <span class="metric-chip compare-chip--warn"
+            >Faltantes no SAP: <strong>{{ cmp.diff.onlyInSource1.length }}</strong></span
+          >
+          <span class="metric-chip compare-chip--warn"
+            >Faltantes no Agromobi: <strong>{{ cmp.diff.onlyInSource2.length }}</strong></span
+          >
         </ng-container>
       </div>
       <div class="compare-alert" *ngIf="cmp.diff && compareDivergenceAlert(cmp)">
@@ -498,13 +593,20 @@
       </div>
       <div class="compare-field-stats" *ngIf="cmp.diff && compareFieldStats(cmp).length">
         <span class="compare-field-stats__label">Colunas com mais divergência:</span>
-        <span class="compare-field-chip" *ngFor="let stat of compareFieldStats(cmp)" [title]="stat.field">
+        <span
+          class="compare-field-chip"
+          *ngFor="let stat of compareFieldStats(cmp)"
+          [title]="stat.field"
+        >
           {{ stat.field }}: <strong>{{ stat.count }}</strong>
         </span>
       </div>
       <div class="compare-mode-hint">{{ compareModeDescription }}</div>
 
-      <div class="compare-duplicates" *ngIf="showCompareDuplicatesSection && hasDuplicateKeysInCompare">
+      <div
+        class="compare-duplicates"
+        *ngIf="showCompareDuplicatesSection && hasDuplicateKeysInCompare"
+      >
         <div class="status-line status-line--warn" *ngIf="cmp.duplicateKeysSource1.length">
           <strong>Chaves duplicadas em {{ compareDisplayLabel(cmp.source1.label) }}</strong>
           <span>{{ formatDuplicateKeys(cmp.duplicateKeysSource1) }}</span>
@@ -521,31 +623,41 @@
           class="compare-filter-btn"
           [class.compare-filter-btn--active]="compareQuickFilter === 'all'"
           (click)="compareQuickFilter = 'all'"
-        >Tudo</button>
+        >
+          Tudo
+        </button>
         <button
           type="button"
           class="compare-filter-btn"
           [class.compare-filter-btn--active]="compareQuickFilter === 'different'"
           (click)="compareQuickFilter = 'different'"
-        >Só diferentes</button>
+        >
+          Só diferentes
+        </button>
         <button
           type="button"
           class="compare-filter-btn"
           [class.compare-filter-btn--active]="compareQuickFilter === 'missingInSystem'"
           (click)="compareQuickFilter = 'missingInSystem'"
-        >Só faltantes no Agromobi</button>
+        >
+          Só faltantes no Agromobi
+        </button>
         <button
           type="button"
           class="compare-filter-btn"
           [class.compare-filter-btn--active]="compareQuickFilter === 'missingInSap'"
           (click)="compareQuickFilter = 'missingInSap'"
-        >Só faltantes no SAP</button>
+        >
+          Só faltantes no SAP
+        </button>
         <button
           type="button"
           class="compare-filter-btn"
           [class.compare-filter-btn--active]="compareQuickFilter === 'duplicates'"
           (click)="compareQuickFilter = 'duplicates'"
-        >Somente chaves duplicadas</button>
+        >
+          Somente chaves duplicadas
+        </button>
         <button
           type="button"
           class="compare-filter-btn compare-filter-btn--action"
@@ -581,7 +693,11 @@
 
       <ng-container *ngIf="cmp.diff">
         <div class="compare-raw-toolbar">
-          <button type="button" class="compare-raw-toggle" (click)="showCompareRawData = !showCompareRawData">
+          <button
+            type="button"
+            class="compare-raw-toggle"
+            (click)="showCompareRawData = !showCompareRawData"
+          >
             {{ showCompareRawData ? 'Ocultar resultados completos' : 'Ver resultados completos' }}
           </button>
           <ng-container *ngIf="showCompareRawData">
@@ -590,158 +706,208 @@
               class="compare-filter-btn"
               [class.compare-filter-btn--active]="compareSourceFilter === 'both'"
               (click)="compareSourceFilter = 'both'"
-            >Ambos</button>
+            >
+              Ambos
+            </button>
             <button
               type="button"
               class="compare-filter-btn"
               [class.compare-filter-btn--active]="compareSourceFilter === 'source1'"
               (click)="compareSourceFilter = 'source1'"
-            >Só {{ compareDisplayLabel(cmp.source1.label) }}</button>
+            >
+              Só {{ compareDisplayLabel(cmp.source1.label) }}
+            </button>
             <button
               type="button"
               class="compare-filter-btn"
               [class.compare-filter-btn--active]="compareSourceFilter === 'source2'"
               (click)="compareSourceFilter = 'source2'"
-            >Só {{ cmp.source2.label || 'SAP' }}</button>
+            >
+              Só {{ cmp.source2.label || 'SAP' }}
+            </button>
           </ng-container>
         </div>
       </ng-container>
 
       <div class="compare-body">
-      <ng-container *ngIf="(!cmp.diff || showCompareRawData) && compareQuickFilter === 'all'">
-        <div class="compare-section compare-sources">
-          <div class="compare-source" *ngIf="showCompareSource1">
-            <div class="compare-source__label">
-              {{ compareDisplayLabel(cmp.source1.label) }} (exibindo {{ (cmp.source1.rows | slice:0:compareRawRowLimit).length }} de {{ cmp.source1.rowCount }} linhas)
-            </div>
-            <div class="table-wrap">
-              <app-result-table
-                [columns]="cmp.source1.columns"
-                [rows]="cmp.source1.rows | slice:0:compareRawRowLimit"
-                emptyMessage="Sem resultado."
-                [searchPlaceholder]="'Pesquisar nos resultados de ' + compareDisplayLabel(cmp.source1.label) + '...'"
-              ></app-result-table>
-            </div>
-          </div>
-          <div class="compare-source" *ngIf="showCompareSource2">
-            <div class="compare-source__label">
-              {{ cmp.source2.label }} (exibindo {{ (cmp.source2.rows | slice:0:compareRawRowLimit).length }} de {{ cmp.source2.rowCount }} linhas)
-            </div>
-            <div class="table-wrap">
-              <app-result-table
-                [columns]="cmp.source2.columns"
-                [rows]="cmp.source2.rows | slice:0:compareRawRowLimit"
-                emptyMessage="Sem resultado."
-                [searchPlaceholder]="'Pesquisar nos resultados de ' + (cmp.source2.label || 'SAP') + '...'"
-              ></app-result-table>
-            </div>
-          </div>
-        </div>
-        <div class="compare-raw-more" *ngIf="cmp.source1.rows.length > compareRawRowLimit || cmp.source2.rows.length > compareRawRowLimit">
-          <button type="button" class="compare-filter-btn compare-filter-btn--expand" (click)="showMoreCompareRawRows()">
-            Mostrar mais linhas
-          </button>
-        </div>
-      </ng-container>
-
-      <ng-container *ngIf="cmp.diff">
-        <div
-          class="compare-section compare-sources"
-          *ngIf="(showCompareMissingInSapSection && cmp.diff.onlyInSource1.length) || (showCompareMissingInSystemSection && cmp.diff.onlyInSource2.length)"
-        >
-          <div class="compare-source" *ngIf="showCompareMissingInSapSection">
-            <div class="compare-source__label compare-source__label--warn">
-              {{ compareDisplayLabel(cmp.source1.label) }} — pendentes no SAP ({{ cmp.diff.onlyInSource1.length }})
-            </div>
-            <div class="table-wrap" *ngIf="cmp.diff.onlyInSource1.length; else diffEmpty1">
-              <table class="data-table">
-                <thead>
-                  <tr><th *ngFor="let col of cmp.source1.columns">{{ col }}</th></tr>
-                </thead>
-                <tbody>
-                  <tr *ngFor="let row of cmp.diff.onlyInSource1">
-                    <td *ngFor="let col of cmp.source1.columns">{{ row[col] }}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <ng-template #diffEmpty1>
-              <div class="compare-all-synced">Nenhum pendente.</div>
-            </ng-template>
-          </div>
-          <div class="compare-source" *ngIf="showCompareMissingInSystemSection">
-            <div class="compare-source__label compare-source__label--warn">
-              {{ cmp.source2.label }} — sem correspondência no Agromobi ({{ cmp.diff.onlyInSource2.length }})
-            </div>
-            <div class="table-wrap" *ngIf="cmp.diff.onlyInSource2.length; else diffEmpty2">
-              <table class="data-table">
-                <thead>
-                  <tr><th *ngFor="let col of cmp.source2.columns">{{ col }}</th></tr>
-                </thead>
-                <tbody>
-                  <tr *ngFor="let row of cmp.diff.onlyInSource2">
-                    <td *ngFor="let col of cmp.source2.columns">{{ row[col] }}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <ng-template #diffEmpty2>
-              <div class="compare-all-synced">Nenhum pendente.</div>
-            </ng-template>
-          </div>
-        </div>
-        <div class="compare-all-synced" *ngIf="compareQuickFilter === 'all' && !cmp.diff.onlyInSource1.length && !cmp.diff.onlyInSource2.length && !cmp.diff.differentCount">
-          Todos os {{ cmp.diff.equalCount }} registros estão sincronizados e iguais.
-        </div>
-
-        <ng-container *ngIf="showCompareDifferencesSection && cmp.diff.withDifferences.length">
-          <div class="compare-section compare-diff-section">
-            <div class="compare-diff-head">
-              <div class="compare-source__label compare-source__label--diff">
-                Registros com divergências de valores ({{ cmp.diff.differentCount }})
+        <ng-container *ngIf="(!cmp.diff || showCompareRawData) && compareQuickFilter === 'all'">
+          <div class="compare-section compare-sources">
+            <div class="compare-source" *ngIf="showCompareSource1">
+              <div class="compare-source__label">
+                {{ compareDisplayLabel(cmp.source1.label) }} (exibindo
+                {{ (cmp.source1.rows | slice: 0 : compareRawRowLimit).length }} de
+                {{ cmp.source1.rowCount }} linhas)
               </div>
-              <div class="compare-diff-view-toggle">
-                <button
-                  type="button"
-                  class="compare-filter-btn"
-                  [class.compare-filter-btn--active]="compareDiffViewMode === 'compact'"
-                  (click)="compareDiffViewMode = 'compact'"
-                >Somente divergências</button>
-                <button
-                  type="button"
-                  class="compare-filter-btn"
-                  [class.compare-filter-btn--active]="compareDiffViewMode === 'full'"
-                  (click)="compareDiffViewMode = 'full'"
-                >Tabela completa</button>
-              </div>
-            </div>
-
-            <div class="table-wrap" *ngIf="compareDiffViewMode === 'compact'; else fullDifferenceTable">
-              <app-result-table
-                [columns]="compareCompactTableColumns(cmp)"
-                [rows]="compareCompactTableRows(cmp)"
-                [cellClassResolver]="compareCompactCellClass"
-                emptyMessage="Sem divergências."
-                searchPlaceholder="Pesquisar nas divergências..."
-              ></app-result-table>
-            </div>
-
-            <ng-template #fullDifferenceTable>
               <div class="table-wrap">
                 <app-result-table
-                  [columns]="compareFullTableColumns(cmp)"
-                  [columnLabels]="compareFullTableColumnLabels(cmp)"
-                  [headerGroups]="compareFullTableHeaderGroups(cmp)"
-                  [rows]="compareFullTableRows(cmp)"
-                  [cellClassResolver]="compareFullCellClass"
-                  emptyMessage="Sem divergências."
-                  searchPlaceholder="Pesquisar na tabela completa..."
+                  [columns]="cmp.source1.columns"
+                  [rows]="cmp.source1.rows | slice: 0 : compareRawRowLimit"
+                  emptyMessage="Sem resultado."
+                  [searchPlaceholder]="
+                    'Pesquisar nos resultados de ' + compareDisplayLabel(cmp.source1.label) + '...'
+                  "
                 ></app-result-table>
               </div>
-            </ng-template>
+            </div>
+            <div class="compare-source" *ngIf="showCompareSource2">
+              <div class="compare-source__label">
+                {{ cmp.source2.label }} (exibindo
+                {{ (cmp.source2.rows | slice: 0 : compareRawRowLimit).length }} de
+                {{ cmp.source2.rowCount }} linhas)
+              </div>
+              <div class="table-wrap">
+                <app-result-table
+                  [columns]="cmp.source2.columns"
+                  [rows]="cmp.source2.rows | slice: 0 : compareRawRowLimit"
+                  emptyMessage="Sem resultado."
+                  [searchPlaceholder]="
+                    'Pesquisar nos resultados de ' + (cmp.source2.label || 'SAP') + '...'
+                  "
+                ></app-result-table>
+              </div>
+            </div>
+          </div>
+          <div
+            class="compare-raw-more"
+            *ngIf="
+              cmp.source1.rows.length > compareRawRowLimit ||
+              cmp.source2.rows.length > compareRawRowLimit
+            "
+          >
+            <button
+              type="button"
+              class="compare-filter-btn compare-filter-btn--expand"
+              (click)="showMoreCompareRawRows()"
+            >
+              Mostrar mais linhas
+            </button>
           </div>
         </ng-container>
-      </ng-container>
+
+        <ng-container *ngIf="cmp.diff">
+          <div
+            class="compare-section compare-sources"
+            *ngIf="
+              (showCompareMissingInSapSection && cmp.diff.onlyInSource1.length) ||
+              (showCompareMissingInSystemSection && cmp.diff.onlyInSource2.length)
+            "
+          >
+            <div class="compare-source" *ngIf="showCompareMissingInSapSection">
+              <div class="compare-source__label compare-source__label--warn">
+                {{ compareDisplayLabel(cmp.source1.label) }} — pendentes no SAP ({{
+                  cmp.diff.onlyInSource1.length
+                }})
+              </div>
+              <div class="table-wrap" *ngIf="cmp.diff.onlyInSource1.length; else diffEmpty1">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th *ngFor="let col of cmp.source1.columns">{{ col }}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let row of cmp.diff.onlyInSource1">
+                      <td *ngFor="let col of cmp.source1.columns">{{ row[col] }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <ng-template #diffEmpty1>
+                <div class="compare-all-synced">Nenhum pendente.</div>
+              </ng-template>
+            </div>
+            <div class="compare-source" *ngIf="showCompareMissingInSystemSection">
+              <div class="compare-source__label compare-source__label--warn">
+                {{ cmp.source2.label }} — sem correspondência no Agromobi ({{
+                  cmp.diff.onlyInSource2.length
+                }})
+              </div>
+              <div class="table-wrap" *ngIf="cmp.diff.onlyInSource2.length; else diffEmpty2">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th *ngFor="let col of cmp.source2.columns">{{ col }}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let row of cmp.diff.onlyInSource2">
+                      <td *ngFor="let col of cmp.source2.columns">{{ row[col] }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <ng-template #diffEmpty2>
+                <div class="compare-all-synced">Nenhum pendente.</div>
+              </ng-template>
+            </div>
+          </div>
+          <div
+            class="compare-all-synced"
+            *ngIf="
+              compareQuickFilter === 'all' &&
+              !cmp.diff.onlyInSource1.length &&
+              !cmp.diff.onlyInSource2.length &&
+              !cmp.diff.differentCount
+            "
+          >
+            Todos os {{ cmp.diff.equalCount }} registros estão sincronizados e iguais.
+          </div>
+
+          <ng-container *ngIf="showCompareDifferencesSection && cmp.diff.withDifferences.length">
+            <div class="compare-section compare-diff-section">
+              <div class="compare-diff-head">
+                <div class="compare-source__label compare-source__label--diff">
+                  Registros com divergências de valores ({{ cmp.diff.differentCount }})
+                </div>
+                <div class="compare-diff-view-toggle">
+                  <button
+                    type="button"
+                    class="compare-filter-btn"
+                    [class.compare-filter-btn--active]="compareDiffViewMode === 'compact'"
+                    (click)="compareDiffViewMode = 'compact'"
+                  >
+                    Somente divergências
+                  </button>
+                  <button
+                    type="button"
+                    class="compare-filter-btn"
+                    [class.compare-filter-btn--active]="compareDiffViewMode === 'full'"
+                    (click)="compareDiffViewMode = 'full'"
+                  >
+                    Tabela completa
+                  </button>
+                </div>
+              </div>
+
+              <div
+                class="table-wrap"
+                *ngIf="compareDiffViewMode === 'compact'; else fullDifferenceTable"
+              >
+                <app-result-table
+                  [columns]="compareCompactTableColumns(cmp)"
+                  [rows]="compareCompactTableRows(cmp)"
+                  [cellClassResolver]="compareCompactCellClass"
+                  emptyMessage="Sem divergências."
+                  searchPlaceholder="Pesquisar nas divergências..."
+                ></app-result-table>
+              </div>
+
+              <ng-template #fullDifferenceTable>
+                <div class="table-wrap">
+                  <app-result-table
+                    [columns]="compareFullTableColumns(cmp)"
+                    [columnLabels]="compareFullTableColumnLabels(cmp)"
+                    [headerGroups]="compareFullTableHeaderGroups(cmp)"
+                    [rows]="compareFullTableRows(cmp)"
+                    [cellClassResolver]="compareFullCellClass"
+                    emptyMessage="Sem divergências."
+                    searchPlaceholder="Pesquisar na tabela completa..."
+                  ></app-result-table>
+                </div>
+              </ng-template>
+            </div>
+          </ng-container>
+        </ng-container>
       </div>
     </section>
   </main>
