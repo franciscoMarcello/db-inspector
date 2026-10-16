@@ -1,3 +1,12 @@
+import type {
+  ReportVariableInput,
+  ReportVersion,
+  ReportVersionAuthorType,
+  ReportVersionDiscardResponse,
+  ReportVersionStatus,
+  ReportVersionSummary,
+} from './report.service';
+
 export function readOptionalBoolean(value: unknown): boolean | undefined {
   if (value === null || value === undefined) return undefined;
   if (typeof value === 'boolean') return value;
@@ -180,4 +189,115 @@ export function normalizeVariableOptions(res: any) {
     valor: item?.valor === undefined ? (item?.value === undefined ? null : item.value) : item.valor,
     descricao: String(item?.descricao ?? item?.description ?? item?.label ?? item?.valor ?? ''),
   }));
+}
+
+type UnknownRecord = Record<string, unknown>;
+
+const REPORT_VERSION_STATUSES: readonly ReportVersionStatus[] = [
+  'DRAFT',
+  'PUBLISHED',
+  'SUPERSEDED',
+  'DISCARDED',
+  'REPLACED_DRAFT',
+];
+
+const REPORT_VERSION_AUTHOR_TYPES: readonly ReportVersionAuthorType[] = [
+  'USER',
+  'AI_TOKEN',
+  'SYSTEM',
+];
+
+function asRecord(value: unknown): UnknownRecord {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as UnknownRecord)
+    : {};
+}
+
+function readNullableString(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  return String(value);
+}
+
+export function readNullableNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+export function normalizeVersionStatus(value: unknown): ReportVersionStatus {
+  const status = String(value ?? '')
+    .trim()
+    .toUpperCase();
+  const known = REPORT_VERSION_STATUSES.find((item) => item === status);
+  // Status desconhecido cai em DISCARDED para nunca liberar publicar/descartar/restaurar por engano.
+  return known ?? 'DISCARDED';
+}
+
+export function normalizeVersionAuthorType(value: unknown): ReportVersionAuthorType {
+  const type = String(value ?? '')
+    .trim()
+    .toUpperCase();
+  return REPORT_VERSION_AUTHOR_TYPES.find((item) => item === type) ?? 'USER';
+}
+
+export function normalizeReportVersionSummary(item: unknown): ReportVersionSummary {
+  const data = asRecord(item);
+  return {
+    versionNumber: Number(data['versionNumber'] ?? 0),
+    status: normalizeVersionStatus(data['status']),
+    name: String(data['name'] ?? ''),
+    baseVersionNumber: readNullableNumber(data['baseVersionNumber']),
+    authorType: normalizeVersionAuthorType(data['authorType']),
+    authorName: String(data['authorName'] ?? ''),
+    note: readNullableString(data['note']),
+    hasJrxml: readOptionalBoolean(data['hasJrxml']) ?? false,
+    createdAt: Number(data['createdAt'] ?? 0),
+    updatedAt: readNullableNumber(data['updatedAt']),
+    publishedAt: readNullableNumber(data['publishedAt']),
+    publishedBy: readNullableString(data['publishedBy']),
+    revision: Number(data['revision'] ?? 0),
+  };
+}
+
+export function normalizeReportVersionSummaries(res: unknown): ReportVersionSummary[] {
+  const wrapped = asRecord(res)['data'];
+  const data: unknown[] = Array.isArray(res) ? res : Array.isArray(wrapped) ? wrapped : [];
+  return data.map((item) => normalizeReportVersionSummary(item));
+}
+
+export function normalizeReportVersion(
+  item: unknown,
+  normalizeVariable: (variable: unknown) => ReportVariableInput,
+): ReportVersion {
+  const data = asRecord(item);
+  const rawVariables = data['variables'];
+  return {
+    reportId: String(data['reportId'] ?? ''),
+    versionNumber: Number(data['versionNumber'] ?? 0),
+    status: normalizeVersionStatus(data['status']),
+    baseVersionNumber: readNullableNumber(data['baseVersionNumber']),
+    name: String(data['name'] ?? ''),
+    description: readNullableString(data['description']),
+    folderId: readNullableString(data['folderId']),
+    sql: String(data['sql'] ?? ''),
+    secondSql: readNullableString(data['secondSql']),
+    comparisonKey: readNullableString(data['comparisonKey']),
+    variables: Array.isArray(rawVariables)
+      ? rawVariables.map((variable) => normalizeVariable(variable))
+      : [],
+    jasperTemplateId: readNullableString(data['jasperTemplateId']),
+    jrxml: readNullableString(data['jrxml']),
+    authorType: normalizeVersionAuthorType(data['authorType']),
+    authorName: String(data['authorName'] ?? ''),
+    note: readNullableString(data['note']),
+    createdAt: Number(data['createdAt'] ?? 0),
+    updatedAt: readNullableNumber(data['updatedAt']),
+    publishedAt: readNullableNumber(data['publishedAt']),
+    publishedBy: readNullableString(data['publishedBy']),
+    revision: Number(data['revision'] ?? 0),
+  };
+}
+
+export function normalizeVersionDiscardResponse(res: unknown): ReportVersionDiscardResponse {
+  return { reportDeleted: readOptionalBoolean(asRecord(res)['reportDeleted']) ?? false };
 }

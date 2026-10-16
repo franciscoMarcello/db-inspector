@@ -1,0 +1,256 @@
+<dialog class="report-modal" [open]="open()" aria-labelledby="ai-tokens-title">
+  @if (open()) {
+    <div class="report-modal__panel">
+      <div class="report-modal__header gap-3">
+        <h3 id="ai-tokens-title">Tokens para IA</h3>
+        <app-button type="button" tone="neutral" variant="outline" (pressed)="closeModal()">
+          Fechar
+        </app-button>
+      </div>
+
+      <div class="report-modal__body">
+        @if (created(); as view) {
+          <section class="grid gap-3" aria-labelledby="ai-token-created-title">
+            <h4 id="ai-token-created-title" class="m-0 text-sm font-bold">
+              Token "{{ view.info.name }}" criado
+            </h4>
+            <div
+              class="flex flex-wrap items-baseline gap-3 rounded-lg border border-[color-mix(in_srgb,#fbbf24_45%,var(--border-subtle))] bg-[color-mix(in_srgb,#f59e0b_10%,transparent)] px-2.5 py-2 text-[13px]"
+              role="alert"
+            >
+              <strong class="text-[#d97706]">Atenção</strong>
+              <span>Guarde agora: este valor não será exibido de novo.</span>
+            </div>
+            <label class="grid gap-1">
+              <span class="text-xs font-semibold text-[var(--text-muted)]">
+                Token (expira em {{ formatDate(view.info.expiresAt) }})
+              </span>
+              <div class="flex flex-wrap items-center gap-2">
+                <input
+                  class="ui-input min-w-0 flex-1 font-mono text-xs"
+                  type="text"
+                  readonly
+                  aria-label="Token de IA gerado"
+                  [value]="view.info.token"
+                  (focus)="selectAll($event)"
+                />
+                <app-button
+                  type="button"
+                  tone="primary"
+                  variant="solid"
+                  (pressed)="copy('token', view.info.token)"
+                >
+                  {{ copiedKey() === 'token' ? 'Copiado' : 'Copiar' }}
+                </app-button>
+              </div>
+            </label>
+
+            <div class="grid gap-2">
+              <span class="text-xs font-semibold text-[var(--text-muted)]">
+                Como conectar o agente
+              </span>
+              <div class="flex flex-wrap gap-2" role="group" aria-label="Modo de conexão">
+                @for (mode of connectionModes; track mode.value) {
+                  <button
+                    type="button"
+                    class="cursor-pointer rounded-full border px-2.5 py-1 text-xs"
+                    [ngClass]="
+                      connectionMode() === mode.value ? pillActiveClass : pillInactiveClass
+                    "
+                    [attr.aria-pressed]="connectionMode() === mode.value"
+                    (click)="connectionMode.set(mode.value)"
+                  >
+                    {{ mode.label }}
+                  </button>
+                }
+              </div>
+
+              @if (connectionMode() === 'openapi') {
+                <p class="m-0 text-xs text-[var(--text-muted)]">
+                  No ChatGPT, crie um GPT personalizado e, em Ações, importe o esquema pela URL
+                  abaixo. Na autenticação, escolha API Key do tipo Bearer e cole o token.
+                </p>
+              }
+              @if (connectionMode() === 'rest') {
+                <p class="m-0 text-xs text-[var(--text-muted)]">
+                  Qualquer cliente HTTP funciona. Comece lendo as instruções, que descrevem os
+                  demais endpoints.
+                </p>
+              }
+              @for (block of commandBlocks(view.commands, connectionMode()); track block.key) {
+                <div class="grid gap-1">
+                  <div class="flex items-center justify-between gap-2">
+                    <span class="text-xs font-semibold text-[var(--text-muted)]">
+                      {{ block.title }}
+                    </span>
+                    <app-button
+                      type="button"
+                      tone="neutral"
+                      variant="outline"
+                      size="sm"
+                      (pressed)="copy(block.key, block.text)"
+                    >
+                      {{ copiedKey() === block.key ? 'Copiado' : 'Copiar' }}
+                    </app-button>
+                  </div>
+                  <pre
+                    class="m-0 max-h-56 overflow-auto whitespace-pre-wrap break-all rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-2.5 font-mono text-xs leading-relaxed"
+                  ><code>{{ block.text }}</code></pre>
+                </div>
+              }
+            </div>
+
+            <div class="flex justify-end">
+              <app-button
+                type="button"
+                tone="neutral"
+                variant="outline"
+                (pressed)="finishCreated()"
+              >
+                Já guardei, concluir
+              </app-button>
+            </div>
+          </section>
+        } @else {
+          <section class="grid gap-2" aria-labelledby="ai-token-form-title">
+            <h4 id="ai-token-form-title" class="m-0 text-sm font-bold">Gerar novo token</h4>
+            <div class="grid gap-2 sm:grid-cols-[minmax(0,1fr)_140px_auto] sm:items-end">
+              <label class="grid gap-1">
+                <span class="text-xs font-semibold text-[var(--text-muted)]">
+                  Nome (ex.: agente do time de custos)
+                </span>
+                <input
+                  class="ui-input"
+                  type="text"
+                  [attr.maxlength]="nameMax"
+                  [ngModel]="name()"
+                  [ngModelOptions]="{ standalone: true }"
+                  (ngModelChange)="name.set($event)"
+                  (keydown.enter)="createToken()"
+                />
+              </label>
+              <label class="grid gap-1">
+                <span class="text-xs font-semibold text-[var(--text-muted)]">Validade (dias)</span>
+                <input
+                  class="ui-input"
+                  type="number"
+                  min="1"
+                  [attr.max]="maxDays"
+                  step="1"
+                  [ngModel]="validityDays()"
+                  [ngModelOptions]="{ standalone: true }"
+                  (ngModelChange)="validityDays.set($event)"
+                />
+              </label>
+              <app-button
+                type="button"
+                tone="primary"
+                variant="solid"
+                (pressed)="createToken()"
+                [disabled]="creating()"
+              >
+                {{ creating() ? 'Gerando...' : 'Gerar token' }}
+              </app-button>
+            </div>
+            <p class="m-0 text-xs text-[var(--text-muted)]">
+              Padrão de 30 dias, máximo de {{ maxDays }}. O token só é exibido uma vez, logo após
+              ser gerado.
+            </p>
+            @if (formError()) {
+              <p class="m-0 text-xs text-[#f87171]" role="alert">{{ formError() }}</p>
+            }
+          </section>
+
+          <section class="grid gap-2" aria-labelledby="ai-token-list-title">
+            <div class="flex items-center justify-between gap-2">
+              <h4 id="ai-token-list-title" class="m-0 text-sm font-bold">Tokens emitidos</h4>
+              <app-button
+                type="button"
+                tone="neutral"
+                variant="ghost"
+                size="sm"
+                (pressed)="loadTokens()"
+                [disabled]="loadingList()"
+              >
+                {{ loadingList() ? 'Atualizando...' : 'Atualizar' }}
+              </app-button>
+            </div>
+            @if (listError()) {
+              <p class="m-0 text-xs text-[#f87171]" role="alert">{{ listError() }}</p>
+            }
+            @if (loadingList() && !tokens().length) {
+              <p class="m-0 text-xs text-[var(--text-muted)]">Carregando tokens...</p>
+            }
+            @if (!loadingList() && !listError() && !tokens().length) {
+              <p class="m-0 text-xs text-[var(--text-muted)]">Nenhum token emitido ainda.</p>
+            }
+            @for (token of tokenRows(); track token.id) {
+              <article
+                class="grid gap-1 rounded-lg border border-l-4 border-[var(--border-subtle)] p-2.5 text-xs"
+                [ngClass]="
+                  token.situation.tone === 'warn'
+                    ? 'border-l-[#fbbf24]'
+                    : token.situation.tone === 'muted'
+                      ? 'border-l-transparent opacity-75'
+                      : 'border-l-[#22c55e]'
+                "
+              >
+                <div class="flex flex-wrap items-center gap-2">
+                  <strong class="text-[13px]">{{ token.name }}</strong>
+                  <code class="font-mono text-[var(--text-muted)]">{{ token.prefix }}...</code>
+                  <span
+                    class="rounded-full border px-1.5 py-px text-[10px] font-bold uppercase tracking-[0.04em]"
+                    [ngClass]="
+                      token.situation.tone === 'warn'
+                        ? 'border-[color-mix(in_srgb,#fbbf24_45%,transparent)] text-[#d97706]'
+                        : token.situation.tone === 'muted'
+                          ? 'border-[var(--border-subtle)] text-[var(--text-muted)]'
+                          : 'border-[color-mix(in_srgb,#22c55e_45%,transparent)] text-[#16a34a]'
+                    "
+                    >{{ token.situation.label }}</span
+                  >
+                  @if (!token.revokedAt) {
+                    <app-button
+                      type="button"
+                      class="ml-auto"
+                      tone="danger"
+                      variant="outline"
+                      size="sm"
+                      (pressed)="revoke(token)"
+                      [disabled]="revokingId() !== null"
+                    >
+                      {{ revokingId() === token.id ? 'Revogando...' : 'Revogar' }}
+                    </app-button>
+                  }
+                </div>
+                <div class="flex flex-wrap gap-x-4 gap-y-1 text-[var(--text-muted)]">
+                  <span>Criado por {{ token.createdBy }} em {{ token.createdLabel }}</span>
+                  <span>Expira em {{ token.expiresLabel }}</span>
+                  <span>Último uso: {{ token.lastUsedLabel }}</span>
+                  @if (token.revokedAt) {
+                    <span>Revogado em {{ formatDate(token.revokedAt) }}</span>
+                  }
+                </div>
+                @if (token.situation.attention) {
+                  <span class="font-semibold text-[#d97706]">{{ token.situation.attention }}</span>
+                }
+              </article>
+            }
+          </section>
+        }
+      </div>
+
+      @if (feedback(); as info) {
+        <div class="report-modal__footer">
+          <div
+            class="mr-auto flex min-w-0 flex-wrap items-baseline gap-3 text-[13px]"
+            role="status"
+          >
+            <strong [ngClass]="toneTextClass(info.tone)">{{ statusTitle(info.tone) }}</strong>
+            <span>{{ info.message }}</span>
+          </div>
+        </div>
+      }
+    </div>
+  }
+</dialog>

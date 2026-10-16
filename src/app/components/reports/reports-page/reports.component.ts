@@ -47,6 +47,9 @@ import {
 } from '../controls/multi-select/reports-multi-select.component';
 import { ReportsReportModalComponent } from '../modals/report-modal/reports-report-modal.component';
 import { ReportsTemplateManagerModalComponent } from '../modals/template-manager-modal/reports-template-manager-modal.component';
+import type { ReportVersionsChange } from '../modals/versions-modal/reports-versions-modal.component';
+import { ReportsVersionsModalComponent } from '../modals/versions-modal/reports-versions-modal.component';
+import { ReportsAiToolbarComponent } from '../controls/ai-toolbar/reports-ai-toolbar.component';
 import { AppButtonComponent } from '../../shared/app-button/app-button.component';
 import {
   CompareToleranceRow,
@@ -110,6 +113,8 @@ import {
     ReportsReportModalComponent,
     ReportsFolderManagerModalComponent,
     ReportsTemplateManagerModalComponent,
+    ReportsVersionsModalComponent,
+    ReportsAiToolbarComponent,
     ReportsMultiSelectComponent,
     ReportsCompareTolerancesComponent,
     AppButtonComponent,
@@ -195,6 +200,8 @@ export class ReportsComponent
   loadingReportDraftPreview = false;
   folderManagerOpen = false;
   templateManagerOpen = false;
+  versionsModalOpen = false;
+  versionsParamInputs: Record<string, string> = {};
   selectedTemplateId: string | null = null;
   templateDraft: TemplateDraft = createEmptyTemplateDraft();
   templateDraftError = '';
@@ -804,6 +811,32 @@ export class ReportsComponent
 
   archiveSelectedReport() {
     this.updateSelectedReportArchived(true);
+  }
+
+  openVersionsModal() {
+    if (!this.selectedReport || !this.canWriteReports) return;
+    this.versionsParamInputs = { ...this.variableInputs };
+    this.versionsModalOpen = true;
+  }
+
+  closeVersionsModal() {
+    this.versionsModalOpen = false;
+  }
+
+  onReportVersionsChanged(change: ReportVersionsChange) {
+    if (!change.reportDeleted) {
+      this.loadData(change.reportId);
+      return;
+    }
+    this.versionsModalOpen = false;
+    this.reports = this.reports.filter((report) => report.id !== change.reportId);
+    if (this.selectedReportId === change.reportId) {
+      this.selectedReportId = null;
+      this.runResult = null;
+      this.compareResult = null;
+    }
+    this.setStatusMessage(change.message);
+    this.loadData(undefined, this.selectedFolderId ?? undefined);
   }
 
   unarchiveSelectedReport() {

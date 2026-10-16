@@ -1,0 +1,391 @@
+<dialog class="report-modal" [open]="open()" aria-labelledby="report-versions-title">
+  @if (open()) {
+    <div class="report-modal__panel report-modal__panel--wide">
+      <div class="report-modal__header gap-3">
+        <h3 id="report-versions-title" class="min-w-0 truncate">
+          Versões
+          @if (report(); as current) {
+            <span class="font-normal text-[var(--text-muted)]">— {{ current.name }}</span>
+          }
+        </h3>
+        <app-button type="button" tone="neutral" variant="outline" (pressed)="closeModal()">
+          Fechar
+        </app-button>
+      </div>
+
+      <div
+        class="report-modal__body grid-cols-1 items-start lg:grid-cols-[minmax(240px,300px)_minmax(0,1fr)]"
+      >
+        <aside class="versions-list" aria-label="Lista de versões">
+          <div class="flex items-center justify-between gap-2">
+            <h4 class="m-0 text-[13px] font-bold">Histórico</h4>
+            <app-button
+              type="button"
+              tone="neutral"
+              variant="ghost"
+              size="sm"
+              (pressed)="loadVersions()"
+              [disabled]="loadingList()"
+            >
+              {{ loadingList() ? 'Atualizando...' : 'Atualizar' }}
+            </app-button>
+          </div>
+
+          @if (loadingList() && !versions().length) {
+            <p class="versions-muted" aria-live="polite">Carregando versões...</p>
+          }
+          @if (listError()) {
+            <p class="params-error" role="alert">{{ listError() }}</p>
+          }
+          @if (!loadingList() && !listError() && !versions().length) {
+            <p class="versions-muted">Nenhuma versão encontrada.</p>
+          }
+
+          @for (version of versionRows(); track version.versionNumber) {
+            <button
+              type="button"
+              class="version-item"
+              [class.version-item--active]="version.versionNumber === selectedNumber()"
+              [class.version-item--published]="version.status === 'PUBLISHED'"
+              [class.version-item--draft]="version.status === 'DRAFT'"
+              [attr.aria-pressed]="version.versionNumber === selectedNumber()"
+              (click)="selectVersion(version.versionNumber)"
+            >
+              <span class="flex flex-wrap items-center gap-1.5">
+                <strong>v{{ version.versionNumber }}</strong>
+                <span
+                  class="version-badge"
+                  [ngClass]="'version-badge--' + version.status.toLowerCase()"
+                  >{{ version.statusLabel }}</span
+                >
+                @if (version.status === 'PUBLISHED') {
+                  <span class="version-flag">Atual</span>
+                }
+                @if (version.status === 'DRAFT') {
+                  <span class="version-flag version-flag--draft">Aberto</span>
+                }
+              </span>
+              <span class="version-item__meta">
+                {{ version.authorLabel }} · {{ version.createdLabel }}
+              </span>
+              @if (version.note) {
+                <span class="version-item__note" [title]="version.note">{{ version.note }}</span>
+              }
+            </button>
+          }
+        </aside>
+
+        <section class="versions-detail">
+          @if (selectedRow(); as summary) {
+            <div class="flex flex-wrap items-center gap-2">
+              <h4 class="m-0 text-sm font-bold">Versão {{ summary.versionNumber }}</h4>
+              <span
+                class="version-badge"
+                [ngClass]="'version-badge--' + summary.status.toLowerCase()"
+                >{{ summary.statusLabel }}</span
+              >
+              @if (summary.name) {
+                <span class="text-xs text-[var(--text-muted)]">{{ summary.name }}</span>
+              }
+            </div>
+
+            <dl class="versions-meta">
+              <dt>Autor</dt>
+              <dd>{{ summary.authorLabel }}</dd>
+              <dt>Criada em</dt>
+              <dd>{{ formatDate(summary.createdAt) }}</dd>
+              @if (summary.updatedAt) {
+                <dt>Atualizada em</dt>
+                <dd>{{ formatDate(summary.updatedAt) }}</dd>
+              }
+              @if (summary.publishedAt) {
+                <dt>Publicada em</dt>
+                <dd>
+                  {{ formatDate(summary.publishedAt) }}
+                  @if (summary.publishedBy) {
+                    por {{ summary.publishedBy }}
+                  }
+                </dd>
+              }
+              <dt>Versão base</dt>
+              <dd>
+                {{ summary.baseVersionNumber !== null ? 'v' + summary.baseVersionNumber : '—' }}
+              </dd>
+              <dt>Nota</dt>
+              <dd>{{ summary.note || '—' }}</dd>
+            </dl>
+
+            @if (baseWarning()) {
+              <div class="status-line status-line--warn versions-warning" role="note">
+                <strong>Atenção</strong>
+                <span>{{ baseWarning() }}</span>
+              </div>
+            }
+
+            <div class="versions-tabs" role="group" aria-label="Modo de visualização">
+              <button
+                type="button"
+                class="compare-filter-btn"
+                [class.compare-filter-btn--active]="viewMode() === 'content'"
+                [attr.aria-pressed]="viewMode() === 'content'"
+                (click)="setViewMode('content')"
+              >
+                Conteúdo
+              </button>
+              <button
+                type="button"
+                class="compare-filter-btn"
+                [class.compare-filter-btn--active]="viewMode() === 'compare'"
+                [attr.aria-pressed]="viewMode() === 'compare'"
+                [disabled]="!canCompare()"
+                [title]="compareUnavailableReason() || 'Comparar com a versão publicada atual'"
+                (click)="setViewMode('compare')"
+              >
+                Comparar com a publicada
+              </button>
+              @if (!canCompare()) {
+                <span class="versions-muted">{{ compareUnavailableReason() }}</span>
+              }
+            </div>
+
+            @if (versionError()) {
+              <p class="params-error" role="alert">{{ versionError() }}</p>
+            }
+
+            @if (viewMode() === 'content') {
+              @if (selectedVersion(); as version) {
+                <div class="grid gap-3">
+                  @if (version.description) {
+                    <p class="m-0 text-xs text-[var(--text-muted)]">{{ version.description }}</p>
+                  }
+                  <div class="grid gap-1">
+                    <span class="ui-field-label">SQL</span>
+                    <pre class="version-code"><code>{{ version.sql }}</code></pre>
+                  </div>
+                  @if (version.secondSql) {
+                    <div class="grid gap-1">
+                      <span class="ui-field-label">
+                        SQL secundária
+                        @if (version.comparisonKey) {
+                          (chave de comparação: {{ version.comparisonKey }})
+                        }
+                      </span>
+                      <pre class="version-code"><code>{{ version.secondSql }}</code></pre>
+                    </div>
+                  }
+                  <div class="grid gap-1">
+                    <span class="ui-field-label">Variáveis ({{ variableRows().length }})</span>
+                    @if (variableRows().length) {
+                      <div class="versions-table-wrap">
+                        <app-result-table
+                          [columns]="variableColumns"
+                          [columnLabels]="variableColumnLabels"
+                          [rows]="variableRows()"
+                          [enableColumnFilters]="false"
+                          emptyMessage="Sem variáveis."
+                        ></app-result-table>
+                      </div>
+                    } @else {
+                      <span class="versions-muted">Esta versão não tem variáveis.</span>
+                    }
+                  </div>
+                  @if (version.jrxml) {
+                    <details class="version-jrxml">
+                      <summary>JRXML ({{ jrxmlSizeLabel(version.jrxml) }})</summary>
+                      <pre class="version-code"><code>{{ version.jrxml }}</code></pre>
+                    </details>
+                  }
+                </div>
+              } @else if (loadingVersion()) {
+                <p class="versions-muted">Carregando conteúdo da versão...</p>
+              }
+            } @else {
+              <div class="grid gap-2">
+                <div class="versions-tabs" role="group" aria-label="Conteúdo comparado">
+                  @for (target of compareTargets(); track target) {
+                    <button
+                      type="button"
+                      class="compare-filter-btn"
+                      [class.compare-filter-btn--active]="effectiveCompareTarget() === target"
+                      [attr.aria-pressed]="effectiveCompareTarget() === target"
+                      (click)="setCompareTarget(target)"
+                    >
+                      {{ compareTargetLabel(target) }}
+                    </button>
+                  }
+                </div>
+                @if (loadingCompare()) {
+                  <p class="versions-muted">Carregando versões para comparação...</p>
+                }
+                @if (compareError()) {
+                  <p class="params-error" role="alert">{{ compareError() }}</p>
+                }
+                @for (diff of diffViews(); track diff.key) {
+                  <div
+                    class="flex flex-wrap justify-between gap-2 text-xs text-[var(--text-muted)]"
+                  >
+                    <span>Esquerda: {{ diff.originalLabel }}</span>
+                    <span>Direita: {{ diff.modifiedLabel }}</span>
+                  </div>
+                  <ngx-monaco-diff-editor
+                    class="versions-diff"
+                    [options]="diff.options"
+                    [originalModel]="diff.original"
+                    [modifiedModel]="diff.modified"
+                    (onInit)="onDiffEditorInit($event)"
+                  ></ngx-monaco-diff-editor>
+                }
+              </div>
+            }
+
+            @if (actions().publish || actions().restore || actions().reuse) {
+              <label class="var-field">
+                <span>{{ noteLabel() }}</span>
+                <textarea
+                  class="ui-textarea var-multi-input"
+                  rows="2"
+                  [ngModel]="note()"
+                  [ngModelOptions]="{ standalone: true }"
+                  (ngModelChange)="note.set($event)"
+                  placeholder="Ex.: ajuste no filtro de safra"
+                ></textarea>
+              </label>
+            }
+
+            @if (selectedVersion()?.variables?.length) {
+              <div class="versions-params">
+                <span class="ui-field-label">Parâmetros usados na prévia e no PDF</span>
+                <p class="m-0 text-xs text-[var(--text-muted)]">
+                  Os valores vêm do formulário de parâmetros da página (feche este painel para
+                  alterá-los); variáveis sem valor usam o padrão desta versão.
+                </p>
+                <ul class="versions-params__list">
+                  @for (param of previewParams(); track param.key) {
+                    <li>
+                      <strong>{{ param.label }}</strong>
+                      = {{ param.value || '(vazio)' }}
+                      <span class="text-[var(--text-muted)]"
+                        >({{ previewSourceLabel(param.source) }})</span
+                      >
+                    </li>
+                  }
+                </ul>
+              </div>
+            }
+
+            @if (preview(); as result) {
+              @if (previewVersionNumber() === selectedNumber()) {
+                <div class="grid gap-2">
+                  <div class="flex flex-wrap items-center gap-2">
+                    <span class="ui-field-label">Prévia da v{{ previewVersionNumber() }}</span>
+                    <span class="metric-chip"
+                      ><strong>{{ result.meta.rowCount }}</strong> linhas</span
+                    >
+                    @if (result.meta.elapsedMs) {
+                      <span class="metric-chip"
+                        ><strong>{{ result.meta.elapsedMs }} ms</strong></span
+                      >
+                    }
+                    @if (result.meta.truncated) {
+                      <span class="versions-muted">Exibindo até {{ previewPageSize }} linhas.</span>
+                    }
+                  </div>
+                  <div class="versions-table-wrap">
+                    <app-result-table
+                      [columns]="result.columns"
+                      [rows]="result.rows"
+                      emptyMessage="Sem resultado."
+                    ></app-result-table>
+                  </div>
+                </div>
+              }
+            }
+          } @else if (!loadingList() && versions().length) {
+            <p class="versions-muted">Selecione uma versão para ver os detalhes.</p>
+          }
+        </section>
+      </div>
+
+      @if (selectedSummary() || feedback()) {
+        <div class="report-modal__footer report-modal__footer--spaced">
+          @if (feedback(); as info) {
+            <div
+              class="status-line versions-feedback mr-auto min-w-0"
+              [ngClass]="info.tone"
+              role="status"
+            >
+              <strong>{{ statusTitle(info.tone) }}</strong>
+              <span>{{ info.message }}</span>
+            </div>
+          }
+          @if (selectedSummary()) {
+            <app-button
+              type="button"
+              tone="neutral"
+              variant="outline"
+              (pressed)="runPreview()"
+              [disabled]="busy() || !selectedVersion()"
+            >
+              {{ loadingPreview() ? 'Executando prévia...' : 'Prévia' }}
+            </app-button>
+            @if (actions().pdf) {
+              <app-button
+                type="button"
+                tone="neutral"
+                variant="outline"
+                (pressed)="downloadPdf()"
+                [disabled]="busy() || !selectedVersion()"
+              >
+                {{ loadingPdf() ? 'Gerando PDF...' : 'PDF' }}
+              </app-button>
+            }
+            @if (actions().discard) {
+              <app-button
+                type="button"
+                tone="danger"
+                variant="outline"
+                (pressed)="discardSelected()"
+                [disabled]="busy()"
+              >
+                {{ busyAction() === 'discard' ? 'Descartando...' : 'Descartar' }}
+              </app-button>
+            }
+            @if (actions().reuse) {
+              <app-button
+                type="button"
+                tone="neutral"
+                variant="outline"
+                (pressed)="reuseSelected()"
+                [disabled]="busy()"
+              >
+                {{ busyAction() === 'reuse' ? 'Retomando...' : 'Usar como rascunho' }}
+              </app-button>
+            }
+            @if (actions().restore) {
+              <app-button
+                type="button"
+                tone="primary"
+                variant="solid"
+                (pressed)="restoreSelected()"
+                [disabled]="busy()"
+              >
+                {{ busyAction() === 'restore' ? 'Restaurando...' : 'Restaurar' }}
+              </app-button>
+            }
+            @if (actions().publish) {
+              <app-button
+                type="button"
+                tone="primary"
+                variant="solid"
+                (pressed)="publishSelected()"
+                [disabled]="!canPublishNow()"
+              >
+                {{ busyAction() === 'publish' ? 'Publicando...' : 'Publicar' }}
+              </app-button>
+            }
+          }
+        </div>
+      }
+    </div>
+  }
+</dialog>

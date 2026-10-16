@@ -7,7 +7,12 @@ import {
   extractAclFlag,
   normalizeCompareResponse,
   normalizeReportColumnsResponse,
+  normalizeReportVersion,
+  normalizeReportVersionSummaries,
   normalizeVariableOptions,
+  normalizeVersionDiscardResponse,
+  readNullableNumber,
+  readOptionalBoolean,
 } from './report.service.normalizers';
 
 export type ReportVariableType = 'string' | 'number' | 'date' | 'datetime' | 'boolean';
@@ -100,8 +105,66 @@ export type ReportDefinition = {
   archived: boolean;
   canView?: boolean;
   canRun?: boolean;
+  draft: boolean;
+  openDraftVersion: number | null;
   createdAt: number;
   updatedAt: number;
+};
+
+export type ReportVersionStatus =
+  'DRAFT' | 'PUBLISHED' | 'SUPERSEDED' | 'DISCARDED' | 'REPLACED_DRAFT';
+export type ReportVersionAuthorType = 'USER' | 'AI_TOKEN' | 'SYSTEM';
+
+export type ReportVersionSummary = {
+  versionNumber: number;
+  status: ReportVersionStatus;
+  name: string;
+  baseVersionNumber: number | null;
+  authorType: ReportVersionAuthorType;
+  authorName: string;
+  note: string | null;
+  hasJrxml: boolean;
+  createdAt: number;
+  updatedAt: number | null;
+  publishedAt: number | null;
+  publishedBy: string | null;
+  /** Contador de gravacoes do rascunho; publicar envia o valor visto para o backend recusar rascunho alterado. */
+  revision: number;
+};
+
+export type ReportVersion = {
+  reportId: string;
+  versionNumber: number;
+  status: ReportVersionStatus;
+  baseVersionNumber: number | null;
+  name: string;
+  description: string | null;
+  folderId: string | null;
+  sql: string;
+  secondSql: string | null;
+  comparisonKey: string | null;
+  variables: ReportVariableInput[];
+  jasperTemplateId: string | null;
+  jrxml: string | null;
+  authorType: ReportVersionAuthorType;
+  authorName: string;
+  note: string | null;
+  createdAt: number;
+  updatedAt: number | null;
+  publishedAt: number | null;
+  publishedBy: string | null;
+  /** Contador de gravacoes do rascunho; publicar envia o valor visto para o backend recusar rascunho alterado. */
+  revision: number;
+};
+
+export type ReportVersionRunRequest = {
+  params?: Record<string, unknown> | null;
+  page?: number;
+  size?: number;
+};
+
+export type ReportVersionDiscardResponse = {
+  reportDeleted: boolean;
 };
 
 export type ReportCreateInput = {
@@ -235,6 +298,58 @@ export type ReportConnectionTestResponse = {
   source?: ReportConnectionSource | string;
   message?: string;
   elapsedMs?: number;
+};
+
+export type AiToken = {
+  id: string;
+  name: string;
+  prefix: string;
+  createdBy: string;
+  createdAt: number;
+  expiresAt: number;
+  revokedAt: number | null;
+  lastUsedAt: number | null;
+  active: boolean;
+  expired: boolean;
+};
+
+export type AiTokenCreateInput = {
+  name: string;
+  validityDays?: number;
+};
+
+export type AiTokenCreated = {
+  id: string;
+  name: string;
+  token: string;
+  expiresAt: number;
+  warning: string;
+};
+
+export type AiApprovalStatus = 'PENDING' | 'APPROVED' | 'DENIED';
+
+export type AiApproval = {
+  id: string;
+  status: AiApprovalStatus;
+  sql: string;
+  motivo: string;
+  linhasPedidas: number;
+  linhasAprovadas: number | null;
+  custoEstimado: number | null;
+  token: string;
+  solicitadoPor: string;
+  decididoPor: string | null;
+  decididoEm: number | null;
+  nota: string | null;
+  expiraEm: number | null;
+  criadoEm: number;
+  vigente: boolean;
+};
+
+export type AiApprovalDecision = {
+  linhas?: number;
+  minutos?: number;
+  nota?: string | null;
 };
 
 @Injectable({ providedIn: 'root' })
@@ -456,6 +571,159 @@ export class ReportService {
     });
   }
 
+  listReportVersions(reportId: string): Observable<ReportVersionSummary[]> {
+    return this.http
+      .get<unknown>(this.versionsUrl(reportId))
+      .pipe(map((res) => normalizeReportVersionSummaries(res)));
+  }
+
+  getReportVersion(reportId: string, versionNumber: number): Observable<ReportVersion> {
+    return this.http
+      .get<unknown>(this.versionsUrl(reportId, versionNumber))
+      .pipe(map((res) => this.normalizeVersion(res)));
+  }
+
+  runReportVersion(
+    reportId: string,
+    versionNumber: number,
+    request?: ReportVersionRunRequest | null,
+  ): Observable<ReportRunResponse> {
+    const body: Record<string, unknown> = {};
+    if (request?.params && Object.keys(request.params).length) body['params'] = request.params;
+    if (request?.page !== undefined) body['page'] = request.page;
+    if (request?.size !== undefined) body['size'] = request.size;
+    return this.http.post<ReportRunResponse>(
+      `${this.versionsUrl(reportId, versionNumber)}/run`,
+      body,
+    );
+  }
+
+  generateReportVersionPdf(
+    reportId: string,
+    versionNumber: number,
+    params?: Record<string, unknown> | null,
+  ): Observable<Blob> {
+    const body: Record<string, unknown> = {};
+    if (params && Object.keys(params).length) body['params'] = params;
+    return this.http.post(`${this.versionsUrl(reportId, versionNumber)}/pdf`, body, {
+      responseType: 'blob',
+    });
+  }
+
+  /** `expectedRevision` e a revisao do conteudo revisado; o backend devolve 409 se o rascunho mudou. */
+  publishReportVersion(
+    reportId: string,
+    versionNumber: number,
+    expectedRevision: number,
+    note?: string | null,
+  ): Observable<ReportVersion> {
+    return this.http
+      .post<unknown>(`${this.versionsUrl(reportId, versionNumber)}/publish`, {
+        ...this.versionNoteBody(note),
+        expectedRevision,
+      })
+      .pipe(map((res) => this.normalizeVersion(res)));
+  }
+
+  discardReportVersion(
+    reportId: string,
+    versionNumber: number,
+  ): Observable<ReportVersionDiscardResponse> {
+    return this.http
+      .post<unknown>(`${this.versionsUrl(reportId, versionNumber)}/discard`, {})
+      .pipe(map((res) => normalizeVersionDiscardResponse(res)));
+  }
+
+  restoreReportVersion(
+    reportId: string,
+    versionNumber: number,
+    note?: string | null,
+  ): Observable<ReportVersion> {
+    return this.http
+      .post<unknown>(
+        `${this.versionsUrl(reportId, versionNumber)}/restore`,
+        this.versionNoteBody(note),
+      )
+      .pipe(map((res) => this.normalizeVersion(res)));
+  }
+
+  /** Cria um rascunho novo com o conteudo da versao n. Nao publica nada. */
+  reuseReportVersion(
+    reportId: string,
+    versionNumber: number,
+    note?: string | null,
+  ): Observable<ReportVersion> {
+    return this.http
+      .post<unknown>(
+        `${this.versionsUrl(reportId, versionNumber)}/reuse`,
+        this.versionNoteBody(note),
+      )
+      .pipe(map((res) => this.normalizeVersion(res)));
+  }
+
+  /** Base absoluta do backend (a mesma usada nas chamadas), para montar comandos externos. */
+  apiBaseUrl(): string {
+    const base = this.base.replace(/\/+$/, '');
+    try {
+      return new URL(base, window.location.origin).toString().replace(/\/+$/, '');
+    } catch {
+      return base;
+    }
+  }
+
+  listAiTokens(): Observable<AiToken[]> {
+    return this.http.get<AiToken[]>(`${this.base}/ai/tokens`);
+  }
+
+  createAiToken(input: AiTokenCreateInput): Observable<AiTokenCreated> {
+    const body: AiTokenCreateInput = { name: input.name.trim() };
+    if (input.validityDays !== undefined) body.validityDays = input.validityDays;
+    return this.http.post<AiTokenCreated>(`${this.base}/ai/tokens`, body);
+  }
+
+  revokeAiToken(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/ai/tokens/${encodeURIComponent(id)}`);
+  }
+
+  listAiApprovals(status?: AiApprovalStatus | null): Observable<AiApproval[]> {
+    const options = status ? { params: { status } } : {};
+    return this.http.get<AiApproval[]>(`${this.base}/ai-approvals`, options);
+  }
+
+  getAiApprovalsPendingCount(): Observable<number> {
+    return this.http
+      .get<{ pending?: number }>(`${this.base}/ai-approvals/pending-count`)
+      .pipe(map((res) => Number(res?.pending ?? 0) || 0));
+  }
+
+  approveAiApproval(id: string, decision: AiApprovalDecision): Observable<AiApproval> {
+    const body: Record<string, unknown> = {};
+    if (decision.linhas !== undefined) body['linhas'] = decision.linhas;
+    if (decision.minutos !== undefined) body['minutos'] = decision.minutos;
+    const nota = String(decision.nota ?? '').trim();
+    if (nota) body['nota'] = nota;
+    return this.http.post<AiApproval>(
+      `${this.base}/ai-approvals/${encodeURIComponent(id)}/approve`,
+      body,
+    );
+  }
+
+  denyAiApproval(id: string, nota?: string | null): Observable<AiApproval> {
+    const trimmed = String(nota ?? '').trim();
+    return this.http.post<AiApproval>(
+      `${this.base}/ai-approvals/${encodeURIComponent(id)}/deny`,
+      trimmed ? { nota: trimmed } : {},
+    );
+  }
+
+  downloadAiPackage(): Observable<Blob> {
+    return this.http.get(`${this.base}/ai/pacote`, { responseType: 'blob' });
+  }
+
+  getAiInstructions(): Observable<string> {
+    return this.http.get(`${this.base}/ai/instrucoes`, { responseType: 'text' });
+  }
+
   listFolderAcl(folderId: string): Observable<AccessControlRule[]> {
     return this.http
       .get<any>(`${this.adminBase}/report-folders/${encodeURIComponent(folderId)}/acl`)
@@ -585,9 +853,27 @@ export class ReportService {
       archived: Boolean(item?.archived),
       ...(canView === undefined ? {} : { canView }),
       ...(canRun === undefined ? {} : { canRun }),
+      draft: readOptionalBoolean(item?.draft) ?? false,
+      openDraftVersion: readNullableNumber(item?.openDraftVersion),
       createdAt: Number(item?.createdAt ?? item?.created_at ?? 0),
       updatedAt: Number(item?.updatedAt ?? item?.updated_at ?? 0),
     };
+  }
+
+  private versionsUrl(reportId: string, versionNumber?: number): string {
+    const base = `${this.base}/reports/${encodeURIComponent(reportId)}/versions`;
+    return versionNumber === undefined
+      ? base
+      : `${base}/${encodeURIComponent(String(versionNumber))}`;
+  }
+
+  private versionNoteBody(note?: string | null): Record<string, string> {
+    const trimmed = String(note ?? '').trim();
+    return trimmed ? { note: trimmed } : {};
+  }
+
+  private normalizeVersion(res: unknown): ReportVersion {
+    return normalizeReportVersion(res, (variable) => this.normalizeVariable(variable));
   }
 
   private normalizeTemplates(res: any): JasperTemplateResponse[] {

@@ -122,7 +122,19 @@
             [class.active]="selectedReportId === report.id"
             (click)="selectReport(report.id)"
           >
-            <span>{{ report.name }}</span>
+            <span class="min-w-0 flex-1">{{ report.name }}</span>
+            <span
+              *ngIf="report.draft || (manageMode && report.openDraftVersion != null)"
+              class="shrink-0 whitespace-nowrap rounded-full border border-[color-mix(in_srgb,#60a5fa_45%,transparent)] bg-[color-mix(in_srgb,#3b82f6_16%,transparent)] px-1.5 py-px text-[10px] font-bold tracking-[0.04em] text-[#60a5fa]"
+              [class.uppercase]="report.draft"
+              [title]="
+                report.draft
+                  ? 'Relatório criado como rascunho e nunca publicado'
+                  : 'Existe um rascunho aguardando publicação'
+              "
+            >
+              {{ report.draft ? 'Rascunho' : 'Rascunho v' + report.openDraftVersion + ' pendente' }}
+            </span>
             <span class="archived-badge archived-badge--leaf" *ngIf="report.archived"
               >Arquivado</span
             >
@@ -154,6 +166,10 @@
         <div class="title-row">
           <h2>{{ runResult?.name || selectedReport?.name || 'Relatorio' }}</h2>
           <div class="title-actions">
+            <app-reports-ai-toolbar
+              *ngIf="manageMode"
+              (statusMessage)="setStatusMessage($event.message, $event.autoClearMs)"
+            ></app-reports-ai-toolbar>
             <app-button
               *ngIf="sidebarCollapsed"
               type="button"
@@ -380,6 +396,16 @@
           [disabled]="!selectedReport"
         >
           <span class="btn-icon">✎</span> Editar
+        </app-button>
+        <app-button
+          *ngIf="canWriteReports"
+          type="button"
+          tone="neutral"
+          variant="outline"
+          (pressed)="openVersionsModal()"
+          [disabled]="!selectedReport"
+        >
+          Versões
         </app-button>
         <app-button
           *ngIf="canWriteReports"
@@ -1001,3 +1027,14 @@
   (deleteTemplate)="deleteTemplateFromManager()"
   (saveTemplate)="saveTemplateFromModal()"
 ></app-reports-template-manager-modal>
+
+@defer (when versionsModalOpen) {
+  <app-reports-versions-modal
+    *ngIf="manageMode && canWriteReports"
+    [open]="versionsModalOpen"
+    [report]="selectedReport"
+    [paramInputs]="versionsParamInputs"
+    (close)="closeVersionsModal()"
+    (changed)="onReportVersionsChanged($event)"
+  ></app-reports-versions-modal>
+}
