@@ -80,7 +80,9 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
 }
 
 .icon-btn:hover {
@@ -329,6 +331,23 @@ small {
   align-items: center;
 }
 
+.compare-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.preview-box {
+  display: grid;
+  gap: 4px;
+  border: 1px dashed var(--border-subtle);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: var(--bg-surface-alt);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
 .days-preset {
   display: inline-flex;
   gap: 8px;
@@ -486,6 +505,10 @@ button {
   }
 
   .tolerance-item {
+    grid-template-columns: 1fr;
+  }
+
+  .compare-grid {
     grid-template-columns: 1fr;
   }
 }

@@ -5,12 +5,16 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import {
+  buildComparisonPayload,
   EmailScheduleDialogComponent,
   EmailScheduleResult,
 } from './email-schedule-dialog';
 import { DbInspectorService, ApiEmailSchedule } from '../../services/db-inspector.service';
 import { AppButtonComponent } from '../shared/app-button/app-button.component';
-import { MultiSelectOption, ReportsMultiSelectComponent } from '../reports/controls/multi-select/reports-multi-select.component';
+import {
+  MultiSelectOption,
+  ReportsMultiSelectComponent,
+} from '../reports/controls/multi-select/reports-multi-select.component';
 
 type EmailSchedule = {
   id: string;
@@ -19,6 +23,12 @@ type EmailSchedule = {
   compareWithSap?: boolean;
   comparisonKey?: string;
   comparisonTolerances?: Record<string, number>;
+  comparisonTolerancePercents?: Record<string, number>;
+  comparisonColumns?: string[];
+  comparisonIgnoreColumns?: string[];
+  comparisonGroupBy?: string;
+  comparisonValueColumn?: string;
+  comparisonTopN?: number;
   sendOnlyIfDifferent?: boolean;
   comparisonTitle?: string;
   comparisonNote?: string;
@@ -87,7 +97,7 @@ export class EmailSchedulesComponent implements OnInit {
   constructor(
     private dialog: MatDialog,
     private snackBar: MatSnackBar,
-    private api: DbInspectorService
+    private api: DbInspectorService,
   ) {}
 
   ngOnInit(): void {
@@ -109,15 +119,15 @@ export class EmailSchedulesComponent implements OnInit {
     const filtered = !q
       ? this.schedules
       : this.schedules.filter((s) => {
-      return (
-        s.to.toLowerCase().includes(q) ||
-        s.cc.toLowerCase().includes(q) ||
-        (s.subject || '').toLowerCase().includes(q) ||
-        s.sql.toLowerCase().includes(q) ||
-        s.time.toLowerCase().includes(q) ||
-        this.formatDays(s.days).toLowerCase().includes(q)
-      );
-    });
+          return (
+            s.to.toLowerCase().includes(q) ||
+            s.cc.toLowerCase().includes(q) ||
+            (s.subject || '').toLowerCase().includes(q) ||
+            s.sql.toLowerCase().includes(q) ||
+            s.time.toLowerCase().includes(q) ||
+            this.formatDays(s.days).toLowerCase().includes(q)
+          );
+        });
 
     const dir = this.sortDirection === 'asc' ? 1 : -1;
     return [...filtered].sort((a, b) => {
@@ -155,15 +165,7 @@ export class EmailSchedulesComponent implements OnInit {
       this.api
         .createEmailSchedule({
           sql: res.sql,
-          secondSql: res.secondSql || undefined,
-          compareWithSap: res.compareWithSap,
-          comparisonKey: res.comparisonKey || undefined,
-          comparisonTolerances: Object.keys(res.comparisonTolerances || {}).length
-            ? res.comparisonTolerances
-            : undefined,
-          sendOnlyIfDifferent: res.sendOnlyIfDifferent,
-          comparisonTitle: res.comparisonTitle || undefined,
-          comparisonNote: res.comparisonNote || undefined,
+          ...buildComparisonPayload(res),
           to: res.to,
           cc: res.cc,
           subject: res.subject,
@@ -225,15 +227,7 @@ export class EmailSchedulesComponent implements OnInit {
       this.api
         .updateEmailSchedule(schedule.id, {
           sql: res.sql,
-          secondSql: res.secondSql || undefined,
-          compareWithSap: res.compareWithSap,
-          comparisonKey: res.comparisonKey || undefined,
-          comparisonTolerances: Object.keys(res.comparisonTolerances || {}).length
-            ? res.comparisonTolerances
-            : undefined,
-          sendOnlyIfDifferent: res.sendOnlyIfDifferent,
-          comparisonTitle: res.comparisonTitle || undefined,
-          comparisonNote: res.comparisonNote || undefined,
+          ...buildComparisonPayload(res),
           to: res.to,
           cc: res.cc,
           subject: res.subject,
@@ -281,49 +275,29 @@ export class EmailSchedulesComponent implements OnInit {
     });
   }
 
+  /**
+   * Dispara o proprio job do Quartz, e nao um envio remontado no frontend: assim a execucao
+   * manual usa exatamente a configuracao gravada no agendamento.
+   */
   sendNow(schedule: EmailSchedule) {
     if (this.sendingNowIds.has(schedule.id)) return;
     this.closeMenu();
+    if (!confirm('Executar este agendamento agora?')) return;
     this.sendingNowIds.add(schedule.id);
-    this.api
-      .sendEmail({
-        sql: schedule.sql,
-        secondSql: schedule.secondSql,
-        compareWithSap: schedule.compareWithSap,
-        comparisonKey: schedule.comparisonKey,
-        comparisonTolerances: schedule.comparisonTolerances,
-        sendOnlyIfDifferent: schedule.sendOnlyIfDifferent,
-        comparisonTitle: schedule.comparisonTitle,
-        comparisonNote: schedule.comparisonNote,
-        to: schedule.to,
-        cc: schedule.cc,
-        subject: schedule.subject || 'Envio manual de agendamento',
-        message: schedule.message,
-        reportId: schedule.reportId,
-        attachPdf: schedule.attachPdf,
-        pdfMode: schedule.pdfMode,
-        pdfTitle: schedule.pdfTitle,
-        pdfSubtitle: schedule.pdfSubtitle,
-        pdfIncludeSummary: schedule.pdfIncludeSummary,
-        pdfMaxRows: schedule.pdfMaxRows,
-        attachXlsx: schedule.attachXlsx,
-        asDict: true,
-        withDescription: true,
-      })
-      .subscribe({
-        next: (res) => {
-          this.sendingNowIds.delete(schedule.id);
-          if (res.status === 'skipped') {
-            this.snack('Envio ignorado (sem dados ou sem divergência).');
-            return;
-          }
-          this.snack(`Envio disparado para ${schedule.to}.`);
-        },
-        error: () => {
-          this.sendingNowIds.delete(schedule.id);
-          this.snack('Falha ao enviar agora.');
-        },
-      });
+    this.api.runEmailSchedule(schedule.id).subscribe({
+      next: () => {
+        this.sendingNowIds.delete(schedule.id);
+        this.snack(
+          schedule.sendOnlyIfDifferent
+            ? 'Execução disparada. O e-mail sai somente se houver divergência.'
+            : `Execução disparada para ${schedule.to}.`,
+        );
+      },
+      error: () => {
+        this.sendingNowIds.delete(schedule.id);
+        this.snack('Falha ao executar agendamento.');
+      },
+    });
   }
 
   remove(schedule: EmailSchedule) {
@@ -351,9 +325,11 @@ export class EmailSchedulesComponent implements OnInit {
     const normalized = (days || []).filter((d) => order.includes(d));
     if (!normalized.length) return '-';
     const weekdays = ['mon', 'tue', 'wed', 'thu', 'fri'];
-    const isWeekdays = weekdays.every((d) => normalized.includes(d)) && normalized.length === weekdays.length;
+    const isWeekdays =
+      weekdays.every((d) => normalized.includes(d)) && normalized.length === weekdays.length;
     if (isWeekdays) return 'Seg-Sex';
-    const isEveryday = order.every((d) => normalized.includes(d)) && normalized.length === order.length;
+    const isEveryday =
+      order.every((d) => normalized.includes(d)) && normalized.length === order.length;
     if (isEveryday) return 'Todos os dias';
     return this.formatDays(normalized);
   }
@@ -384,7 +360,10 @@ export class EmailSchedulesComponent implements OnInit {
     const parsedDate = this.parseScheduleDate(value);
     if (!parsedDate) return '-';
     const day = parsedDate.toLocaleDateString('pt-BR', { day: '2-digit' });
-    const month = parsedDate.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '').toLowerCase();
+    const month = parsedDate
+      .toLocaleDateString('pt-BR', { month: 'short' })
+      .replace('.', '')
+      .toLowerCase();
     const time = parsedDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     return `${day} ${month} ${time}`;
   }
@@ -428,6 +407,12 @@ export class EmailSchedulesComponent implements OnInit {
       compareWithSap: api.compareWithSap || false,
       comparisonKey: api.comparisonKey || '',
       comparisonTolerances: api.comparisonTolerances || {},
+      comparisonTolerancePercents: api.comparisonTolerancePercents || {},
+      comparisonColumns: api.comparisonColumns || [],
+      comparisonIgnoreColumns: api.comparisonIgnoreColumns || [],
+      comparisonGroupBy: api.comparisonGroupBy || '',
+      comparisonValueColumn: api.comparisonValueColumn || '',
+      comparisonTopN: Number.isFinite(Number(api.comparisonTopN)) ? Number(api.comparisonTopN) : 10,
       sendOnlyIfDifferent: api.sendOnlyIfDifferent !== false,
       comparisonTitle: api.comparisonTitle || '',
       comparisonNote: api.comparisonNote || '',
