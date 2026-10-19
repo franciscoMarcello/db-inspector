@@ -22,11 +22,35 @@ export class LoginComponent {
   private auth = inject(AuthService);
   private router = inject(Router);
 
+  readonly ssoEnabled = this.auth.ssoEnabled;
+  readonly localLoginEnabled = this.auth.localLoginEnabled;
+  readonly ssoError = this.auth.ssoError;
+  readonly configError = this.auth.configError;
+  ssoLoading = false;
+
   email = '';
   password = '';
   passwordVisible = false;
   loading = false;
   error = '';
+
+  loginWithSso() {
+    this.error = '';
+    this.ssoLoading = true;
+    this.auth.loginWithSso().catch(() => {
+      this.ssoLoading = false;
+      this.error = 'Nao foi possivel abrir o login do Keycloak. Tente novamente.';
+    });
+  }
+
+  reload() {
+    window.location.reload();
+  }
+
+  /** Sai da conta do Keycloak, para entrar com outra quando esta foi recusada. */
+  switchSsoAccount() {
+    this.auth.logout().subscribe();
+  }
 
   submit() {
     this.error = '';

@@ -25,6 +25,7 @@ export class AdminUsersComponent implements OnInit {
   private route = inject(ActivatedRoute);
   private auth = inject(AuthService);
 
+  readonly localLoginEnabled = this.auth.localLoginEnabled;
   loading = false;
   saving = false;
   error = '';
@@ -52,6 +53,7 @@ export class AdminUsersComponent implements OnInit {
     name: string;
     originalName: string;
     email: string;
+    sso: boolean;
     active: boolean;
     originalActive: boolean;
     roles: Set<string>;
@@ -271,15 +273,25 @@ export class AdminUsersComponent implements OnInit {
   }
 
   revokeRefreshTokensBulk() {
-    const users = this.users.filter((user) => this.selectedUserIds.has(user.id));
-    if (!users.length) return;
+    const selected = this.users.filter((user) => this.selectedUserIds.has(user.id));
+    if (!selected.length) return;
+    // Quem entra pelo Keycloak nao tem refresh token local; a sessao dele e encerrada no Keycloak.
+    const users = selected.filter((user) => !user.sso);
+    const skippedSso = selected.length - users.length;
+    const skippedNote = skippedSso
+      ? ` ${skippedSso} usuário(s) do Keycloak ignorado(s): encerre a sessão no console do Keycloak.`
+      : '';
+    if (!users.length) {
+      this.status = `Nenhum refresh token local para revogar.${skippedNote}`;
+      return;
+    }
     this.bulkUsersLoading = true;
     this.error = '';
     this.status = '';
     forkJoin(users.map((user) => this.api.revokeRefreshTokens(user.id))).subscribe({
       next: () => {
         this.bulkUsersLoading = false;
-        this.status = `Refresh tokens revogados para ${users.length} usuário(s).`;
+        this.status = `Refresh tokens revogados para ${users.length} usuário(s).${skippedNote}`;
         this.clearSelectedUsers();
       },
       error: (err) => {
@@ -295,8 +307,14 @@ export class AdminUsersComponent implements OnInit {
       this.error = 'Selecione um perfil para alteração em lote.';
       return;
     }
-    const users = this.users.filter((user) => this.selectedUserIds.has(user.id));
-    if (!users.length) return;
+    const selected = this.users.filter((user) => this.selectedUserIds.has(user.id));
+    if (!selected.length) return;
+    // Perfil de quem entra pelo Keycloak e atribuido no console do Keycloak.
+    const users = selected.filter((user) => !user.sso);
+    const skippedSso = selected.length - users.length;
+    const skippedNote = skippedSso
+      ? ` ${skippedSso} usuário(s) do Keycloak ignorado(s): atribua o perfil no console do Keycloak.`
+      : '';
     const requests: Observable<unknown>[] = [];
     for (const user of users) {
       const hasRole = (user.roles || []).some((r) => this.sameRoleName(r, role));
@@ -310,7 +328,7 @@ export class AdminUsersComponent implements OnInit {
       }
     }
     if (!requests.length) {
-      this.status = 'Nenhuma alteração de perfil necessária.';
+      this.status = `Nenhuma alteração de perfil necessária.${skippedNote}`;
       return;
     }
     this.bulkUsersLoading = true;
@@ -319,7 +337,7 @@ export class AdminUsersComponent implements OnInit {
     forkJoin(requests).subscribe({
       next: () => {
         this.bulkUsersLoading = false;
-        this.status = `Perfil "${role}" aplicado para ${users.length} usuário(s).`;
+        this.status = `Perfil "${role}" aplicado para ${users.length} usuário(s).${skippedNote}`;
         this.clearSelectedUsers();
         this.loadUsers();
       },
@@ -483,6 +501,7 @@ export class AdminUsersComponent implements OnInit {
       name: user.name,
       originalName: user.name,
       email: user.email,
+      sso: !!user.sso,
       active: user.active,
       originalActive: user.active,
       roles: new Set<string>(user.roles || []),
@@ -511,24 +530,28 @@ export class AdminUsersComponent implements OnInit {
 
     const actions: Observable<unknown>[] = [];
     const nextName = String(draft.name || '').trim();
-    if (!nextName) {
+    // O nome de quem entra pelo Keycloak vem de la e pode estar vazio; aqui so muda o status dele.
+    if (!draft.sso && !nextName) {
       this.error = 'Informe o nome do usuário.';
       return;
     }
-    if (nextName !== String(draft.originalName || '').trim()) {
+    if (!draft.sso && nextName !== String(draft.originalName || '').trim()) {
       actions.push(this.api.updateUserName(draft.id, { name: nextName }));
     }
     if (draft.active !== draft.originalActive) {
       actions.push(this.api.setUserActive(draft.id, draft.active));
     }
 
-    const nextRoles = draft.roles;
-    const currentRoles = draft.originalRoles;
-    for (const role of nextRoles) {
-      if (!currentRoles.has(role)) actions.push(this.api.addUserRole(draft.id, role));
-    }
-    for (const role of currentRoles) {
-      if (!nextRoles.has(role)) actions.push(this.api.removeUserRole(draft.id, role));
+    // Usuario do Keycloak: nome e perfis vem de la; aqui so ativar/desativar.
+    if (!draft.sso) {
+      const nextRoles = draft.roles;
+      const currentRoles = draft.originalRoles;
+      for (const role of nextRoles) {
+        if (!currentRoles.has(role)) actions.push(this.api.addUserRole(draft.id, role));
+      }
+      for (const role of currentRoles) {
+        if (!nextRoles.has(role)) actions.push(this.api.removeUserRole(draft.id, role));
+      }
     }
 
     if (!actions.length) {

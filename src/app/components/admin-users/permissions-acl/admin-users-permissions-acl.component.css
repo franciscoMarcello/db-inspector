@@ -118,10 +118,45 @@ input {
 .role-item__name {
   font-weight: 700;
   font-size: 15px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Nome em cima e a situacao no Keycloak embaixo: na mesma linha do contador o selo era cortado. */
+.role-item__main {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+  padding: 6px 0;
+}
+
+/* Na lista estreita o selo encolhe com reticencias; o texto inteiro fica na dica e no cabecalho. */
+.role-item__main .role-keycloak-chip {
+  display: block;
+  max-width: 100%;
+  line-height: 16px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.permissions-keycloak {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 6px 0 0;
+  color: var(--text-muted);
+  font-size: 12px;
 }
 
 .role-item__meta {
   display: inline-flex;
+  flex-shrink: 0;
   align-items: center;
   gap: 6px;
 }
@@ -153,6 +188,52 @@ input {
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+
+.role-keycloak-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  padding: 0 7px;
+  border-radius: 999px;
+  border: 1px solid;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.role-keycloak-chip--ok {
+  border-color: rgba(16, 185, 129, 0.5);
+  background: rgba(16, 185, 129, 0.12);
+  color: #065f46;
+}
+
+.role-keycloak-chip--manual,
+.role-keycloak-chip--unavailable {
+  border-color: rgba(100, 116, 139, 0.45);
+  background: rgba(100, 116, 139, 0.12);
+  color: #334155;
+}
+
+.role-keycloak-chip--missing {
+  border-color: rgba(245, 158, 11, 0.55);
+  background: rgba(245, 158, 11, 0.14);
+  color: #92400e;
+}
+
+:host-context(.dark-theme) .role-keycloak-chip--ok {
+  color: #a7f3d0;
+}
+
+:host-context(.dark-theme) .role-keycloak-chip--manual,
+:host-context(.dark-theme) .role-keycloak-chip--unavailable {
+  color: #cbd5e1;
+}
+
+:host-context(.dark-theme) .role-keycloak-chip--missing {
+  color: #fde68a;
 }
 
 .permissions-content {
