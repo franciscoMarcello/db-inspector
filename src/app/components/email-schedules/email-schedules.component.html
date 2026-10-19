@@ -8,8 +8,12 @@
       </p>
     </div>
     <div class="hero-actions">
-      <app-button tone="neutral" variant="outline" (pressed)="sendSimpleTest()">Enviar teste</app-button>
-      <app-button tone="primary" variant="solid" (pressed)="startNew()">Novo agendamento</app-button>
+      <app-button tone="neutral" variant="outline" (pressed)="sendSimpleTest()"
+        >Enviar teste</app-button
+      >
+      <app-button tone="primary" variant="solid" (pressed)="startNew()"
+        >Novo agendamento</app-button
+      >
     </div>
   </header>
 
@@ -76,8 +80,13 @@
       </div>
 
       <div class="card__title">
-        <div class="job-title" [attr.title]="s.subject || 'Sem nome'">{{ s.subject || 'Sem nome' }}</div>
-        <small class="meta-line__item" *ngIf="s.compareWithSap || s.attachPdf || s.attachXlsx || s.message">
+        <div class="job-title" [attr.title]="s.subject || 'Sem nome'">
+          {{ s.subject || 'Sem nome' }}
+        </div>
+        <small
+          class="meta-line__item"
+          *ngIf="s.compareWithSap || s.attachPdf || s.attachXlsx || s.message"
+        >
           <span *ngIf="s.compareWithSap">Comparação SAP</span>
           <span *ngIf="s.compareWithSap && s.sendOnlyIfDifferent"> • Só divergência</span>
           <span *ngIf="s.attachXlsx"> • XLSX</span>
@@ -87,8 +96,13 @@
       </div>
 
       <div class="card__actions">
-        <app-button tone="primary" variant="solid" (pressed)="sendNow(s)" [disabled]="isSendingNow(s.id)">
-          {{ isSendingNow(s.id) ? 'Enviando...' : 'Enviar agora' }}
+        <app-button
+          tone="primary"
+          variant="solid"
+          (pressed)="sendNow(s)"
+          [disabled]="isSendingNow(s.id)"
+        >
+          {{ isSendingNow(s.id) ? 'Executando...' : 'Executar agora' }}
         </app-button>
         <div class="menu-wrap">
           <button
@@ -101,7 +115,9 @@
           </button>
           <div class="card-menu" *ngIf="isMenuOpen(s.id)" (click)="$event.stopPropagation()">
             <button type="button" (click)="edit(s)">Editar</button>
-            <button type="button" (click)="toggleActive(s)">{{ s.active ? 'Pausar' : 'Ativar' }}</button>
+            <button type="button" (click)="toggleActive(s)">
+              {{ s.active ? 'Pausar' : 'Ativar' }}
+            </button>
             <button type="button" class="danger" (click)="remove(s)">Remover</button>
           </div>
         </div>

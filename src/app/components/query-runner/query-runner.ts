@@ -14,6 +14,7 @@ import { QueryParam, QueryParamsDialog } from '../query-params-dialog/query-para
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { Router } from '@angular/router';
 import {
+  buildComparisonPayload,
   EmailScheduleDialogComponent,
   EmailScheduleResult,
 } from '../email-schedules/email-schedule-dialog';
@@ -21,12 +22,12 @@ import { MatIconModule } from '@angular/material/icon';
 import { createXlsxBlob } from '../../utils/xlsx-export';
 import { AppButtonComponent } from '../shared/app-button/app-button.component';
 import { ResultTableComponent } from '../shared/result-table/result-table.component';
+import { buildVariablesMap, expandSqlVariables, stripSqlComments } from './query-runner.sql-utils';
 import {
-  buildVariablesMap,
-  expandSqlVariables,
-  stripSqlComments,
-} from './query-runner.sql-utils';
-import { QueryEditor, QueryRunnerEditorHost, QueryRunnerEditorLogic } from './query-runner.editor.logic';
+  QueryEditor,
+  QueryRunnerEditorHost,
+  QueryRunnerEditorLogic,
+} from './query-runner.editor.logic';
 import { QueryRunnerSnippetsHost, QueryRunnerSnippetsLogic } from './query-runner.snippets.logic';
 
 const STORAGE_KEY = 'dbi.query.state';
@@ -52,7 +53,8 @@ const REPORT_DRAFT_SQL_KEY = 'dbi.reports.pending_sql';
   styleUrls: ['./query-runner.css'],
 })
 export class QueryRunnerComponent
-  implements OnInit, OnDestroy, QueryRunnerEditorHost, QueryRunnerSnippetsHost {
+  implements OnInit, OnDestroy, QueryRunnerEditorHost, QueryRunnerSnippetsHost
+{
   readonly defaultPageSize = 200;
   readonly maxPageSize = 1000;
   readonly defaultRunAllDisplayLimit = 5000;
@@ -101,7 +103,7 @@ export class QueryRunnerComponent
     private snippetsStore: SnippetStorageService,
     private dialog: MatDialog,
     private router: Router,
-    private reportService: ReportService
+    private reportService: ReportService,
   ) {
     this.editorLogic = new QueryRunnerEditorLogic(this);
     this.snippetsLogic = new QueryRunnerSnippetsLogic(this, snippetsStore);
@@ -137,12 +139,21 @@ export class QueryRunnerComponent
       KeyCode: { Enter: number };
     };
     this.editor = editor;
-    this.editorLogic.onEditorInit(editor, monaco, () => this.loadState(), () => this.runPaged());
+    this.editorLogic.onEditorInit(
+      editor,
+      monaco,
+      () => this.loadState(),
+      () => this.runPaged(),
+    );
   }
 
-  private refreshSnippets() { this.snippetsLogic.refreshSnippets(); }
+  private refreshSnippets() {
+    this.snippetsLogic.refreshSnippets();
+  }
 
-  private recomputeFolders() { this.snippetsLogic.recomputeFolders(); }
+  private recomputeFolders() {
+    this.snippetsLogic.recomputeFolders();
+  }
 
   ngOnDestroy() {
     this.persistState();
@@ -157,9 +168,13 @@ export class QueryRunnerComponent
     this.updateVariableNamesFromQuery();
   }
 
-  renameSnippet(id: string) { this.snippetsLogic.renameSnippet(id); }
+  renameSnippet(id: string) {
+    this.snippetsLogic.renameSnippet(id);
+  }
 
-  deleteSnippet(id: string) { this.snippetsLogic.deleteSnippet(id); }
+  deleteSnippet(id: string) {
+    this.snippetsLogic.deleteSnippet(id);
+  }
 
   schedulePersist() {
     clearTimeout(this.saveTimer);
@@ -210,7 +225,7 @@ export class QueryRunnerComponent
     const proceed = confirm(
       `⚠ Pode retornar muitos registros e impactar o banco.\n\n` +
         `Deseja continuar em /query/all?\n` +
-        `A interface exibirá no máximo ${limit} linhas.`
+        `A interface exibirá no máximo ${limit} linhas.`,
     );
     if (!proceed) return;
     this.closeAllMenus();
@@ -280,10 +295,7 @@ export class QueryRunnerComponent
 
   get canGoNext(): boolean {
     return (
-      !this.loading &&
-      !this.usingAllMode &&
-      !!this.lastExecutedSql &&
-      this.rows.length >= this.size
+      !this.loading && !this.usingAllMode && !!this.lastExecutedSql && this.rows.length >= this.size
     );
   }
 
@@ -303,7 +315,7 @@ export class QueryRunnerComponent
         finalize(() => {
           this.loading = false;
           this.lastRunAt = new Date();
-        })
+        }),
       )
       .subscribe({
         next: (res) => {
@@ -311,15 +323,19 @@ export class QueryRunnerComponent
           const data = Array.isArray(res?.data)
             ? res.data
             : Array.isArray(res)
-            ? res
-            : Array.isArray(res?.rows)
-            ? res.rows
-            : [];
+              ? res
+              : Array.isArray(res?.rows)
+                ? res.rows
+                : [];
           this.rowCount = data.length;
           const maxRows = this.sanitizedRunAllDisplayLimit;
           const displayData = all && data.length > maxRows ? data.slice(0, maxRows) : data;
           this.allModeTruncated = all && data.length > maxRows;
-          if (displayData.length && typeof displayData[0] === 'object' && !Array.isArray(displayData[0])) {
+          if (
+            displayData.length &&
+            typeof displayData[0] === 'object' &&
+            !Array.isArray(displayData[0])
+          ) {
             this.displayedColumns = Object.keys(displayData[0]);
             this.rows = displayData;
           } else {
@@ -328,7 +344,7 @@ export class QueryRunnerComponent
           }
           if (this.allModeTruncated) {
             this.snack(
-              `Mostrando ${this.rows.length} de ${this.rowCount} linhas para manter a interface responsiva.`
+              `Mostrando ${this.rows.length} de ${this.rowCount} linhas para manter a interface responsiva.`,
             );
           }
         },
@@ -352,13 +368,25 @@ export class QueryRunnerComponent
         : 'Testando Agromobi com SELECT 1 AS ok...';
     this.connectionTestTone = 'neutral';
 
-    const request$: Observable<{ valid?: boolean; errors?: string[]; ok?: boolean; message?: string; elapsedMs?: number }> =
+    const request$: Observable<{
+      valid?: boolean;
+      errors?: string[];
+      ok?: boolean;
+      message?: string;
+      elapsedMs?: number;
+    }> =
       source === 'sap'
         ? this.reportService.testSapConnection()
         : this.reportService.testAgromobiConnection();
 
     request$.subscribe({
-      next: (res: { valid?: boolean; errors?: string[]; ok?: boolean; message?: string; elapsedMs?: number }) => {
+      next: (res: {
+        valid?: boolean;
+        errors?: string[];
+        ok?: boolean;
+        message?: string;
+        elapsedMs?: number;
+      }) => {
         if ('valid' in res && !res.valid) {
           this.connectionTestStatus = res.errors?.join(' ') || 'Falha ao validar conexão Agromobi.';
           this.connectionTestTone = 'error';
@@ -377,7 +405,10 @@ export class QueryRunnerComponent
       },
       error: (err: unknown) => {
         const label = source === 'sap' ? 'SAP HANA' : 'Agromobi';
-        this.connectionTestStatus = this.resolveConnectionTestError(err, `Falha ao testar conexão ${label}.`);
+        this.connectionTestStatus = this.resolveConnectionTestError(
+          err,
+          `Falha ao testar conexão ${label}.`,
+        );
         this.connectionTestTone = 'error';
         this.connectionTestLoadingSource = null;
       },
@@ -398,7 +429,10 @@ export class QueryRunnerComponent
           window as Window & {
             showSaveFilePicker: (opts: unknown) => Promise<{
               name: string;
-              createWritable: () => Promise<{ write: (data: Blob) => Promise<void>; close: () => Promise<void> }>;
+              createWritable: () => Promise<{
+                write: (data: Blob) => Promise<void>;
+                close: () => Promise<void>;
+              }>;
             }>;
           }
         ).showSaveFilePicker({
@@ -440,7 +474,10 @@ export class QueryRunnerComponent
         const handle = await (
           window as Window & {
             showSaveFilePicker: (opts: unknown) => Promise<{
-              createWritable: () => Promise<{ write: (data: Blob) => Promise<void>; close: () => Promise<void> }>;
+              createWritable: () => Promise<{
+                write: (data: Blob) => Promise<void>;
+                close: () => Promise<void>;
+              }>;
             }>;
           }
         ).showSaveFilePicker({
@@ -487,7 +524,7 @@ export class QueryRunnerComponent
     const d = new Date();
     const p = (n: number) => String(n).padStart(2, '0');
     return `${prefix}-${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(
-      d.getHours()
+      d.getHours(),
     )}${p(d.getMinutes())}${p(d.getSeconds())}.${ext}`;
   }
 
@@ -545,15 +582,7 @@ export class QueryRunnerComponent
       if (!result) return;
       const payload = {
         sql: result.sql,
-        secondSql: result.secondSql || undefined,
-        compareWithSap: result.compareWithSap,
-        comparisonKey: result.comparisonKey || undefined,
-        comparisonTolerances: Object.keys(result.comparisonTolerances || {}).length
-          ? result.comparisonTolerances
-          : undefined,
-        sendOnlyIfDifferent: result.sendOnlyIfDifferent,
-        comparisonTitle: result.comparisonTitle || undefined,
-        comparisonNote: result.comparisonNote || undefined,
+        ...buildComparisonPayload(result),
         to: result.to,
         cc: result.cc,
         subject: result.subject,
@@ -589,18 +618,26 @@ export class QueryRunnerComponent
       });
     });
   }
-  moveSnippetToFolder(id: string) { this.snippetsLogic.moveSnippetToFolder(id); }
+  moveSnippetToFolder(id: string) {
+    this.snippetsLogic.moveSnippetToFolder(id);
+  }
 
   folderLabel(folder: string | null): string {
     if (folder === null) return 'Todas as pastas';
     return folder ? folder : 'Sem pasta';
   }
 
-  selectFolder(folder: string | null) { this.snippetsLogic.selectFolder(folder); }
+  selectFolder(folder: string | null) {
+    this.snippetsLogic.selectFolder(folder);
+  }
 
-  createFolder() { this.snippetsLogic.createFolder(); }
+  createFolder() {
+    this.snippetsLogic.createFolder();
+  }
 
-  toggleSnippetsPanel() { this.snippetsLogic.toggleSnippetsPanel(); }
+  toggleSnippetsPanel() {
+    this.snippetsLogic.toggleSnippetsPanel();
+  }
 
   toggleExecuteMenu() {
     this.executeMenuOpen = !this.executeMenuOpen;
@@ -687,14 +724,18 @@ export class QueryRunnerComponent
     event.dataTransfer.effectAllowed = 'copy';
   }
 
-  onEditorDragOver(event: DragEvent) { this.editorLogic.onEditorDragOver(event); }
+  onEditorDragOver(event: DragEvent) {
+    this.editorLogic.onEditorDragOver(event);
+  }
 
   onEditorDrop(event: DragEvent) {
     this.editorLogic.onEditorDrop(event, this.editor);
     this.snack('Snippet inserido no editor.');
   }
 
-  onEditorDragLeave(event: DragEvent) { this.editorLogic.onEditorDragLeave(event); }
+  onEditorDragLeave(event: DragEvent) {
+    this.editorLogic.onEditorDragLeave(event);
+  }
 
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent) {
@@ -718,13 +759,17 @@ export class QueryRunnerComponent
     } catch {}
   }
 
-  shouldShowSnippet(sn: QuerySnippet): boolean { return this.snippetsLogic.shouldShowSnippet(sn); }
+  shouldShowSnippet(sn: QuerySnippet): boolean {
+    return this.snippetsLogic.shouldShowSnippet(sn);
+  }
 
   get filteredSnippets(): QuerySnippet[] {
     return this.snippets.filter((sn) => this.shouldShowSnippet(sn));
   }
 
-  folderCount(folder: string | null): number { return this.snippetsLogic.folderCount(folder); }
+  folderCount(folder: string | null): number {
+    return this.snippetsLogic.folderCount(folder);
+  }
 
   toggleSnippetMenu(event: MouseEvent, id: string) {
     event.preventDefault();
@@ -748,7 +793,9 @@ export class QueryRunnerComponent
     this.deleteSnippet(id);
   }
 
-  duplicateSnippet(id: string) { this.snippetsLogic.duplicateSnippet(id); }
+  duplicateSnippet(id: string) {
+    this.snippetsLogic.duplicateSnippet(id);
+  }
 
   snippetPreview(sn: QuerySnippet): string {
     const compactSql = (sn.sql || '').replace(/\s+/g, ' ').trim();
@@ -756,11 +803,17 @@ export class QueryRunnerComponent
     return `${sn.name}\n\n${preview}`;
   }
 
-  exportSnippets() { this.snippetsLogic.exportSnippets((prefix, ext) => this.makeFileName(prefix, ext)); }
+  exportSnippets() {
+    this.snippetsLogic.exportSnippets((prefix, ext) => this.makeFileName(prefix, ext));
+  }
 
-  importSnippets() { this.snippetsLogic.importSnippets(); }
+  importSnippets() {
+    this.snippetsLogic.importSnippets();
+  }
 
-  private updateVariableNamesFromQuery() { this.editorLogic.updateVariableNamesFromQuery(); }
+  private updateVariableNamesFromQuery() {
+    this.editorLogic.updateVariableNamesFromQuery();
+  }
 
   private buildVariablesMap(): Record<string, unknown> {
     return buildVariablesMap(this.variableNames, this.variablesRaw);

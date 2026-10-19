@@ -3,9 +3,12 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { DbInspectorService } from '../../services/db-inspector.service';
+import { ComparisonPreviewResponse, DbInspectorService } from '../../services/db-inspector.service';
 import { ReportService, ReportDefinition } from '../../services/report.service';
-import { MultiSelectOption, ReportsMultiSelectComponent } from '../reports/controls/multi-select/reports-multi-select.component';
+import {
+  MultiSelectOption,
+  ReportsMultiSelectComponent,
+} from '../reports/controls/multi-select/reports-multi-select.component';
 
 export interface EmailScheduleData {
   sql: string;
@@ -14,6 +17,12 @@ export interface EmailScheduleData {
   compareWithSap?: boolean;
   comparisonKey?: string;
   comparisonTolerances?: Record<string, number>;
+  comparisonTolerancePercents?: Record<string, number>;
+  comparisonColumns?: string[];
+  comparisonIgnoreColumns?: string[];
+  comparisonGroupBy?: string;
+  comparisonValueColumn?: string;
+  comparisonTopN?: number;
   sendOnlyIfDifferent?: boolean;
   comparisonTitle?: string;
   comparisonNote?: string;
@@ -39,6 +48,12 @@ export interface EmailScheduleResult {
   compareWithSap: boolean;
   comparisonKey: string;
   comparisonTolerances: Record<string, number>;
+  comparisonTolerancePercents: Record<string, number>;
+  comparisonColumns: string[];
+  comparisonIgnoreColumns: string[];
+  comparisonGroupBy: string;
+  comparisonValueColumn: string;
+  comparisonTopN: number;
   sendOnlyIfDifferent: boolean;
   comparisonTitle: string;
   comparisonNote: string;
@@ -63,6 +78,34 @@ type ToleranceEntry = {
   value: string;
 };
 
+/**
+ * Campos de comparacao no formato da API. Compartilhado pelos tres pontos que abrem o dialog
+ * (query runner, novo agendamento e edicao) para nao repetir o mapeamento.
+ */
+export function buildComparisonPayload(result: EmailScheduleResult) {
+  return {
+    secondSql: result.secondSql || undefined,
+    compareWithSap: result.compareWithSap,
+    comparisonKey: result.comparisonKey || undefined,
+    comparisonTolerances: Object.keys(result.comparisonTolerances || {}).length
+      ? result.comparisonTolerances
+      : undefined,
+    comparisonTolerancePercents: Object.keys(result.comparisonTolerancePercents || {}).length
+      ? result.comparisonTolerancePercents
+      : undefined,
+    comparisonColumns: result.comparisonColumns?.length ? result.comparisonColumns : undefined,
+    comparisonIgnoreColumns: result.comparisonIgnoreColumns?.length
+      ? result.comparisonIgnoreColumns
+      : undefined,
+    comparisonGroupBy: result.comparisonGroupBy || undefined,
+    comparisonValueColumn: result.comparisonValueColumn || undefined,
+    comparisonTopN: result.comparisonTopN,
+    sendOnlyIfDifferent: result.sendOnlyIfDifferent,
+    comparisonTitle: result.comparisonTitle || undefined,
+    comparisonNote: result.comparisonNote || undefined,
+  };
+}
+
 const DAYS = [
   { id: 'mon', label: 'Seg' },
   { id: 'tue', label: 'Ter' },
@@ -76,7 +119,13 @@ const DAYS = [
 @Component({
   selector: 'app-email-schedule-dialog',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatDialogModule, MatSnackBarModule, ReportsMultiSelectComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    MatDialogModule,
+    MatSnackBarModule,
+    ReportsMultiSelectComponent,
+  ],
   templateUrl: './email-schedule-dialog.html',
   styleUrls: ['./email-schedule-dialog.css'],
 })
@@ -85,6 +134,11 @@ export class EmailScheduleDialogComponent {
   secondSql = '';
   compareWithSap = false;
   comparisonKey = '';
+  comparisonColumnsText = '';
+  comparisonIgnoreColumnsText = '';
+  comparisonGroupBy = '';
+  comparisonValueColumn = '';
+  comparisonTopN = 10;
   sendOnlyIfDifferent = true;
   comparisonTitle = '';
   comparisonNote = '';
@@ -116,6 +170,8 @@ export class EmailScheduleDialogComponent {
     '{{apenas_sap}}',
     '{{linhas_diferentes}}',
     '{{linhas_correspondentes}}',
+    '{{valor_divergente}}',
+    '{{grupo_top}}',
     '{{data_execucao}}',
     '{{schedule_id}}',
   ];
@@ -128,16 +184,20 @@ export class EmailScheduleDialogComponent {
   readonly forceScheduleMode: boolean;
   readonly reports: ReportDefinition[] = [];
   tolerances: ToleranceEntry[] = [];
+  tolerancePercents: ToleranceEntry[] = [];
   compareError = '';
   pdfError = '';
   toleranceError = '';
+  previewing = false;
+  previewResult: ComparisonPreviewResponse | null = null;
+  previewError = '';
 
   constructor(
     @Inject(MAT_DIALOG_DATA) data: EmailScheduleData,
     private dialogRef: MatDialogRef<EmailScheduleDialogComponent, EmailScheduleResult>,
     private snackBar: MatSnackBar,
     private api: DbInspectorService,
-    private reportService: ReportService
+    private reportService: ReportService,
   ) {
     this.forceScheduleMode = Boolean(data?.forceSchedule);
     this.isEditMode = Boolean(data?.subject || data?.to || data?.cc || data?.days?.length);
@@ -145,6 +205,13 @@ export class EmailScheduleDialogComponent {
     this.secondSql = (data?.secondSql || '').trim();
     this.compareWithSap = Boolean(data?.compareWithSap);
     this.comparisonKey = data?.comparisonKey || '';
+    this.comparisonColumnsText = (data?.comparisonColumns || []).join(', ');
+    this.comparisonIgnoreColumnsText = (data?.comparisonIgnoreColumns || []).join(', ');
+    this.comparisonGroupBy = data?.comparisonGroupBy || '';
+    this.comparisonValueColumn = data?.comparisonValueColumn || '';
+    this.comparisonTopN = Number.isFinite(Number(data?.comparisonTopN))
+      ? Number(data?.comparisonTopN)
+      : 10;
     this.sendOnlyIfDifferent = data?.sendOnlyIfDifferent !== false;
     this.comparisonTitle = data?.comparisonTitle || '';
     this.comparisonNote = data?.comparisonNote || '';
@@ -170,6 +237,7 @@ export class EmailScheduleDialogComponent {
       this.scheduleEnabled = false;
     }
     this.tolerances = this.normalizeToleranceEntries(data?.comparisonTolerances);
+    this.tolerancePercents = this.normalizeToleranceEntries(data?.comparisonTolerancePercents);
     this.loadReports();
   }
 
@@ -186,14 +254,14 @@ export class EmailScheduleDialogComponent {
     const hasSchedule = this.forceScheduleMode || this.scheduleEnabled;
     return Boolean(
       this.sql.trim() &&
-        this.toChips.length &&
-        this.subject.trim() &&
-        (!hasSchedule || (this.time && this.days.size)) &&
-        !this.recipientError &&
-        !this.ccError &&
-        !this.compareError &&
-        !this.pdfError &&
-        !this.toleranceError
+      this.toChips.length &&
+      this.subject.trim() &&
+      (!hasSchedule || (this.time && this.days.size)) &&
+      !this.recipientError &&
+      !this.ccError &&
+      !this.compareError &&
+      !this.pdfError &&
+      !this.toleranceError,
     );
   }
 
@@ -216,7 +284,10 @@ export class EmailScheduleDialogComponent {
   }
 
   get sqlSnippet(): string {
-    const lines = this.sql.split('\n').map((line) => line.trim()).filter(Boolean);
+    const lines = this.sql
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean);
     if (!lines.length) return 'Sem SQL definido.';
     const first = lines[0];
     return first.length > 140 ? `${first.slice(0, 140)}...` : first;
@@ -225,7 +296,11 @@ export class EmailScheduleDialogComponent {
   get nextRunPreview(): string {
     const next = this.calculateNextRunDate();
     if (!next) return '-';
-    const date = next.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+    const date = next.toLocaleDateString('pt-BR', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    });
     const time = next.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     return `${date.replace('.', '')} às ${time}`;
   }
@@ -278,7 +353,9 @@ export class EmailScheduleDialogComponent {
       })
       .subscribe({
         next: () => {
-          this.snackBar.open(`Teste enviado para ${this.toChips.length} destinatário(s).`, 'OK', { duration: 2000 });
+          this.snackBar.open(`Teste enviado para ${this.toChips.length} destinatário(s).`, 'OK', {
+            duration: 2000,
+          });
         },
         error: () => {
           this.snackBar.open('Falha ao enviar teste.', 'OK', { duration: 2000 });
@@ -296,7 +373,13 @@ export class EmailScheduleDialogComponent {
       secondSql: this.secondSql.trim(),
       compareWithSap: this.compareWithSap,
       comparisonKey: this.comparisonKey.trim(),
-      comparisonTolerances: this.toToleranceRecord(),
+      comparisonTolerances: this.toToleranceRecord(this.tolerances),
+      comparisonTolerancePercents: this.toToleranceRecord(this.tolerancePercents),
+      comparisonColumns: this.parseColumnList(this.comparisonColumnsText),
+      comparisonIgnoreColumns: this.parseColumnList(this.comparisonIgnoreColumnsText),
+      comparisonGroupBy: this.comparisonGroupBy.trim(),
+      comparisonValueColumn: this.comparisonValueColumn.trim(),
+      comparisonTopN: Math.max(0, Number(this.comparisonTopN) || 0),
       sendOnlyIfDifferent: this.sendOnlyIfDifferent,
       comparisonTitle: this.comparisonTitle.trim(),
       comparisonNote: this.comparisonNote.trim(),
@@ -342,8 +425,53 @@ export class EmailScheduleDialogComponent {
     this.validateAdvancedFields();
   }
 
+  addTolerancePercent() {
+    this.tolerancePercents.push({ field: '', value: '' });
+  }
+
+  removeTolerancePercent(index: number) {
+    this.tolerancePercents.splice(index, 1);
+    this.validateAdvancedFields();
+  }
+
   onToleranceChange() {
     this.validateAdvancedFields();
+  }
+
+  previewComparison() {
+    this.flushPendingInputs();
+    this.validateAdvancedFields();
+    this.previewError = '';
+    this.previewResult = null;
+    if (!this.sql.trim() || !this.secondSql.trim()) {
+      this.previewError = 'Informe a consulta principal e o SQL SAP para testar.';
+      return;
+    }
+    if (this.compareError || this.toleranceError) return;
+
+    this.previewing = true;
+    this.api
+      .previewEmailComparison({
+        sql: this.sql.trim(),
+        secondSql: this.secondSql.trim(),
+        comparisonKey: this.comparisonKey.trim() || undefined,
+        comparisonTolerances: this.toToleranceRecord(this.tolerances),
+        comparisonTolerancePercents: this.toToleranceRecord(this.tolerancePercents),
+        comparisonColumns: this.parseColumnList(this.comparisonColumnsText),
+        comparisonIgnoreColumns: this.parseColumnList(this.comparisonIgnoreColumnsText),
+        comparisonGroupBy: this.comparisonGroupBy.trim() || undefined,
+        comparisonValueColumn: this.comparisonValueColumn.trim() || undefined,
+        sampleLimit: 20,
+      })
+      .subscribe({
+        next: (result) => {
+          this.previewResult = result;
+        },
+        error: (err) => {
+          this.previewError = err?.error?.message || 'Falha ao testar a comparação.';
+        },
+      })
+      .add(() => (this.previewing = false));
   }
 
   toggleSqlExpanded() {
@@ -489,7 +617,7 @@ export class EmailScheduleDialogComponent {
   }
 
   private normalizeToleranceEntries(
-    tolerances: Record<string, number> | undefined
+    tolerances: Record<string, number> | undefined,
   ): ToleranceEntry[] {
     if (!tolerances) return [];
     return Object.entries(tolerances).map(([field, value]) => ({
@@ -498,9 +626,9 @@ export class EmailScheduleDialogComponent {
     }));
   }
 
-  private toToleranceRecord(): Record<string, number> {
+  private toToleranceRecord(entries: ToleranceEntry[]): Record<string, number> {
     const out: Record<string, number> = {};
-    for (const tolerance of this.tolerances) {
+    for (const tolerance of entries) {
       const field = tolerance.field.trim();
       if (!field) continue;
       const numeric = Number(tolerance.value);
@@ -508,6 +636,13 @@ export class EmailScheduleDialogComponent {
       out[field] = numeric;
     }
     return out;
+  }
+
+  private parseColumnList(raw: string): string[] {
+    return raw
+      .split(',')
+      .map((column) => column.trim())
+      .filter((column) => column.length > 0);
   }
 
   private validateAdvancedFields() {
@@ -530,17 +665,37 @@ export class EmailScheduleDialogComponent {
       }
     }
 
-    const hasInvalidTolerance = this.tolerances.some((tolerance) => {
+    const isInvalidEntry = (tolerance: ToleranceEntry) => {
       const hasField = tolerance.field.trim().length > 0;
       const hasValue = tolerance.value.trim().length > 0;
       if (!hasField && !hasValue) return false;
       if (!hasField || !hasValue) return true;
       const numeric = Number(tolerance.value);
       return !Number.isFinite(numeric) || numeric < 0;
-    });
+    };
 
-    if (hasInvalidTolerance) {
+    if (this.tolerances.some(isInvalidEntry) || this.tolerancePercents.some(isInvalidEntry)) {
       this.toleranceError = 'Tolerâncias devem ter campo e valor numérico >= 0.';
+    }
+
+    if (this.compareWithSap && !this.compareError) {
+      if (
+        this.parseColumnList(this.comparisonColumnsText).length &&
+        this.parseColumnList(this.comparisonIgnoreColumnsText).length
+      ) {
+        this.compareError = 'Use colunas comparadas OU colunas ignoradas, não os dois.';
+      } else if (
+        [
+          ...this.parseColumnList(this.comparisonColumnsText),
+          ...this.parseColumnList(this.comparisonIgnoreColumnsText),
+          this.comparisonGroupBy.trim(),
+          this.comparisonValueColumn.trim(),
+        ].some((column) => column.includes(';'))
+      ) {
+        this.compareError = 'Nome de coluna não pode conter ";".';
+      } else if (!Number.isFinite(Number(this.comparisonTopN)) || Number(this.comparisonTopN) < 0) {
+        this.compareError = 'Informe um número de linhas de detalhe maior ou igual a zero.';
+      }
     }
   }
 }
