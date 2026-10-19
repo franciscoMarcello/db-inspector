@@ -24,7 +24,16 @@
           [class.system]="isSystemRole(role.name)"
           (click)="selectRole(role.name)"
         >
-          <span class="role-item__name">{{ role.name }}</span>
+          <span class="role-item__main">
+            <span class="role-item__name">{{ role.name }}</span>
+            <span
+              *ngIf="role.keycloak as status"
+              class="role-keycloak-chip"
+              [ngClass]="'role-keycloak-chip--' + keycloakChip(status).tone"
+              [title]="keycloakChip(status).title"
+              >{{ keycloakChip(status).label }}</span
+            >
+          </span>
           <span class="role-item__meta">
             <span class="perm-chip">{{ rolePermissionCount(role) }}</span>
             <span class="role-system-chip" *ngIf="isSystemRole(role.name)">sistema</span>
@@ -40,6 +49,14 @@
           <h3 class="permissions-title">Permissões do perfil: {{ selectedRoleName || '-' }}</h3>
           <p class="permissions-subtitle" *ngIf="selectedRoleName">
             {{ selectedRolePermissionSummary() }}
+          </p>
+          <p class="permissions-keycloak" *ngIf="selectedRole()?.keycloak as status">
+            <span
+              class="role-keycloak-chip"
+              [ngClass]="'role-keycloak-chip--' + keycloakChip(status).tone"
+              >{{ keycloakChip(status).label }}</span
+            >
+            <span>{{ keycloakChip(status).title }}</span>
           </p>
         </div>
         <div class="table-actions" *ngIf="selectedRoleName">

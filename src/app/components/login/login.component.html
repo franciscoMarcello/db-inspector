@@ -1,9 +1,59 @@
 <div class="login-page">
   <mat-card class="login-card">
     <h2>Entrar</h2>
-    <p class="muted">Use seu e-mail e senha para acessar o AgroReport.</p>
+    <p class="muted" *ngIf="ssoEnabled()">
+      Use sua conta corporativa (SSO) para acessar o AgroReport.
+    </p>
+    <p class="muted" *ngIf="!ssoEnabled()">Use seu e-mail e senha para acessar o AgroReport.</p>
 
-    <form (ngSubmit)="submit()">
+    <ng-container *ngIf="configError()">
+      <p class="error">
+        Nao foi possivel falar com o servidor para saber como entrar. Se o login abaixo for
+        recusado, tente de novo.
+      </p>
+      <app-button
+        class="full"
+        type="button"
+        tone="neutral"
+        variant="outline"
+        [fullWidth]="true"
+        (pressed)="reload()"
+      >
+        Tentar de novo
+      </app-button>
+    </ng-container>
+
+    <ng-container *ngIf="ssoEnabled()">
+      <p class="error" *ngIf="ssoError()">{{ ssoError() }}</p>
+
+      <app-button
+        class="full login-submit"
+        type="button"
+        tone="primary"
+        variant="solid"
+        [fullWidth]="true"
+        [disabled]="ssoLoading"
+        (pressed)="loginWithSso()"
+      >
+        {{ ssoLoading ? 'Abrindo login...' : 'Entrar com SSO' }}
+      </app-button>
+
+      <app-button
+        *ngIf="ssoError()"
+        class="full"
+        type="button"
+        tone="neutral"
+        variant="outline"
+        [fullWidth]="true"
+        (pressed)="switchSsoAccount()"
+      >
+        Entrar com outra conta
+      </app-button>
+
+      <p class="muted login-divider" *ngIf="localLoginEnabled()">ou com e-mail e senha</p>
+    </ng-container>
+
+    <form *ngIf="localLoginEnabled()" (ngSubmit)="submit()">
       <mat-form-field appearance="outline" class="full">
         <mat-label>E-mail</mat-label>
         <input matInput type="email" [(ngModel)]="email" name="email" autocomplete="username" />
@@ -31,10 +81,18 @@
 
       <p class="error" *ngIf="error">{{ error }}</p>
 
-      <app-button class="full login-submit" type="submit" tone="primary" variant="solid" [fullWidth]="true" [disabled]="loading">
+      <app-button
+        class="full login-submit"
+        type="submit"
+        [tone]="ssoEnabled() ? 'neutral' : 'primary'"
+        [variant]="ssoEnabled() ? 'outline' : 'solid'"
+        [fullWidth]="true"
+        [disabled]="loading"
+      >
         {{ loading ? 'Entrando...' : 'Entrar' }}
       </app-button>
-
     </form>
+
+    <p class="error" *ngIf="error && !localLoginEnabled()">{{ error }}</p>
   </mat-card>
 </div>

@@ -4,7 +4,12 @@ import { FormsModule } from '@angular/forms';
 import { Observable, forkJoin, of } from 'rxjs';
 import { AppButtonComponent } from '../../shared/app-button/app-button.component';
 import { MultiSelectOption, ReportsMultiSelectComponent } from '../../reports/controls/multi-select/reports-multi-select.component';
-import { AdminRole, AdminUserService, PermissionCatalogItem } from '../../../services/admin-user.service';
+import {
+  AdminRole,
+  AdminUserService,
+  KeycloakRoleStatus,
+  PermissionCatalogItem,
+} from '../../../services/admin-user.service';
 import {
   AccessControlRule,
   AccessControlRuleInput,
@@ -407,6 +412,49 @@ export class AdminUsersPermissionsAclComponent implements OnInit {
     return `${this.selectedRolePermissionDraft.size} de ${this.permissionsCatalog.length} permissões ativas`;
   }
 
+  keycloakChip(status: KeycloakRoleStatus): { label: string; tone: string; title: string } {
+    switch (status) {
+      case 'SYNCED':
+        return {
+          label: 'keycloak',
+          tone: 'ok',
+          title: 'Role criada no Keycloak (client agroreports). Atribua o perfil às pessoas no console.',
+        };
+      case 'MANUAL':
+        return {
+          label: 'keycloak manual',
+          tone: 'manual',
+          title: 'A role existe no Keycloak, mas foi criada à mão no console: esta tela não a renomeia nem exclui.',
+        };
+      case 'MISSING':
+        return {
+          label: 'falta no keycloak',
+          tone: 'missing',
+          title:
+            'Sem role no Keycloak: ninguém recebe este perfil pelo SSO. Salve o perfil para criá-la; se o nome tiver espaço ou acento, renomeie.',
+        };
+      default:
+        return {
+          label: 'keycloak indisponível',
+          tone: 'unavailable',
+          title: 'O Keycloak não respondeu agora. Atualize a tela em instantes.',
+        };
+    }
+  }
+
+  private keycloakSaveNote(saved: AdminRole): string {
+    switch (saved.keycloak) {
+      case 'SYNCED':
+        return ' Role sincronizada no Keycloak (client agroreports).';
+      case 'MANUAL':
+        return ' A role no Keycloak foi criada à mão no console.';
+      case 'MISSING':
+        return ' Atenção: o nome não serve de role no Keycloak (espaço ou acento); renomeie o perfil.';
+      default:
+        return '';
+    }
+  }
+
   rolePermissionCount(role: AdminRole): number {
     return Array.isArray(role?.permissions) ? role.permissions.length : 0;
   }
@@ -510,11 +558,8 @@ export class AdminUsersPermissionsAclComponent implements OnInit {
         this.roleEditorOpen = false;
         this.rolePermissionFilter = '';
         this.selectedRoleName = saved.name;
-        this.setStatus(
-          this.roleEditorMode === 'create'
-            ? `Perfil "${saved.name}" criado.`
-            : `Perfil "${saved.name}" atualizado.`
-        );
+        const action = this.roleEditorMode === 'create' ? 'criado' : 'atualizado';
+        this.setStatus(`Perfil "${saved.name}" ${action}.${this.keycloakSaveNote(saved)}`);
         this.loadPermissionData();
       },
       error: (err) => {
@@ -527,13 +572,17 @@ export class AdminUsersPermissionsAclComponent implements OnInit {
   deleteRole(roleName: string) {
     if (this.isSystemRole(roleName)) return;
     if (!confirm(`Excluir perfil "${roleName}"?`)) return;
+    const syncedInKeycloak =
+      this.roles.find((role) => this.sameRoleName(role.name, roleName))?.keycloak === 'SYNCED';
     this.api.deleteRole(roleName).subscribe({
       next: () => {
         if (this.sameRoleName(this.selectedRoleName, roleName)) {
           this.selectedRoleName = '';
           this.roleAclTree = [];
         }
-        this.setStatus(`Perfil "${roleName}" excluído.`);
+        this.setStatus(
+          `Perfil "${roleName}" excluído.${syncedInKeycloak ? ' A role também foi excluída do Keycloak.' : ''}`
+        );
         this.loadPermissionData();
       },
       error: (err) => {
