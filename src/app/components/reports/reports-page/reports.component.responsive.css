@@ -17,9 +17,7 @@
     min-height: 520px;
   }
 
-  .card,
-  .tree-header,
-  .folder-create {
+  .card {
     padding: 10px;
   }
 

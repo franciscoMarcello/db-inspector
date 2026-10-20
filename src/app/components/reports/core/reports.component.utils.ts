@@ -669,3 +669,18 @@ function parseSingleVariableValue(
 
   return { value: raw };
 }
+
+const RAW_LABEL_RE = /^[a-z0-9]+([_.-][a-z0-9]+)+$/;
+
+export function formatVariableLabel(key: string, label?: string | null): string {
+  const custom = (label ?? '').trim();
+  const customIsRaw = RAW_LABEL_RE.test(custom);
+  if (custom && custom !== key && !customIsRaw) return custom;
+  const source = customIsRaw ? custom : key;
+  const words = source
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/[_\-.]+/g, ' ')
+    .trim()
+    .toLowerCase();
+  return words ? words.charAt(0).toUpperCase() + words.slice(1) : key;
+}

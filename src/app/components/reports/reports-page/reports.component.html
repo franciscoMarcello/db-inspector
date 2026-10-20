@@ -2,79 +2,70 @@
   class="reports-shell"
   [class.sidebar-collapsed]="sidebarCollapsed"
   [class.analysis-mode]="analysisMode"
-  (click)="closeExportMenu()"
 >
   <aside class="tree-panel" *ngIf="!sidebarCollapsed">
-    <div class="tree-header">
-      <div class="tree-header__row">
-        <h3>Visualizador de Relatorios</h3>
-        <app-button
+    <div class="tree-head">
+      <div class="tree-search">
+        <mat-icon class="tree-search__icon" aria-hidden="true">search</mat-icon>
+        <input
+          class="ui-input tree-search__input"
+          type="text"
+          [(ngModel)]="treeFilter"
+          [ngModelOptions]="{ standalone: true }"
+          (keydown.escape)="clearTreeFilter()"
+          placeholder="Buscar relatório"
+          aria-label="Buscar relatório ou pasta"
+        />
+        <button
+          *ngIf="treeFilter"
           type="button"
-          class="icon-btn"
-          tone="neutral"
-          variant="outline"
-          size="sm"
-          (pressed)="toggleSidebar()"
+          class="tree-search__clear"
+          aria-label="Limpar busca"
+          (click)="clearTreeFilter()"
         >
-          ◀
-        </app-button>
+          <mat-icon aria-hidden="true">close</mat-icon>
+        </button>
       </div>
-      <p>{{ manageMode ? 'Gestão de pastas e consultas' : 'Pastas e consultas' }}</p>
-    </div>
-
-    <div class="folder-create" *ngIf="manageMode">
       <app-button
         type="button"
-        tone="primary"
-        variant="solid"
-        [fullWidth]="true"
-        (pressed)="openFolderManager()"
-      >
-        Gerenciar pastas
-      </app-button>
-      <app-button
-        type="button"
+        class="icon-btn"
         tone="neutral"
-        variant="outline"
-        [fullWidth]="true"
-        (pressed)="openTemplateManager()"
-      >
-        Gerenciar templates PDF
-      </app-button>
-    </div>
-
-    <div class="tree-filter">
-      <input
-        class="ui-input"
-        type="text"
-        [(ngModel)]="treeFilter"
-        [ngModelOptions]="{ standalone: true }"
-        placeholder="Filtrar relatório ou pasta"
-      />
-      <app-button
-        *ngIf="treeFilter"
-        type="button"
-        class="tree-clear-filter"
-        tone="neutral"
-        variant="outline"
-        [fullWidth]="true"
-        (pressed)="clearTreeFilter()"
-      >
-        Limpar filtro
-      </app-button>
-      <app-button
-        type="button"
-        class="tree-toggle-all"
-        tone="neutral"
-        variant="outline"
-        [fullWidth]="true"
+        variant="ghost"
+        size="sm"
+        [icon]="allFilteredFoldersExpanded ? 'unfold_less' : 'unfold_more'"
+        [ariaLabel]="allFilteredFoldersExpanded ? 'Recolher tudo' : 'Expandir tudo'"
         (pressed)="toggleAllFoldersExpanded()"
+      ></app-button>
+      <button
+        *ngIf="manageMode"
+        type="button"
+        class="tree-icon-btn"
+        [matMenuTriggerFor]="treeAdminMenu"
+        aria-label="Opções de gestão"
+        title="Gerenciar pastas e templates"
       >
-        <span class="tree-toggle-all__icon" aria-hidden="true">{{
-          allFilteredFoldersExpanded ? '⤡' : '⤢'
-        }}</span>
-        {{ allFilteredFoldersExpanded ? 'Recolher tudo' : 'Expandir tudo' }}
-      </app-button>
+        <mat-icon aria-hidden="true">settings</mat-icon>
+      </button>
+      <app-button
+        type="button"
+        class="icon-btn"
+        tone="neutral"
+        variant="ghost"
+        size="sm"
+        icon="chevron_left"
+        ariaLabel="Ocultar pastas"
+        (pressed)="toggleSidebar()"
+      ></app-button>
+      <mat-menu #treeAdminMenu="matMenu" class="reports-actions-menu">
+        <button mat-menu-item type="button" (click)="openFolderManager()">
+          <mat-icon aria-hidden="true">folder</mat-icon>
+          <span>Gerenciar pastas</span>
+        </button>
+        <button mat-menu-item type="button" (click)="openTemplateManager()">
+          <mat-icon aria-hidden="true">picture_as_pdf</mat-icon>
+          <span>Templates PDF</span>
+        </button>
+      </mat-menu>
     </div>
 
     <div class="tree-list">
@@ -82,47 +73,57 @@
         <div class="folder-row">
           <button
             type="button"
+            class="folder-toggle"
+            [attr.aria-expanded]="folder.expanded || hasTreeFilter"
+            [attr.aria-controls]="'tree-folder-' + folder.id"
+            [attr.aria-label]="(folder.expanded ? 'Recolher ' : 'Expandir ') + folder.name"
+            (click)="toggleFolder(folder.id)"
+          >
+            <mat-icon
+              class="folder-chevron"
+              [class.expanded]="folder.expanded || hasTreeFilter"
+              aria-hidden="true"
+              >chevron_right</mat-icon
+            >
+          </button>
+          <button
+            type="button"
             class="folder-btn"
             [class.archived]="folder.archived"
             [class.active]="selectedFolderId === folder.id"
             (click)="selectFolder(folder)"
           >
-            <span
-              class="arrow mini"
-              [class.expanded]="folder.expanded"
-              (click)="$event.stopPropagation(); toggleFolder(folder.id)"
-            >
-              ▸
-            </span>
-            <span class="folder-name">{{ folder.name }}</span>
+            <span class="folder-name" [title]="folder.name">{{ folder.name }}</span>
             <span class="archived-badge" *ngIf="folder.archived">Arquivado</span>
             <span class="folder-count">{{ reportCountByFolder(folder) }}</span>
           </button>
-          <app-button
+          <button
             *ngIf="manageMode"
             type="button"
             class="folder-plus"
-            tone="neutral"
-            variant="outline"
-            size="sm"
-            (pressed)="openCreateReportForFolder(folder, $event)"
+            (click)="openCreateReportForFolder(folder, $event)"
             title="Novo relatório nesta pasta"
-            aria-label="Novo relatório nesta pasta"
+            [attr.aria-label]="'Novo relatório em ' + folder.name"
           >
-            ＋
-          </app-button>
+            <mat-icon aria-hidden="true">add</mat-icon>
+          </button>
         </div>
 
-        <div class="tree-reports" *ngIf="folder.expanded || hasTreeFilter">
+        <div
+          class="tree-reports"
+          [id]="'tree-folder-' + folder.id"
+          *ngIf="folder.expanded || hasTreeFilter"
+        >
           <button
             type="button"
             class="report-leaf"
             *ngFor="let report of filteredReportsByFolder(folder)"
             [class.archived]="report.archived"
             [class.active]="selectedReportId === report.id"
+            [attr.aria-current]="selectedReportId === report.id ? 'true' : null"
             (click)="selectReport(report.id)"
           >
-            <span class="min-w-0 flex-1">{{ report.name }}</span>
+            <span class="min-w-0 flex-1 truncate" [title]="report.name">{{ report.name }}</span>
             <span
               *ngIf="report.draft || (manageMode && report.openDraftVersion != null)"
               class="shrink-0 whitespace-nowrap rounded-full border border-[color-mix(in_srgb,#60a5fa_45%,transparent)] bg-[color-mix(in_srgb,#3b82f6_16%,transparent)] px-1.5 py-px text-[10px] font-bold tracking-[0.04em] text-[#60a5fa]"
@@ -162,57 +163,71 @@
 
   <main class="content-panel">
     <section class="card ui-card ui-section filters" *ngIf="!analysisMode || !compareResult">
-      <div class="title">
-        <div class="title-row">
-          <h2>{{ runResult?.name || selectedReport?.name || 'Relatorio' }}</h2>
-          <div class="title-actions">
-            <app-reports-ai-toolbar
-              *ngIf="manageMode"
-              (statusMessage)="setStatusMessage($event.message, $event.autoClearMs)"
-            ></app-reports-ai-toolbar>
-            <app-button
-              *ngIf="sidebarCollapsed"
-              type="button"
-              class="show-sidebar-btn"
-              tone="neutral"
-              variant="outline"
-              size="sm"
-              (pressed)="toggleSidebar()"
-            >
-              ▶ Mostrar pastas
-            </app-button>
+      <header class="flex flex-wrap items-start justify-between gap-3">
+        <div class="flex min-w-0 items-start gap-2">
+          <app-button
+            *ngIf="sidebarCollapsed"
+            type="button"
+            class="icon-btn"
+            tone="neutral"
+            variant="outline"
+            size="sm"
+            icon="chevron_right"
+            ariaLabel="Mostrar pastas"
+            (pressed)="toggleSidebar()"
+          ></app-button>
+          <div class="title min-w-0">
+            <div class="text-xs text-[var(--text-muted)]" *ngIf="selectedFolder">
+              {{ selectedFolder.name }} /
+            </div>
+            <h2>{{ runResult?.name || selectedReport?.name || 'Selecione um relatório' }}</h2>
+            <p *ngIf="selectedReport?.description">{{ selectedReport?.description }}</p>
+            <p *ngIf="!selectedReport">Selecione um relatório na árvore.</p>
           </div>
         </div>
-        <p>{{ selectedReport?.description || 'Selecione um relatorio na arvore.' }}</p>
-      </div>
+        <div class="flex shrink-0 items-center gap-2">
+          <app-reports-ai-toolbar
+            *ngIf="manageMode"
+            (statusMessage)="setStatusMessage($event.message, $event.autoClearMs)"
+          ></app-reports-ai-toolbar>
+          <button
+            #actionsTrigger="matMenuTrigger"
+            type="button"
+            class="inline-flex min-h-9 items-center justify-center rounded-[10px] border border-solid border-[var(--border-subtle)] bg-[var(--bg-surface-alt)] text-[var(--text-primary)] hover:bg-[color-mix(in_srgb,var(--bg-surface-alt)_76%,var(--chip-bg-active))] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--chip-bg-active)] disabled:cursor-not-allowed disabled:opacity-[0.55] w-9"
+            [matMenuTriggerFor]="actionsMenu"
+            aria-label="Mais ações"
+            [disabled]="!manageMode && !hasResultRows && !canExportPdf"
+            [attr.aria-busy]="loadingExcel || loadingPdf ? 'true' : null"
+          >
+            <span
+              *ngIf="loadingExcel || loadingPdf; else moreIcon"
+              class="result-loading-spinner"
+              aria-hidden="true"
+            ></span>
+            <ng-template #moreIcon><mat-icon aria-hidden="true">more_horiz</mat-icon></ng-template>
+          </button>
+        </div>
+      </header>
 
-      <div class="vars-panel" *ngIf="selectedReportVariables.length">
-        <div class="vars-title">Parâmetros da consulta</div>
-        <div class="vars-group" *ngIf="primaryReportVariables.length">
-          <div class="vars-group__title">Filtros principais</div>
-          <div class="vars-grid">
-            <ng-container *ngFor="let v of primaryReportVariables">
-              <ng-container
-                *ngTemplateOutlet="variableField; context: { $implicit: v }"
-              ></ng-container>
-            </ng-container>
-          </div>
-        </div>
-        <div class="vars-group" *ngIf="additionalReportVariables.length">
-          <div class="vars-group__title">Filtros adicionais</div>
-          <div class="vars-grid">
-            <ng-container *ngFor="let v of additionalReportVariables">
-              <ng-container
-                *ngTemplateOutlet="variableField; context: { $implicit: v }"
-              ></ng-container>
-            </ng-container>
-          </div>
-        </div>
+      <div class="filters-row mt-3 flex flex-wrap items-end gap-x-3 gap-y-2" *ngIf="selectedReport">
+        <ng-container *ngFor="let v of orderedReportVariables">
+          <ng-container *ngTemplateOutlet="variableField; context: { $implicit: v }"></ng-container>
+        </ng-container>
+        <app-button
+          type="button"
+          tone="primary"
+          variant="solid"
+          icon="play_arrow"
+          (pressed)="applyFilters()"
+          [disabled]="!canRunReport"
+        >
+          {{ loadingRun ? 'Executando...' : 'Executar' }}
+        </app-button>
       </div>
 
       <ng-template #variableField let-v>
         <label class="var-field">
-          <span>{{ v.label || v.key }} <em *ngIf="v.required">*</em></span>
+          <span>{{ variableLabel(v) }} <em *ngIf="v.required">*</em></span>
           <ng-container *ngIf="hasVariableOptions(v); else freeInput">
             <ng-container *ngIf="!v.multiple; else multipleOptionsSelect">
               <div class="var-autocomplete-wrap">
@@ -319,6 +334,7 @@
                   class="ui-input"
                   *ngSwitchCase="'number'"
                   type="number"
+                  [placeholder]="v.required ? '' : 'Opcional'"
                   [(ngModel)]="variableInputs[v.key]"
                   [ngModelOptions]="{ standalone: true }"
                   (ngModelChange)="onVariableInputChanged()"
@@ -335,6 +351,7 @@
                   class="ui-input"
                   *ngSwitchDefault
                   type="text"
+                  [placeholder]="v.required ? '' : 'Opcional'"
                   [(ngModel)]="variableInputs[v.key]"
                   [ngModelOptions]="{ standalone: true }"
                   (ngModelChange)="onVariableInputChanged()"
@@ -347,187 +364,158 @@
 
       <p class="params-error" *ngIf="paramsError">{{ paramsError }}</p>
 
-      <app-reports-compare-tolerances
-        *ngIf="selectedReport?.secondSql"
-        [rows]="compareToleranceRows"
-        [availableColumns]="availableComparisonColumns"
-        [error]="compareToleranceError"
-        (rowsChange)="onCompareToleranceRowsChange($event)"
-      ></app-reports-compare-tolerances>
-
-      <div class="actions" *ngIf="manageMode">
-        <app-button
-          type="button"
-          tone="primary"
-          variant="solid"
-          (pressed)="applyFilters()"
-          [disabled]="!canRunReport"
-        >
-          <span class="btn-icon">▶</span> {{ loadingRun ? 'Executando...' : 'Executar' }}
-        </app-button>
+      <div class="mt-2 -ml-2.5 flex flex-wrap items-center gap-1" *ngIf="selectedReport">
         <app-button
           *ngIf="selectedReport?.secondSql"
+          class="row-btn"
           type="button"
           tone="neutral"
-          variant="outline"
+          variant="ghost"
+          size="sm"
+          icon="compare_arrows"
           (pressed)="compareSelectedReport()"
           [disabled]="loadingCompare || !canRunReport"
         >
           {{ loadingCompare ? 'Comparando...' : 'Comparar SAP' }}
         </app-button>
-        <app-button type="button" tone="neutral" variant="ghost" (pressed)="clearAllFilters()">
-          Limpar filtros
-        </app-button>
+        <span *ngIf="selectedReport?.secondSql" class="text-[var(--text-muted)]" aria-hidden="true">·</span>
         <app-button
-          *ngIf="canWriteReports"
+          class="row-btn"
           type="button"
           tone="neutral"
-          variant="outline"
-          (pressed)="openCreateReportModal()"
+          variant="ghost"
+          size="sm"
+          icon="filter_alt_off"
+          (pressed)="clearAllFilters()"
         >
-          <span class="btn-icon">＋</span> Novo relatorio
+          Limpar
         </app-button>
-        <app-button
-          *ngIf="canWriteReports"
-          type="button"
-          tone="primary"
-          variant="solid"
-          (pressed)="openEditReportModal()"
-          [disabled]="!selectedReport"
-        >
-          <span class="btn-icon">✎</span> Editar
-        </app-button>
-        <app-button
-          *ngIf="canWriteReports"
-          type="button"
-          tone="neutral"
-          variant="outline"
-          (pressed)="openVersionsModal()"
-          [disabled]="!selectedReport"
-        >
-          Versões
-        </app-button>
-        <app-button
-          *ngIf="canWriteReports"
-          type="button"
-          class="action-archive"
-          tone="neutral"
-          variant="outline"
-          (pressed)="archiveSelectedReport()"
-          [disabled]="!selectedReport || !!selectedReport.archived"
-        >
-          <span class="btn-icon">🗂</span> Arquivar
-        </app-button>
-        <app-button
-          *ngIf="canWriteReports"
-          type="button"
-          class="action-unarchive"
-          tone="neutral"
-          variant="outline"
-          (pressed)="unarchiveSelectedReport()"
-          [disabled]="!selectedReport || !selectedReport.archived"
-        >
-          <span class="btn-icon">↺</span> Desarquivar
-        </app-button>
-        <div class="export-menu-wrap" (click)="$event.stopPropagation()">
-          <app-button
+        <ng-container *ngIf="selectedReport?.secondSql">
+          <span class="text-[var(--text-muted)]" aria-hidden="true">·</span>
+          <button
             type="button"
-            class="action-export"
-            tone="neutral"
-            variant="outline"
-            (pressed)="toggleExportMenu($event)"
-            [disabled]="!hasResultRows && !canExportPdf"
+            class="inline-flex min-h-8 items-center justify-center gap-1.5 rounded-[10px] border border-solid border-transparent bg-transparent px-2.5 text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[rgba(148,163,184,0.16)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--chip-bg-active)]"
+            [attr.aria-expanded]="advancedOpen()"
+            aria-controls="reports-advanced-panel"
+            (click)="toggleAdvanced()"
           >
-            <span class="btn-icon">⤓</span> Exportar ▾
-          </app-button>
-          <div class="export-menu" *ngIf="exportMenuOpen">
-            <button
-              type="button"
-              (click)="exportExcel()"
-              [disabled]="!hasResultRows || loadingExcel"
-            >
-              {{ loadingExcel ? 'Gerando Excel...' : 'Excel (.xlsx)' }}
-            </button>
-            <button
-              *ngIf="canExportPdf"
-              type="button"
-              (click)="exportPdf()"
-              [disabled]="loadingPdf || !hasRequiredParamsForRun"
-            >
-              {{ loadingPdf ? 'Gerando PDF...' : 'PDF' }}
-            </button>
-          </div>
-        </div>
+            {{ advancedOpen() ? '−' : '+' }} Avançado{{
+              activeToleranceCount ? ' (' + activeToleranceCount + ')' : ''
+            }}
+          </button>
+        </ng-container>
       </div>
 
-      <div class="actions" *ngIf="!manageMode">
-        <app-button
+      <div id="reports-advanced-panel" class="mt-2" *ngIf="selectedReport?.secondSql && advancedOpen()">
+        <app-reports-compare-tolerances
+          [rows]="compareToleranceRows"
+          [availableColumns]="availableComparisonColumns"
+          [error]="compareToleranceError"
+          (rowsChange)="onCompareToleranceRowsChange($event)"
+        ></app-reports-compare-tolerances>
+      </div>
+
+      <mat-menu #actionsMenu="matMenu" class="reports-actions-menu" xPosition="before">
+        <button
+          mat-menu-item
           type="button"
-          tone="primary"
-          variant="solid"
-          (pressed)="applyFilters()"
-          [disabled]="!canRunReport"
+          (click)="exportExcel()"
+          [disabled]="!hasResultRows || loadingExcel"
         >
-          <span class="btn-icon">▶</span> {{ loadingRun ? 'Executando...' : 'Executar' }}
-        </app-button>
-        <app-button
-          *ngIf="selectedReport?.secondSql"
+          <mat-icon aria-hidden="true">grid_on</mat-icon>
+          <span>{{ loadingExcel ? 'Gerando Excel...' : 'Exportar Excel (.xlsx)' }}</span>
+        </button>
+        <button
+          *ngIf="canExportPdf"
+          mat-menu-item
           type="button"
-          tone="neutral"
-          variant="outline"
-          (pressed)="compareSelectedReport()"
-          [disabled]="loadingCompare || !canRunReport"
+          (click)="exportPdf()"
+          [disabled]="loadingPdf || !hasRequiredParamsForRun"
         >
-          {{ loadingCompare ? 'Comparando...' : 'Comparar SAP' }}
-        </app-button>
-        <app-button type="button" tone="neutral" variant="ghost" (pressed)="clearAllFilters()">
-          Limpar filtros
-        </app-button>
-        <div class="export-menu-wrap" (click)="$event.stopPropagation()">
-          <app-button
+          <mat-icon aria-hidden="true">picture_as_pdf</mat-icon>
+          <span>{{ loadingPdf ? 'Gerando PDF...' : 'Exportar PDF' }}</span>
+        </button>
+        <ng-container *ngIf="manageMode && canWriteReports">
+          <div role="separator" class="my-1 h-px bg-[var(--border-subtle)]"></div>
+          <button
+            mat-menu-item
             type="button"
-            class="action-export"
-            tone="neutral"
-            variant="outline"
-            (pressed)="toggleExportMenu($event)"
-            [disabled]="!hasResultRows && !canExportPdf"
+            (click)="openEditReportModal()"
+            [disabled]="!selectedReport"
           >
-            <span class="btn-icon">⤓</span> Exportar ▾
-          </app-button>
-          <div class="export-menu" *ngIf="exportMenuOpen">
-            <button
-              type="button"
-              (click)="exportExcel()"
-              [disabled]="!hasResultRows || loadingExcel"
-            >
-              {{ loadingExcel ? 'Gerando Excel...' : 'Excel (.xlsx)' }}
-            </button>
-            <button
-              *ngIf="canExportPdf"
-              type="button"
-              (click)="exportPdf()"
-              [disabled]="loadingPdf || !hasRequiredParamsForRun"
-            >
-              {{ loadingPdf ? 'Gerando PDF...' : 'PDF' }}
-            </button>
-          </div>
-        </div>
+            <mat-icon aria-hidden="true">edit</mat-icon>
+            <span>Editar relatório</span>
+          </button>
+          <button
+            mat-menu-item
+            type="button"
+            (click)="openVersionsModal()"
+            [disabled]="!selectedReport"
+          >
+            <mat-icon aria-hidden="true">history</mat-icon>
+            <span>Versões</span>
+          </button>
+          <button
+            *ngIf="!selectedReport?.archived"
+            mat-menu-item
+            type="button"
+            (click)="archiveSelectedReport()"
+            [disabled]="!selectedReport"
+          >
+            <mat-icon aria-hidden="true">archive</mat-icon>
+            <span>Arquivar</span>
+          </button>
+          <button
+            *ngIf="selectedReport?.archived"
+            mat-menu-item
+            type="button"
+            (click)="unarchiveSelectedReport()"
+          >
+            <mat-icon aria-hidden="true">unarchive</mat-icon>
+            <span>Desarquivar</span>
+          </button>
+          <div role="separator" class="my-1 h-px bg-[var(--border-subtle)]"></div>
+          <button mat-menu-item type="button" (click)="openCreateReportModal()">
+            <mat-icon aria-hidden="true">add</mat-icon>
+            <span>Novo relatório</span>
+          </button>
+        </ng-container>
+      </mat-menu>
+
+      <div
+        *ngIf="!runResult && !compareResult"
+        class="mt-3 flex items-center justify-center gap-2 border-t border-[var(--border-subtle)] py-6 text-center text-[13px] text-[var(--text-muted)]"
+        aria-live="polite"
+      >
+        <ng-container *ngIf="loadingRun || loadingCompare; else idleHint">
+          <span class="result-loading-spinner" aria-hidden="true"></span>
+          <span>{{ loadingCompare ? 'Comparando com SAP...' : 'Executando relatório...' }}</span>
+        </ng-container>
+        <ng-template #idleHint>
+          <span *ngIf="!selectedReport">Selecione um relatório na árvore para começar.</span>
+          <span *ngIf="selectedReport && selectedReportVariables.length"
+            >Preencha os filtros e clique em <b>Executar</b> para ver os dados.</span
+          >
+          <span *ngIf="selectedReport && !selectedReportVariables.length"
+            >Clique em <b>Executar</b> para ver os dados.</span
+          >
+        </ng-template>
       </div>
     </section>
 
     <section class="card ui-card ui-section table-card" *ngIf="runResult as result">
       <div class="table-meta">
         <span class="metric-chip"
-          >🧾 <strong>{{ result.meta.rowCount }}</strong> linhas</span
+          ><strong>{{ result.meta.rowCount }}</strong> linhas</span
         >
         <span class="metric-chip" *ngIf="displayedRows.length !== result.meta.rowCount"
-          >📄 exibindo <strong>{{ displayedRows.length }}</strong></span
+          >exibindo <strong>{{ displayedRows.length }}</strong></span
         >
         <span class="metric-chip"
-          >📦 lote <strong>{{ result.meta.size || 500 }}</strong></span
+          >lote <strong>{{ result.meta.size || 500 }}</strong></span
         >
         <span class="metric-chip" *ngIf="result.meta.elapsedMs"
-          >⚡ <strong>{{ result.meta.elapsedMs }} ms</strong></span
+          ><strong>{{ result.meta.elapsedMs }} ms</strong></span
         >
       </div>
       <div class="table-wrap">
@@ -572,9 +560,6 @@
       </div>
     </section>
 
-    <ng-container *ngIf="!runResult && !compareResult">
-      <ng-container *ngTemplateOutlet="emptyState"></ng-container>
-    </ng-container>
 
     <section
       class="card ui-card ui-section table-card compare-card"
@@ -939,20 +924,6 @@
   </main>
 </div>
 
-<ng-template #emptyState>
-  <section class="card table-card">
-    <div class="result-loading-empty" *ngIf="loadingRun; else noResultYet">
-      <span class="result-loading-spinner" aria-hidden="true"></span>
-      <span>Executando relatório...</span>
-    </div>
-    <ng-template #noResultYet>
-      <div class="result-empty-state">
-        <strong>🔍 Nenhum resultado ainda.</strong>
-        <p>Ajuste os filtros e clique em <b>Executar</b> para carregar os dados.</p>
-      </div>
-    </ng-template>
-  </section>
-</ng-template>
 
 <section class="card status-card" *ngIf="statusMessage || runResult?.meta">
   <div class="status-line" [ngClass]="statusToneClass" *ngIf="statusMessage">

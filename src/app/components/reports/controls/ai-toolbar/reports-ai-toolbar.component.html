@@ -1,53 +1,57 @@
 @if (isAdmin()) {
-  <div
-    class="flex flex-wrap items-center justify-end gap-2"
-    role="group"
-    aria-label="Recursos de IA"
+  <button
+    type="button"
+    class="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-[10px] border border-solid border-[var(--border-subtle)] bg-[var(--bg-surface-alt)] px-3 text-sm font-semibold text-[var(--text-primary)] hover:bg-[color-mix(in_srgb,var(--bg-surface-alt)_76%,var(--chip-bg-active))] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--chip-bg-active)]"
+    [matMenuTriggerFor]="aiMenu"
+    [attr.aria-label]="
+      pendingCount() > 0
+        ? 'Recursos de IA: ' + pendingCount() + ' pedidos aguardando decisão'
+        : 'Recursos de IA'
+    "
+    [attr.aria-busy]="downloadingPackage() ? 'true' : null"
   >
+    @if (downloadingPackage()) {
+      <span
+        class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
+        aria-hidden="true"
+      ></span>
+    } @else {
+      <mat-icon class="!h-[18px] !w-[18px] !text-[18px]" aria-hidden="true">smart_toy</mat-icon>
+    }
+    <span>IA</span>
+    @if (pendingCount() > 0) {
+      <span
+        class="inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--chip-bg-active)] px-1 text-[10px] font-bold text-white"
+        aria-hidden="true"
+        >{{ pendingCount() }}</span
+      >
+    }
+  </button>
+
+  <mat-menu #aiMenu="matMenu" class="reports-actions-menu" xPosition="before">
     <!-- Sempre visivel para admin: com zero pendentes ainda da para consultar o historico. -->
-    <app-button
+    <button mat-menu-item type="button" (click)="openApprovals()">
+      <mat-icon aria-hidden="true">fact_check</mat-icon>
+      <span>{{ pendingCount() > 0 ? 'Pedidos da IA (' + pendingCount() + ')' : 'Pedidos da IA' }}</span>
+    </button>
+    <button mat-menu-item type="button" (click)="manualOpen.set(true)">
+      <mat-icon aria-hidden="true">menu_book</mat-icon>
+      <span>Manual</span>
+    </button>
+    <button mat-menu-item type="button" (click)="tokensOpen.set(true)">
+      <mat-icon aria-hidden="true">key</mat-icon>
+      <span>Tokens para IA</span>
+    </button>
+    <button
+      mat-menu-item
       type="button"
-      [tone]="pendingCount() > 0 ? 'primary' : 'neutral'"
-      [variant]="pendingCount() > 0 ? 'solid' : 'outline'"
-      size="sm"
-      [ariaLabel]="
-        pendingCount() > 0
-          ? 'Pedidos da IA: ' + pendingCount() + ' aguardando decisão'
-          : 'Pedidos da IA: nenhum aguardando decisão'
-      "
-      (pressed)="openApprovals()"
-    >
-      {{ pendingCount() > 0 ? 'Pedidos da IA (' + pendingCount() + ')' : 'Pedidos da IA' }}
-    </app-button>
-    <app-button
-      type="button"
-      tone="neutral"
-      variant="outline"
-      size="sm"
-      (pressed)="manualOpen.set(true)"
-    >
-      Manual
-    </app-button>
-    <app-button
-      type="button"
-      tone="neutral"
-      variant="outline"
-      size="sm"
-      (pressed)="tokensOpen.set(true)"
-    >
-      Tokens para IA
-    </app-button>
-    <app-button
-      type="button"
-      tone="neutral"
-      variant="outline"
-      size="sm"
-      (pressed)="downloadPackage()"
+      (click)="downloadPackage()"
       [disabled]="downloadingPackage()"
     >
-      {{ downloadingPackage() ? 'Baixando...' : 'Instruções para IA' }}
-    </app-button>
-  </div>
+      <mat-icon aria-hidden="true">download</mat-icon>
+      <span>{{ downloadingPackage() ? 'Baixando...' : 'Instruções para IA' }}</span>
+    </button>
+  </mat-menu>
 
   <!-- Modais carregados sob demanda: so entram no bundle quando abertos pela primeira vez. -->
   @defer (when manualOpen()) {
