@@ -174,6 +174,34 @@ describe('ReportsComponent - layout compacto', () => {
     expect(root.textContent?.toLowerCase()).not.toContain('filtros adicionais');
   });
 
+  it('coloca o Executar na linha de filtros e nao no cabecalho', () => {
+    mount({ manage: false, canWrite: false });
+    seed();
+
+    expect(root.querySelector('.filters-row app-button[tone="primary"]')).not.toBeNull();
+    expect(root.querySelector('header app-button[tone="primary"]')).toBeNull();
+  });
+
+  it('marca filtros de texto opcionais com o placeholder Opcional', () => {
+    mount({ manage: false, canWrite: false });
+    seed({
+      variables: [
+        {
+          key: 'item',
+          label: 'item',
+          type: 'string',
+          required: false,
+          multiple: false,
+          defaultValue: null,
+          orderIndex: 0,
+        },
+      ],
+    });
+
+    const input = root.querySelector<HTMLInputElement>('.filters-row input[type="text"]');
+    expect(input?.placeholder).toBe('Opcional');
+  });
+
   it('so pede para selecionar um relatorio quando nada esta selecionado', () => {
     mount({ manage: false, canWrite: false });
     seed();

@@ -480,3 +480,16 @@
 :host ::ng-deep app-button.icon-btn .app-btn__label:empty {
   display: none;
 }
+
+.filters-row .var-field {
+  flex: 0 1 220px;
+  min-width: 180px;
+}
+
+:host ::ng-deep app-button.icon-btn .app-btn__icon,
+:host ::ng-deep app-button.row-btn .app-btn__icon {
+  width: 18px !important;
+  height: 18px !important;
+  font-size: 18px !important;
+  flex: none;
+}

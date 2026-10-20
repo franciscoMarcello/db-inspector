@@ -13,8 +13,8 @@
           [(ngModel)]="treeFilter"
           [ngModelOptions]="{ standalone: true }"
           (keydown.escape)="clearTreeFilter()"
-          placeholder="Filtrar relatório ou pasta"
-          aria-label="Filtrar relatório ou pasta"
+          placeholder="Buscar relatório"
+          aria-label="Buscar relatório ou pasta"
         />
         <button
           *ngIf="treeFilter"
@@ -190,16 +190,6 @@
             *ngIf="manageMode"
             (statusMessage)="setStatusMessage($event.message, $event.autoClearMs)"
           ></app-reports-ai-toolbar>
-          <app-button
-            type="button"
-            tone="primary"
-            variant="solid"
-            icon="play_arrow"
-            (pressed)="applyFilters()"
-            [disabled]="!canRunReport"
-          >
-            {{ loadingRun ? 'Executando...' : 'Executar' }}
-          </app-button>
           <button
             #actionsTrigger="matMenuTrigger"
             type="button"
@@ -219,12 +209,21 @@
         </div>
       </header>
 
-      <div class="mt-3 grid gap-x-3 gap-y-2 [grid-template-columns:repeat(auto-fill,minmax(200px,1fr))]" *ngIf="selectedReportVariables.length">
+      <div class="filters-row mt-3 flex flex-wrap items-end gap-x-3 gap-y-2" *ngIf="selectedReport">
         <ng-container *ngFor="let v of orderedReportVariables">
           <ng-container *ngTemplateOutlet="variableField; context: { $implicit: v }"></ng-container>
         </ng-container>
+        <app-button
+          type="button"
+          tone="primary"
+          variant="solid"
+          icon="play_arrow"
+          (pressed)="applyFilters()"
+          [disabled]="!canRunReport"
+        >
+          {{ loadingRun ? 'Executando...' : 'Executar' }}
+        </app-button>
       </div>
-
 
       <ng-template #variableField let-v>
         <label class="var-field">
@@ -335,6 +334,7 @@
                   class="ui-input"
                   *ngSwitchCase="'number'"
                   type="number"
+                  [placeholder]="v.required ? '' : 'Opcional'"
                   [(ngModel)]="variableInputs[v.key]"
                   [ngModelOptions]="{ standalone: true }"
                   (ngModelChange)="onVariableInputChanged()"
@@ -351,6 +351,7 @@
                   class="ui-input"
                   *ngSwitchDefault
                   type="text"
+                  [placeholder]="v.required ? '' : 'Opcional'"
                   [(ngModel)]="variableInputs[v.key]"
                   [ngModelOptions]="{ standalone: true }"
                   (ngModelChange)="onVariableInputChanged()"
@@ -363,9 +364,10 @@
 
       <p class="params-error" *ngIf="paramsError">{{ paramsError }}</p>
 
-      <div class="mt-2 flex flex-wrap items-center gap-1" *ngIf="selectedReport">
+      <div class="mt-2 -ml-2.5 flex flex-wrap items-center gap-1" *ngIf="selectedReport">
         <app-button
           *ngIf="selectedReport?.secondSql"
+          class="row-btn"
           type="button"
           tone="neutral"
           variant="ghost"
@@ -378,6 +380,7 @@
         </app-button>
         <span *ngIf="selectedReport?.secondSql" class="text-[var(--text-muted)]" aria-hidden="true">·</span>
         <app-button
+          class="row-btn"
           type="button"
           tone="neutral"
           variant="ghost"
