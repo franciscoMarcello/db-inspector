@@ -9,13 +9,19 @@ export type AdminUser = {
   email: string;
   active: boolean;
   roles: string[];
+  /** Entra pelo Keycloak: nome, senha e perfis sao geridos la. */
+  sso?: boolean;
   createdAt: number;
   updatedAt: number;
 };
 
+/** O perfil como role do client de login no Keycloak (null com a sincronizacao desligada). */
+export type KeycloakRoleStatus = 'SYNCED' | 'MANUAL' | 'MISSING' | 'UNAVAILABLE';
+
 export type AdminRole = {
   name: string;
   permissions: string[];
+  keycloak?: KeycloakRoleStatus | null;
 };
 
 export type CreateAdminUserInput = {

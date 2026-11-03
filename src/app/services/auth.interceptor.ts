@@ -4,8 +4,10 @@ import { Router } from '@angular/router';
 import { AuthService } from './auth.service';
 import { catchError, switchMap, throwError } from 'rxjs';
 
+// /config tambem vai sem token: um token velho guardado faria o backend responder 401 e o front nao
+// descobriria que deve entrar pelo Keycloak.
 function isAuthLoginOrRefresh(url: string): boolean {
-  return /\/api\/auth\/(login|refresh)\b/i.test(url);
+  return /\/api\/auth\/(login|refresh|config)\b/i.test(url);
 }
 
 function isApiPath(url: string): boolean {
@@ -51,7 +53,7 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
         httpErr?.status !== 401 ||
         retried ||
         isAuthLoginOrRefresh(req.url) ||
-        !auth.getRefreshToken()
+        !auth.canRefresh()
       ) {
         return throwError(() => error);
       }

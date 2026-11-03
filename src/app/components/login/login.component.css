@@ -45,6 +45,17 @@ form {
   width: 100%;
 }
 
+.login-card > app-button + app-button,
+.login-card > .error + app-button {
+  display: block;
+  margin-top: 10px;
+}
+
+.login-divider {
+  margin: 14px 0 10px;
+  text-align: center;
+}
+
 :host ::ng-deep app-button.login-submit .app-btn {
   min-height: 42px;
   border-radius: 999px;
