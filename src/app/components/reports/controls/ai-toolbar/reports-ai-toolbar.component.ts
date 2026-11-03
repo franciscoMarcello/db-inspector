@@ -1,10 +1,11 @@
 import { DOCUMENT } from '@angular/common';
 import { Component, DestroyRef, OnInit, computed, inject, output, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { MatIconModule } from '@angular/material/icon';
+import { MatMenuModule } from '@angular/material/menu';
 import { Observable, catchError, exhaustMap, filter, fromEvent, merge, of, tap, timer } from 'rxjs';
 import { AuthService } from '../../../../services/auth.service';
 import { ReportService } from '../../../../services/report.service';
-import { AppButtonComponent } from '../../../shared/app-button/app-button.component';
 import { downloadBlobFile, resolveAiErrorMessage } from '../../core/reports.component.ai-utils';
 import { ReportsAiApprovalsModalComponent } from '../../modals/ai-approvals-modal/reports-ai-approvals-modal.component';
 import { ReportsAiManualModalComponent } from '../../modals/ai-manual-modal/reports-ai-manual-modal.component';
@@ -19,7 +20,8 @@ export type AiToolbarStatus = { message: string; autoClearMs?: number };
   selector: 'app-reports-ai-toolbar',
   standalone: true,
   imports: [
-    AppButtonComponent,
+    MatIconModule,
+    MatMenuModule,
     ReportsAiManualModalComponent,
     ReportsAiTokensModalComponent,
     ReportsAiApprovalsModalComponent,

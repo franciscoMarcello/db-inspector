@@ -1,5 +1,7 @@
 import { ComponentFixture, TestBed, fakeAsync, tick } from '@angular/core/testing';
 import { HttpErrorResponse } from '@angular/common/http';
+import { OverlayContainer } from '@angular/cdk/overlay';
+import { MATERIAL_ANIMATIONS } from '@angular/material/core';
 import { of, throwError } from 'rxjs';
 import { AuthService } from '../../../../services/auth.service';
 import { ReportService } from '../../../../services/report.service';
@@ -19,6 +21,14 @@ describe('ReportsAiToolbarComponent', () => {
     return (fixture.nativeElement as HTMLElement).textContent ?? '';
   }
 
+  function trigger(): HTMLButtonElement {
+    return (fixture.nativeElement as HTMLElement).querySelector('button[aria-haspopup="menu"]')!;
+  }
+
+  function overlayText(): string {
+    return TestBed.inject(OverlayContainer).getContainerElement().textContent ?? '';
+  }
+
   beforeEach(async () => {
     admin = true;
     service = jasmine.createSpyObj<ReportService>('ReportService', [
@@ -32,6 +42,7 @@ describe('ReportsAiToolbarComponent', () => {
       providers: [
         { provide: ReportService, useValue: service },
         { provide: AuthService, useValue: { isAdmin: () => admin } },
+        { provide: MATERIAL_ANIMATIONS, useValue: { animationsDisabled: true } },
       ],
     }).compileComponents();
   });
@@ -52,25 +63,39 @@ describe('ReportsAiToolbarComponent', () => {
     fixture.destroy();
   }));
 
-  it('mostra os botoes para admin e o contador so quando ha pendentes', fakeAsync(() => {
+  it('mostra o botao IA para admin com o contador so quando ha pendentes', fakeAsync(() => {
     create();
     spyOn(component, 'isPageVisible').and.returnValue(true);
     fixture.detectChanges();
     tick(0);
     fixture.detectChanges();
 
-    expect(text()).toContain('Manual');
-    expect(text()).toContain('Tokens para IA');
-    expect(text()).toContain('Instruções para IA');
-    // Com zero pendentes o botao continua, para consultar o historico, mas sem contador.
-    expect(text()).toContain('Pedidos da IA');
-    expect(text()).not.toContain('Pedidos da IA (');
+    expect(trigger().textContent).toContain('IA');
+    expect(trigger().textContent).not.toMatch(/\d/);
+    expect(trigger().getAttribute('aria-label')).toBe('Recursos de IA');
 
     service.getAiApprovalsPendingCount.and.returnValue(of(3));
     tick(AI_PENDING_POLL_MS);
     fixture.detectChanges();
 
-    expect(text()).toContain('Pedidos da IA (3)');
+    expect(trigger().textContent).toContain('3');
+    expect(trigger().getAttribute('aria-label')).toContain('3 pedidos aguardando decisão');
+    fixture.destroy();
+  }));
+
+  it('lista os quatro recursos de IA no menu', fakeAsync(() => {
+    create();
+    spyOn(component, 'isPageVisible').and.returnValue(false);
+    fixture.detectChanges();
+
+    trigger().click();
+    fixture.detectChanges();
+    tick();
+
+    expect(overlayText()).toContain('Pedidos da IA');
+    expect(overlayText()).toContain('Manual');
+    expect(overlayText()).toContain('Tokens para IA');
+    expect(overlayText()).toContain('Instruções para IA');
     fixture.destroy();
   }));
 

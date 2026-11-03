@@ -261,3 +261,27 @@ html::-webkit-scrollbar-thumb {
 .dark-theme .cdk-overlay-container .report-var-options-panel .mat-mdc-option.mdc-list-item--selected {
   background: color-mix(in srgb, var(--chip-bg-active) 36%, var(--bg-surface)) !important;
 }
+
+.cdk-overlay-container .reports-actions-menu.mat-mdc-menu-panel {
+  --mat-menu-container-color: var(--bg-surface);
+  --mat-menu-container-shape: 10px;
+  --mat-menu-item-label-text-color: var(--text-primary);
+  --mat-menu-item-icon-color: var(--text-muted);
+  --mat-menu-item-label-text-size: 13px;
+  --mat-menu-item-hover-state-layer-color: color-mix(in srgb, var(--text-primary) 8%, transparent);
+  --mat-menu-item-focus-state-layer-color: color-mix(in srgb, var(--chip-bg-active) 18%, transparent);
+  min-width: 212px;
+  border: 1px solid var(--border-subtle);
+  box-shadow: 0 10px 24px rgba(2, 6, 23, 0.32);
+}
+
+.cdk-overlay-container .reports-actions-menu .mat-mdc-menu-item {
+  min-height: 36px;
+}
+
+.cdk-overlay-container .reports-actions-menu .mat-mdc-menu-item .mat-icon {
+  margin-right: 10px;
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+}

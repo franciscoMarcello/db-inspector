@@ -1,8 +1,9 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit, signal, viewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { HttpErrorResponse } from '@angular/common/http';
 import { MatIconModule } from '@angular/material/icon';
+import { MatMenuModule, MatMenuTrigger } from '@angular/material/menu';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
@@ -69,6 +70,7 @@ import {
   createReportDraftForEdit,
   detectDraftVariables,
   displayVariableOption,
+  formatVariableLabel,
   rebuildFolderNodes,
   resolveRequestErrorMessage,
   resolveStatusTone,
@@ -107,6 +109,7 @@ import {
     CommonModule,
     FormsModule,
     MatIconModule,
+    MatMenuModule,
     MatFormFieldModule,
     MatInputModule,
     MatAutocompleteModule,
@@ -175,7 +178,8 @@ export class ReportsComponent
   loadingExcel = false;
   loadingCompareExcel = false;
   loadingCompareRawExcel = false;
-  exportMenuOpen = false;
+  readonly advancedOpen = signal(false);
+  private readonly actionsTrigger = viewChild<MatMenuTrigger>('actionsTrigger');
   manageMode = false;
   sidebarCollapsed = false;
   analysisMode = false;
@@ -362,6 +366,22 @@ export class ReportsComponent
   get additionalReportVariables(): ReportVariable[] {
     const primaryKeys = new Set(this.primaryReportVariables.map((variable) => variable.key));
     return this.selectedReportVariables.filter((variable) => !primaryKeys.has(variable.key));
+  }
+
+  get orderedReportVariables(): ReportVariable[] {
+    return [...this.primaryReportVariables, ...this.additionalReportVariables];
+  }
+
+  get activeToleranceCount(): number {
+    return this.compareToleranceRows.filter((row) => row.field).length;
+  }
+
+  variableLabel(variable: ReportVariable): string {
+    return formatVariableLabel(variable.key, variable.label);
+  }
+
+  toggleAdvanced() {
+    this.advancedOpen.update((open) => !open);
   }
 
   get statusToneClass(): string {
@@ -594,6 +614,7 @@ export class ReportsComponent
 
   selectFolder(folder: FolderNode) {
     this.selectionLogic.selectFolder(folder);
+    if (!folder.expanded) this.toggleFolder(folder.id);
   }
 
   selectReport(reportId: string) {
@@ -613,13 +634,8 @@ export class ReportsComponent
     }
   }
 
-  toggleExportMenu(event?: Event) {
-    event?.stopPropagation();
-    this.exportMenuOpen = !this.exportMenuOpen;
-  }
-
   closeExportMenu() {
-    this.exportMenuOpen = false;
+    this.actionsTrigger()?.closeMenu();
   }
 
   loadDataFromAdmin(preferredReportId?: string, preferredFolderId?: string) {
@@ -933,7 +949,10 @@ export class ReportsComponent
     if (params === null) return;
 
     const comparisonTolerances = this.buildComparisonTolerances();
-    if (comparisonTolerances === null) return;
+    if (comparisonTolerances === null) {
+      this.advancedOpen.set(true);
+      return;
+    }
 
     this.loadingCompare = true;
     this.compareResult = null;
