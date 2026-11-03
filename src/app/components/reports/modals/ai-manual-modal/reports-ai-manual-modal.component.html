@@ -1,0 +1,144 @@
+<dialog class="report-modal" [open]="open()" aria-labelledby="ai-manual-title">
+  @if (open()) {
+    <div class="report-modal__panel">
+      <div class="report-modal__header gap-3">
+        <h3 id="ai-manual-title">Manual: relatórios com IA</h3>
+        <app-button type="button" tone="neutral" variant="outline" (pressed)="close.emit()">
+          Fechar
+        </app-button>
+      </div>
+
+      <div class="report-modal__body text-[13px] leading-relaxed">
+        <section class="grid gap-1">
+          <h4 class="m-0 text-sm font-bold">O que é</h4>
+          <p class="m-0">
+            Agentes de IA de qualquer fornecedor (Claude, ChatGPT, Gemini, Copilot ou um script
+            próprio) podem consultar o banco em modo somente leitura e montar relatórios. Tudo o que
+            a IA cria ou altera vira <strong>rascunho</strong>: nada entra em uso até uma pessoa
+            revisar e publicar.
+          </p>
+        </section>
+
+        <section class="grid gap-1">
+          <h4 class="m-0 text-sm font-bold">Como conectar um agente</h4>
+          <ol class="m-0 grid gap-1 pl-5">
+            <li>
+              Abra <strong>Tokens para IA</strong> e gere um token com um nome que identifique o
+              agente e uma validade em dias.
+            </li>
+            <li>
+              Copie o token e o comando do modo de conexão que o agente usa (MCP, ChatGPT/OpenAPI ou
+              REST) e cole no agente. O token só aparece uma vez.
+            </li>
+            <li>
+              Se o agente trabalha dentro de um projeto, use <strong>Instruções para IA</strong>
+              para baixar o pacote com as regras e coloque os arquivos no projeto.
+            </li>
+          </ol>
+          <div>
+            <app-button
+              type="button"
+              tone="neutral"
+              variant="outline"
+              size="sm"
+              (pressed)="openTokens.emit()"
+            >
+              Abrir Tokens para IA
+            </app-button>
+          </div>
+        </section>
+
+        <section class="grid gap-1">
+          <h4 class="m-0 text-sm font-bold">Onde ver os rascunhos</h4>
+          <p class="m-0">
+            Na árvore de relatórios, o que a IA criou e nunca foi publicado mostra o selo
+            <strong>Rascunho</strong>. Um relatório já publicado com alteração esperando revisão
+            mostra <strong>Rascunho vN pendente</strong>. Selecione o relatório e clique em
+            <strong>Versões</strong> para ver o conteúdo de cada versão. Cada gravação da IA gera
+            uma versão nova: a anterior vira <strong>Rascunho anterior</strong> (fica no histórico)
+            e só existe um rascunho aberto por relatório.
+          </p>
+        </section>
+
+        <section class="grid gap-1">
+          <h4 class="m-0 text-sm font-bold">Como publicar</h4>
+          <p class="m-0">
+            Em <strong>Versões</strong>, selecione o rascunho, confira o SQL, use
+            <strong>Comparar com a publicada</strong> e rode a <strong>Prévia</strong>. Se estiver
+            certo, clique em <strong>Publicar</strong> (a nota é opcional). Se o rascunho foi feito
+            sobre uma versão antiga, a tela avisa. <strong>Descartar</strong> apaga o rascunho; se o
+            relatório nunca foi publicado, ele é removido. <strong>Restaurar</strong> volta uma
+            versão antiga criando uma nova versão publicada. <strong>Usar como rascunho</strong>
+            retoma uma versão antiga (ou um rascunho anterior) como novo rascunho, sem publicar
+            nada; o rascunho aberto, se houver, vira histórico.
+          </p>
+        </section>
+
+        <section class="grid gap-1">
+          <h4 class="m-0 text-sm font-bold">O que são os "Pedidos da IA"</h4>
+          <p class="m-0">
+            Consultas acima do limite de linhas ou de custo não rodam direto: a IA registra um
+            pedido com o SQL e o motivo. Os pendentes aparecem no botão
+            <strong>Pedidos da IA (N)</strong>. <strong>Aprovar</strong> libera aquele SQL para
+            aquele token, com o número de linhas e o tempo de validade que você escolher;
+            <strong>Negar</strong> recusa, com uma nota opcional para a IA.
+          </p>
+        </section>
+
+        <section class="grid gap-1">
+          <h4 class="m-0 text-sm font-bold">O que a IA não pode fazer</h4>
+          <ul class="m-0 grid gap-0.5 pl-5">
+            <li>Publicar versões de relatório.</li>
+            <li>Excluir relatórios.</li>
+            <li>Restaurar versões antigas.</li>
+            <li>Gerenciar tokens (criar, listar ou revogar).</li>
+            <li>Aprovar os próprios pedidos de liberação.</li>
+            <li>Enviar e-mail.</li>
+          </ul>
+        </section>
+
+        <section class="grid gap-1">
+          <h4 class="m-0 text-sm font-bold">Tokens expiram</h4>
+          <p class="m-0">
+            Todo token tem validade (padrão de 30 dias, máximo de 90). Depois disso o agente perde o
+            acesso e é preciso gerar outro. Revogue na hora qualquer token que não for mais usado ou
+            que possa ter vazado.
+          </p>
+        </section>
+
+        <details
+          class="rounded-lg border border-[var(--border-subtle)] p-2.5"
+          (toggle)="onInstructionsToggle($event)"
+        >
+          <summary class="cursor-pointer font-semibold">Instruções que a IA recebe</summary>
+          <div class="mt-2 grid gap-2">
+            @if (loadingInstructions()) {
+              <p class="m-0 text-xs text-[var(--text-muted)]" aria-live="polite">
+                Carregando instruções...
+              </p>
+            }
+            @if (instructionsError()) {
+              <p class="m-0 text-xs text-[#f87171]" role="alert">{{ instructionsError() }}</p>
+              <div>
+                <app-button
+                  type="button"
+                  tone="neutral"
+                  variant="outline"
+                  size="sm"
+                  (pressed)="loadInstructions(true)"
+                >
+                  Tentar de novo
+                </app-button>
+              </div>
+            }
+            @if (instructions() !== null) {
+              <pre
+                class="m-0 max-h-[420px] overflow-auto whitespace-pre-wrap break-words rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-2.5 font-mono text-xs leading-relaxed"
+                >{{ instructions() }}</pre>
+            }
+          </div>
+        </details>
+      </div>
+    </div>
+  }
+</dialog>

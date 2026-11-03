@@ -1,11 +1,8 @@
 .compare-tolerances {
-  margin-top: 10px;
   display: grid;
   gap: 8px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 10px;
-  padding: 10px;
-  background: color-mix(in srgb, var(--bg-surface-alt) 55%, transparent);
+  border-top: 1px dashed var(--border-subtle);
+  padding-top: 10px;
 }
 
 .compare-tolerances__head {
@@ -102,7 +99,7 @@
 .compare-tolerances__grid input:focus-visible,
 .compare-tolerances__add:focus-visible,
 .compare-tolerances__remove:focus-visible {
-  outline: 2px solid var(--tree-focus-outline);
+  outline: 2px solid var(--chip-bg-active);
   outline-offset: 1px;
 }
 

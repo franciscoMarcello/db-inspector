@@ -47,7 +47,9 @@
           ></textarea>
           <small>
             Variáveis disponíveis:
-            <span class="token-hint token-hint--stack" *ngFor="let token of messageVariables">{{ token }}</span>
+            <span class="token-hint token-hint--stack" *ngFor="let token of messageVariables">{{
+              token
+            }}</span>
           </small>
           <small>
             Também aceitamos o formato simples com uma chave: &#123;status&#125;,
@@ -69,7 +71,12 @@
       </div>
       <label class="field" *ngIf="sqlExpanded">
         <span>SQL</span>
-        <textarea class="ui-textarea" [(ngModel)]="sql" rows="5" placeholder="SELECT * FROM pedidos WHERE status = 'PENDING';"></textarea>
+        <textarea
+          class="ui-textarea"
+          [(ngModel)]="sql"
+          rows="5"
+          placeholder="SELECT * FROM pedidos WHERE status = 'PENDING';"
+        ></textarea>
       </label>
     </section>
 
@@ -83,7 +90,9 @@
           <div class="chips-input" [class.error]="!!recipientError">
             <span class="chip" *ngFor="let email of toChips; let i = index">
               {{ email }}
-              <button type="button" (click)="removeChip('to', i)" aria-label="Remover e-mail">×</button>
+              <button type="button" (click)="removeChip('to', i)" aria-label="Remover e-mail">
+                ×
+              </button>
             </span>
             <input
               class="ui-input"
@@ -105,7 +114,9 @@
           <div class="chips-input" [class.error]="!!ccError">
             <span class="chip" *ngFor="let email of ccChips; let i = index">
               {{ email }}
-              <button type="button" (click)="removeChip('cc', i)" aria-label="Remover e-mail">×</button>
+              <button type="button" (click)="removeChip('cc', i)" aria-label="Remover e-mail">
+                ×
+              </button>
             </span>
             <input
               class="ui-input"
@@ -122,7 +133,6 @@
           <small *ngIf="!ccError">Opcional: destinatários em cópia.</small>
         </label>
       </div>
-
     </section>
 
     <section class="section">
@@ -133,7 +143,11 @@
         </button>
       </div>
       <small>
-        {{ compareWithSap ? 'Comparação SAP ativada.' : 'Ative para comparar a consulta principal com SQL SAP.' }}
+        {{
+          compareWithSap
+            ? 'Comparação SAP ativada.'
+            : 'Ative para comparar a consulta principal com SQL SAP.'
+        }}
       </small>
       <div *ngIf="compareWithSap" class="compare-layout">
         <label class="field compare-layout__sql">
@@ -153,7 +167,13 @@
         <div class="grid compare-layout__meta">
           <label class="field">
             <span>Chave de comparação (opcional)</span>
-            <input class="ui-input" type="text" [(ngModel)]="comparisonKey" placeholder="doc_id" autocomplete="off" />
+            <input
+              class="ui-input"
+              type="text"
+              [(ngModel)]="comparisonKey"
+              placeholder="doc_id"
+              autocomplete="off"
+            />
           </label>
           <label class="field">
             <span>Título executivo (opcional)</span>
@@ -188,8 +208,69 @@
         Quando ativo, o e-mail será enviado em formato executivo com resumo da comparação.
       </small>
       <small *ngIf="compareWithSap && attachXlsx">
-        Anexo esperado: comparacao-agromobi-sap.xlsx com abas agromobi e sap.
+        Anexo esperado: comparacao-agromobi-sap.xlsx com abas resumo, diferencas, agromobi e sap.
       </small>
+      <div *ngIf="compareWithSap" class="compare-grid">
+        <label class="field">
+          <span>Colunas comparadas (opcional)</span>
+          <input
+            class="ui-input"
+            type="text"
+            [(ngModel)]="comparisonColumnsText"
+            (ngModelChange)="onToleranceChange()"
+            placeholder="Chave, Quantidade, Custo Total"
+            autocomplete="off"
+          />
+          <small>Vazio compara todas as colunas das duas origens.</small>
+        </label>
+        <label class="field">
+          <span>Colunas ignoradas (opcional)</span>
+          <input
+            class="ui-input"
+            type="text"
+            [(ngModel)]="comparisonIgnoreColumnsText"
+            (ngModelChange)="onToleranceChange()"
+            placeholder="Data Documento, Descricao"
+            autocomplete="off"
+          />
+          <small>Use uma opção ou a outra, não as duas.</small>
+        </label>
+        <label class="field">
+          <span>Agrupar resumo por (opcional)</span>
+          <input
+            class="ui-input"
+            type="text"
+            [(ngModel)]="comparisonGroupBy"
+            (ngModelChange)="onToleranceChange()"
+            placeholder="Modelo"
+            autocomplete="off"
+          />
+        </label>
+        <label class="field">
+          <span>Coluna de valor (opcional)</span>
+          <input
+            class="ui-input"
+            type="text"
+            [(ngModel)]="comparisonValueColumn"
+            (ngModelChange)="onToleranceChange()"
+            placeholder="Custo Total"
+            autocomplete="off"
+          />
+          <small>Usada para somar a divergência no resumo.</small>
+        </label>
+        <label class="field">
+          <span>Linhas de detalhe no e-mail</span>
+          <input
+            class="ui-input"
+            type="number"
+            min="0"
+            step="1"
+            [(ngModel)]="comparisonTopN"
+            (ngModelChange)="onToleranceChange()"
+          />
+          <small>0 envia apenas os cartões de contagem.</small>
+        </label>
+      </div>
       <div class="field" *ngIf="compareWithSap">
         <span>Tolerâncias por campo (opcional)</span>
         <div class="tolerance-list">
@@ -213,9 +294,72 @@
             <button type="button" class="link-btn" (click)="removeTolerance(i)">Remover</button>
           </div>
         </div>
-        <button type="button" class="link-btn" (click)="addTolerance()">Adicionar tolerância</button>
+        <button type="button" class="link-btn" (click)="addTolerance()">
+          Adicionar tolerância
+        </button>
       </div>
-      <small class="error-text" *ngIf="compareError || toleranceError">{{ compareError || toleranceError }}</small>
+      <div class="field" *ngIf="compareWithSap">
+        <span>Tolerâncias percentuais por campo (opcional)</span>
+        <div class="tolerance-list">
+          <div class="tolerance-item" *ngFor="let tolerance of tolerancePercents; let i = index">
+            <input
+              class="ui-input"
+              type="text"
+              [(ngModel)]="tolerance.field"
+              (ngModelChange)="onToleranceChange()"
+              placeholder="Campo (ex.: custo total)"
+            />
+            <input
+              class="ui-input"
+              type="number"
+              min="0"
+              step="0.01"
+              [(ngModel)]="tolerance.value"
+              (ngModelChange)="onToleranceChange()"
+              placeholder="% do maior valor"
+            />
+            <button type="button" class="link-btn" (click)="removeTolerancePercent(i)">
+              Remover
+            </button>
+          </div>
+        </div>
+        <button type="button" class="link-btn" (click)="addTolerancePercent()">
+          Adicionar tolerância percentual
+        </button>
+        <small>Vale a tolerância mais permissiva entre a absoluta e a percentual.</small>
+      </div>
+      <div class="field" *ngIf="compareWithSap">
+        <button
+          type="button"
+          class="link-btn"
+          [disabled]="previewing"
+          (click)="previewComparison()"
+        >
+          {{ previewing ? 'Testando...' : 'Testar comparação' }}
+        </button>
+        <small>Roda as duas consultas e mostra o resultado sem enviar e-mail.</small>
+      </div>
+      <div class="preview-box" *ngIf="previewResult as preview">
+        <strong>{{
+          preview.status === 'DIVERGENCIA' ? 'Divergência detectada' : 'Sem divergência'
+        }}</strong>
+        <div>
+          Apenas no Agromobi: {{ preview.onlyInSource1 }} | Apenas no SAP:
+          {{ preview.onlyInSource2 }} | Divergentes: {{ preview.differentRows }} | Correspondentes:
+          {{ preview.matchedRows }} ({{ preview.divergencePercent | number: '1.2-2' }}%)
+        </div>
+        <div>Colunas comparadas: {{ preview.comparedColumns.join(', ') || '(nenhuma)' }}</div>
+        <div>Colunas Agromobi: {{ preview.columnsSource1.join(', ') }}</div>
+        <div>Colunas SAP: {{ preview.columnsSource2.join(', ') }}</div>
+        <div *ngIf="preview.groups.length">
+          Maior grupo: {{ preview.groups[0].group }} (soma das diferenças
+          {{ preview.groups[0].deltaSum | number: '1.2-2' }})
+        </div>
+      </div>
+      <small class="error-text" *ngIf="previewError">{{ previewError }}</small>
+      <small class="error-text" *ngIf="compareError || toleranceError">{{
+        compareError || toleranceError
+      }}</small>
     </section>
 
     <section class="section">
@@ -225,12 +369,28 @@
           {{ attachPdf ? 'Desativar' : 'Ativar' }}
         </button>
       </div>
-      <small>{{ attachPdf ? 'Anexo PDF ativado.' : 'Ative para anexar PDF Jasper do relatório.' }}</small>
+      <small>{{
+        attachPdf ? 'Anexo PDF ativado.' : 'Ative para anexar PDF Jasper do relatório.'
+      }}</small>
       <div class="field" *ngIf="attachPdf">
         <span>Modo do PDF</span>
         <div class="pdf-mode-switch">
-          <button type="button" class="preset" [class.active]="pdfMode === 'report'" (click)="setPdfMode('report')">Relatório</button>
-          <button type="button" class="preset" [class.active]="pdfMode === 'scheduled_sql'" (click)="setPdfMode('scheduled_sql')">SQL agendado</button>
+          <button
+            type="button"
+            class="preset"
+            [class.active]="pdfMode === 'report'"
+            (click)="setPdfMode('report')"
+          >
+            Relatório
+          </button>
+          <button
+            type="button"
+            class="preset"
+            [class.active]="pdfMode === 'scheduled_sql'"
+            (click)="setPdfMode('scheduled_sql')"
+          >
+            SQL agendado
+          </button>
         </div>
       </div>
       <label class="field" *ngIf="attachPdf && pdfMode === 'report'">
@@ -247,11 +407,23 @@
       <div class="grid" *ngIf="attachPdf && pdfMode === 'scheduled_sql'">
         <label class="field">
           <span>Título do PDF (opcional)</span>
-          <input class="ui-input" type="text" [(ngModel)]="pdfTitle" placeholder="Pedidos do Dia" autocomplete="off" />
+          <input
+            class="ui-input"
+            type="text"
+            [(ngModel)]="pdfTitle"
+            placeholder="Pedidos do Dia"
+            autocomplete="off"
+          />
         </label>
         <label class="field">
           <span>Subtítulo do PDF (opcional)</span>
-          <input class="ui-input" type="text" [(ngModel)]="pdfSubtitle" placeholder="Base Agromobi" autocomplete="off" />
+          <input
+            class="ui-input"
+            type="text"
+            [(ngModel)]="pdfSubtitle"
+            placeholder="Base Agromobi"
+            autocomplete="off"
+          />
         </label>
         <label class="field">
           <span>Máximo de linhas no PDF</span>
@@ -282,9 +454,30 @@
         <div class="field">
           <span>Dias da semana</span>
           <div class="days-preset">
-            <button type="button" class="preset" [class.active]="currentDayPreset === 'workdays'" (click)="applyDayPreset('workdays')">Dias úteis</button>
-            <button type="button" class="preset" [class.active]="currentDayPreset === 'everyday'" (click)="applyDayPreset('everyday')">Todos os dias</button>
-            <button type="button" class="preset" [class.active]="currentDayPreset === 'weekend'" (click)="applyDayPreset('weekend')">Fins de semana</button>
+            <button
+              type="button"
+              class="preset"
+              [class.active]="currentDayPreset === 'workdays'"
+              (click)="applyDayPreset('workdays')"
+            >
+              Dias úteis
+            </button>
+            <button
+              type="button"
+              class="preset"
+              [class.active]="currentDayPreset === 'everyday'"
+              (click)="applyDayPreset('everyday')"
+            >
+              Todos os dias
+            </button>
+            <button
+              type="button"
+              class="preset"
+              [class.active]="currentDayPreset === 'weekend'"
+              (click)="applyDayPreset('weekend')"
+            >
+              Fins de semana
+            </button>
           </div>
           <div class="days">
             <button
@@ -306,7 +499,9 @@
         <span>{{ nextRunPreview }}</span>
         <small *ngIf="nextRunRelative">({{ nextRunRelative }})</small>
       </div>
-      <small *ngIf="!forceScheduleMode && !scheduleEnabled">Desativado: o envio será imediato (sem time/days no payload).</small>
+      <small *ngIf="!forceScheduleMode && !scheduleEnabled"
+        >Desativado: o envio será imediato (sem time/days no payload).</small
+      >
       <small class="tz-note">Fuso horário: {{ browserTimezone }}</small>
     </section>
   </div>
@@ -324,8 +519,6 @@
     >
       {{ sendingTest ? 'Enviando teste...' : '✉ Enviar teste' }}
     </button>
-    <button type="button" class="btn btn--ghost" (click)="cancel()">
-      Cancelar
-    </button>
+    <button type="button" class="btn btn--ghost" (click)="cancel()">Cancelar</button>
   </footer>
 </div>

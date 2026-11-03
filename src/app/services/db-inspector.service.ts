@@ -23,11 +23,65 @@ export interface EmailSendPayload {
   secondSql?: string;
   comparisonKey?: string;
   comparisonTolerances?: Record<string, number>;
+  comparisonTolerancePercents?: Record<string, number>;
+  comparisonColumns?: string[];
+  comparisonIgnoreColumns?: string[];
+  comparisonGroupBy?: string;
+  comparisonValueColumn?: string;
+  comparisonTopN?: number;
   sendOnlyIfDifferent?: boolean;
   time?: string;
   days?: string[];
   asDict?: boolean;
   withDescription?: boolean;
+}
+
+export interface ComparisonPreviewPayload {
+  sql: string;
+  secondSql: string;
+  comparisonKey?: string;
+  comparisonTolerances?: Record<string, number>;
+  comparisonTolerancePercents?: Record<string, number>;
+  comparisonColumns?: string[];
+  comparisonIgnoreColumns?: string[];
+  comparisonGroupBy?: string;
+  comparisonValueColumn?: string;
+  sampleLimit?: number;
+}
+
+export interface ComparisonGroupSummary {
+  group: string;
+  onlyInSource1: number;
+  onlyInSource2: number;
+  divergentValues: number;
+  deltaSum: number;
+  valueOnlyInSource1: number;
+  valueOnlyInSource2: number;
+}
+
+export interface ComparisonDifferenceView {
+  type: 'ONLY_IN_SOURCE1' | 'ONLY_IN_SOURCE2' | 'DIVERGENT_VALUE';
+  key?: string;
+  column?: string;
+  value1?: string;
+  value2?: string;
+  delta?: number;
+  row: Record<string, unknown>;
+}
+
+export interface ComparisonPreviewResponse {
+  status: 'DIVERGENCIA' | 'SEM_DIVERGENCIA';
+  onlyInSource1: number;
+  onlyInSource2: number;
+  differentRows: number;
+  matchedRows: number;
+  divergencePercent: number;
+  columnsSource1: string[];
+  columnsSource2: string[];
+  comparedColumns: string[];
+  groups: ComparisonGroupSummary[];
+  differencesSample: ComparisonDifferenceView[];
+  differencesTotal: number;
 }
 
 export interface EmailSendResponse {
@@ -57,6 +111,12 @@ export interface ApiEmailSchedule {
   compareWithSap?: boolean;
   comparisonKey?: string;
   comparisonTolerances?: Record<string, number>;
+  comparisonTolerancePercents?: Record<string, number>;
+  comparisonColumns?: string[];
+  comparisonIgnoreColumns?: string[];
+  comparisonGroupBy?: string;
+  comparisonValueColumn?: string;
+  comparisonTopN?: number;
   sendOnlyIfDifferent?: boolean;
   to: string;
   cc: string;
@@ -95,7 +155,7 @@ export class DbInspectorService {
         const data = Array.isArray(res) ? res : res?.data;
         if (!Array.isArray(data)) return [];
         return data.map((row: any) => row.schema_name);
-      })
+      }),
     );
   }
 
@@ -105,19 +165,19 @@ export class DbInspectorService {
         const data = Array.isArray(res) ? res : res?.data;
         if (!Array.isArray(data)) return [];
         return data.map((r: any) => r.table_name);
-      })
+      }),
     );
   }
 
   getTableDetails(schema: string, table: string) {
     return this.http.get(
-      `${this.base}/${encodeURIComponent(schema)}/${encodeURIComponent(table)}/details`
+      `${this.base}/${encodeURIComponent(schema)}/${encodeURIComponent(table)}/details`,
     );
   }
 
   getTableRelations(schema: string, table: string) {
     return this.http.get(
-      `${this.base}/${encodeURIComponent(schema)}/${encodeURIComponent(table)}/relations`
+      `${this.base}/${encodeURIComponent(schema)}/${encodeURIComponent(table)}/relations`,
     );
   }
 
@@ -157,7 +217,7 @@ export class DbInspectorService {
 
   getEmailSchedule(id: string): Observable<ApiEmailSchedule> {
     return this.http.get<ApiEmailSchedule>(
-      `${this.base}/email/schedules/${encodeURIComponent(id)}`
+      `${this.base}/email/schedules/${encodeURIComponent(id)}`,
     );
   }
 
@@ -167,29 +227,40 @@ export class DbInspectorService {
 
   updateEmailSchedule(
     id: string,
-    payload: Partial<ApiEmailSchedule>
+    payload: Partial<ApiEmailSchedule>,
   ): Observable<ApiEmailSchedule> {
     return this.http.put<ApiEmailSchedule>(
       `${this.base}/email/schedules/${encodeURIComponent(id)}`,
-      payload
+      payload,
     );
   }
 
   pauseEmailSchedule(id: string): Observable<ApiEmailSchedule> {
     return this.http.post<ApiEmailSchedule>(
       `${this.base}/email/schedules/${encodeURIComponent(id)}/pause`,
-      {}
+      {},
     );
   }
 
   resumeEmailSchedule(id: string): Observable<ApiEmailSchedule> {
     return this.http.post<ApiEmailSchedule>(
       `${this.base}/email/schedules/${encodeURIComponent(id)}/resume`,
-      {}
+      {},
     );
   }
 
   deleteEmailSchedule(id: string): Observable<void> {
     return this.http.delete<void>(`${this.base}/email/schedules/${encodeURIComponent(id)}`);
+  }
+
+  previewEmailComparison(payload: ComparisonPreviewPayload): Observable<ComparisonPreviewResponse> {
+    return this.http.post<ComparisonPreviewResponse>(
+      `${this.base}/email/schedules/preview`,
+      payload,
+    );
+  }
+
+  runEmailSchedule(id: string): Observable<void> {
+    return this.http.post<void>(`${this.base}/email/schedules/${encodeURIComponent(id)}/run`, {});
   }
 }

@@ -1,0 +1,231 @@
+<dialog class="report-modal" [open]="open()" aria-labelledby="ai-approvals-title">
+  @if (open()) {
+    <div class="report-modal__panel">
+      <div class="report-modal__header gap-3">
+        <h3 id="ai-approvals-title">Pedidos da IA</h3>
+        <app-button type="button" tone="neutral" variant="outline" (pressed)="close.emit()">
+          Fechar
+        </app-button>
+      </div>
+
+      <div class="report-modal__body">
+        <div class="flex flex-wrap items-center gap-2" role="group" aria-label="Filtrar por status">
+          @for (filter of filters; track filter.value) {
+            <button
+              type="button"
+              class="cursor-pointer rounded-full border px-2.5 py-1 text-xs"
+              [ngClass]="statusFilter() === filter.value ? pillActiveClass : pillInactiveClass"
+              [attr.aria-pressed]="statusFilter() === filter.value"
+              (click)="setFilter(filter.value)"
+            >
+              {{ filter.label }}
+            </button>
+          }
+          <app-button
+            type="button"
+            class="ml-auto"
+            tone="neutral"
+            variant="ghost"
+            size="sm"
+            (pressed)="load()"
+            [disabled]="loading()"
+          >
+            {{ loading() ? 'Atualizando...' : 'Atualizar' }}
+          </app-button>
+        </div>
+
+        @if (listError()) {
+          <p class="m-0 text-xs text-[#f87171]" role="alert">{{ listError() }}</p>
+        }
+        @if (loading() && !approvals().length) {
+          <p class="m-0 text-xs text-[var(--text-muted)]">Carregando pedidos...</p>
+        }
+        @if (!loading() && !listError() && !approvals().length) {
+          <p class="m-0 text-xs text-[var(--text-muted)]">Nenhum pedido neste filtro.</p>
+        }
+
+        @for (item of approvalRows(); track item.id) {
+          <article
+            class="grid gap-2 rounded-lg border border-l-4 border-[var(--border-subtle)] p-3 text-xs"
+            [ngClass]="
+              item.status === 'PENDING'
+                ? 'border-l-[#fbbf24]'
+                : item.status === 'APPROVED'
+                  ? 'border-l-[#22c55e]'
+                  : 'border-l-[#94a3b8]'
+            "
+          >
+            <div class="flex flex-wrap items-center gap-2">
+              <span
+                class="rounded-full border border-[var(--border-subtle)] px-1.5 py-px text-[10px] font-bold uppercase tracking-[0.04em]"
+                >{{ item.statusLabel }}</span
+              >
+              <strong class="text-[13px]">Token: {{ item.token }}</strong>
+              <span class="text-[var(--text-muted)]"
+                >Pedido por {{ item.solicitadoPor }} em {{ item.createdLabel }}</span
+              >
+            </div>
+
+            <p class="m-0 text-[13px]"><strong>Motivo:</strong> {{ item.motivo }}</p>
+
+            <div class="flex flex-wrap gap-2">
+              <span
+                class="inline-flex min-h-[26px] items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface-alt)] px-2.5"
+                >Linhas pedidas: <strong>{{ item.linhasPedidas }}</strong></span
+              >
+              <span
+                class="inline-flex min-h-[26px] items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface-alt)] px-2.5"
+                >Custo estimado: <strong>{{ item.costLabel }}</strong></span
+              >
+              @if (item.linhasAprovadas !== null) {
+                <span
+                  class="inline-flex min-h-[26px] items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-surface-alt)] px-2.5"
+                  >Linhas aprovadas: <strong>{{ item.linhasAprovadas }}</strong></span
+                >
+              }
+            </div>
+
+            <pre
+              class="m-0 max-h-48 overflow-auto whitespace-pre rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-2.5 font-mono text-xs leading-relaxed"
+              aria-label="SQL pedido"
+            ><code>{{ item.sql }}</code></pre>
+
+            @if (item.status !== 'PENDING') {
+              <div class="flex flex-wrap gap-x-4 gap-y-1 text-[var(--text-muted)]">
+                @if (item.decididoPor) {
+                  <span>Decidido por {{ item.decididoPor }} em {{ item.decidedLabel }}</span>
+                }
+                @if (item.status === 'APPROVED' && item.expiraEm) {
+                  <span>
+                    {{ item.vigente ? 'Vale até' : 'Expirou em' }} {{ item.expiresLabel }}
+                  </span>
+                }
+                @if (item.nota) {
+                  <span>Nota: {{ item.nota }}</span>
+                }
+              </div>
+            } @else {
+              @if (decision()?.id === item.id) {
+                <div
+                  class="grid gap-2 rounded-lg border border-dashed border-[var(--border-subtle)] p-2.5"
+                >
+                  @if (isDeciding(item, 'approve')) {
+                    <div class="grid gap-2 sm:grid-cols-2">
+                      <label class="grid gap-1">
+                        <span class="text-xs font-semibold text-[var(--text-muted)]"
+                          >Linhas liberadas (máx. {{ maxRows }})</span
+                        >
+                        <input
+                          class="ui-input"
+                          type="number"
+                          min="1"
+                          [attr.max]="maxRows"
+                          step="1"
+                          [ngModel]="rows()"
+                          [ngModelOptions]="{ standalone: true }"
+                          (ngModelChange)="rows.set($event)"
+                        />
+                      </label>
+                      <label class="grid gap-1">
+                        <span class="text-xs font-semibold text-[var(--text-muted)]"
+                          >Validade em minutos (máx. {{ maxMinutes }})</span
+                        >
+                        <input
+                          class="ui-input"
+                          type="number"
+                          min="1"
+                          [attr.max]="maxMinutes"
+                          step="1"
+                          [ngModel]="minutes()"
+                          [ngModelOptions]="{ standalone: true }"
+                          (ngModelChange)="minutes.set($event)"
+                        />
+                      </label>
+                    </div>
+                  }
+                  <label class="grid gap-1">
+                    <span class="text-xs font-semibold text-[var(--text-muted)]"
+                      >Nota (opcional, a IA recebe junto com a decisão)</span
+                    >
+                    <textarea
+                      class="ui-textarea"
+                      rows="2"
+                      [attr.maxlength]="noteMax"
+                      [ngModel]="note()"
+                      [ngModelOptions]="{ standalone: true }"
+                      (ngModelChange)="note.set($event)"
+                    ></textarea>
+                  </label>
+                  @if (decisionError()) {
+                    <p class="m-0 text-xs text-[#f87171]" role="alert">{{ decisionError() }}</p>
+                  }
+                  <div class="flex flex-wrap justify-end gap-2">
+                    <app-button
+                      type="button"
+                      tone="neutral"
+                      variant="ghost"
+                      (pressed)="cancelDecision()"
+                      [disabled]="submitting()"
+                    >
+                      Cancelar
+                    </app-button>
+                    <app-button
+                      type="button"
+                      [tone]="isDeciding(item, 'approve') ? 'primary' : 'danger'"
+                      [variant]="isDeciding(item, 'approve') ? 'solid' : 'outline'"
+                      (pressed)="confirmDecision(item)"
+                      [disabled]="submitting()"
+                    >
+                      @if (submitting()) {
+                        Enviando...
+                      } @else {
+                        {{
+                          isDeciding(item, 'approve') ? 'Confirmar aprovação' : 'Confirmar negação'
+                        }}
+                      }
+                    </app-button>
+                  </div>
+                </div>
+              } @else {
+                <div class="flex flex-wrap justify-end gap-2">
+                  <app-button
+                    type="button"
+                    tone="danger"
+                    variant="outline"
+                    size="sm"
+                    (pressed)="startDecision(item, 'deny')"
+                    [disabled]="submitting()"
+                  >
+                    Negar
+                  </app-button>
+                  <app-button
+                    type="button"
+                    tone="primary"
+                    variant="solid"
+                    size="sm"
+                    (pressed)="startDecision(item, 'approve')"
+                    [disabled]="submitting()"
+                  >
+                    Aprovar
+                  </app-button>
+                </div>
+              }
+            }
+          </article>
+        }
+      </div>
+
+      @if (feedback(); as info) {
+        <div class="report-modal__footer">
+          <div
+            class="mr-auto flex min-w-0 flex-wrap items-baseline gap-3 text-[13px]"
+            role="status"
+          >
+            <strong [ngClass]="toneTextClass(info.tone)">{{ statusTitle(info.tone) }}</strong>
+            <span>{{ info.message }}</span>
+          </div>
+        </div>
+      }
+    </div>
+  }
+</dialog>

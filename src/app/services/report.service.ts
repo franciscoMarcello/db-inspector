@@ -7,7 +7,12 @@ import {
   extractAclFlag,
   normalizeCompareResponse,
   normalizeReportColumnsResponse,
+  normalizeReportVersion,
+  normalizeReportVersionSummaries,
   normalizeVariableOptions,
+  normalizeVersionDiscardResponse,
+  readNullableNumber,
+  readOptionalBoolean,
 } from './report.service.normalizers';
 
 export type ReportVariableType = 'string' | 'number' | 'date' | 'datetime' | 'boolean';
@@ -100,8 +105,66 @@ export type ReportDefinition = {
   archived: boolean;
   canView?: boolean;
   canRun?: boolean;
+  draft: boolean;
+  openDraftVersion: number | null;
   createdAt: number;
   updatedAt: number;
+};
+
+export type ReportVersionStatus =
+  'DRAFT' | 'PUBLISHED' | 'SUPERSEDED' | 'DISCARDED' | 'REPLACED_DRAFT';
+export type ReportVersionAuthorType = 'USER' | 'AI_TOKEN' | 'SYSTEM';
+
+export type ReportVersionSummary = {
+  versionNumber: number;
+  status: ReportVersionStatus;
+  name: string;
+  baseVersionNumber: number | null;
+  authorType: ReportVersionAuthorType;
+  authorName: string;
+  note: string | null;
+  hasJrxml: boolean;
+  createdAt: number;
+  updatedAt: number | null;
+  publishedAt: number | null;
+  publishedBy: string | null;
+  /** Contador de gravacoes do rascunho; publicar envia o valor visto para o backend recusar rascunho alterado. */
+  revision: number;
+};
+
+export type ReportVersion = {
+  reportId: string;
+  versionNumber: number;
+  status: ReportVersionStatus;
+  baseVersionNumber: number | null;
+  name: string;
+  description: string | null;
+  folderId: string | null;
+  sql: string;
+  secondSql: string | null;
+  comparisonKey: string | null;
+  variables: ReportVariableInput[];
+  jasperTemplateId: string | null;
+  jrxml: string | null;
+  authorType: ReportVersionAuthorType;
+  authorName: string;
+  note: string | null;
+  createdAt: number;
+  updatedAt: number | null;
+  publishedAt: number | null;
+  publishedBy: string | null;
+  /** Contador de gravacoes do rascunho; publicar envia o valor visto para o backend recusar rascunho alterado. */
+  revision: number;
+};
+
+export type ReportVersionRunRequest = {
+  params?: Record<string, unknown> | null;
+  page?: number;
+  size?: number;
+};
+
+export type ReportVersionDiscardResponse = {
+  reportDeleted: boolean;
 };
 
 export type ReportCreateInput = {
@@ -237,6 +300,58 @@ export type ReportConnectionTestResponse = {
   elapsedMs?: number;
 };
 
+export type AiToken = {
+  id: string;
+  name: string;
+  prefix: string;
+  createdBy: string;
+  createdAt: number;
+  expiresAt: number;
+  revokedAt: number | null;
+  lastUsedAt: number | null;
+  active: boolean;
+  expired: boolean;
+};
+
+export type AiTokenCreateInput = {
+  name: string;
+  validityDays?: number;
+};
+
+export type AiTokenCreated = {
+  id: string;
+  name: string;
+  token: string;
+  expiresAt: number;
+  warning: string;
+};
+
+export type AiApprovalStatus = 'PENDING' | 'APPROVED' | 'DENIED';
+
+export type AiApproval = {
+  id: string;
+  status: AiApprovalStatus;
+  sql: string;
+  motivo: string;
+  linhasPedidas: number;
+  linhasAprovadas: number | null;
+  custoEstimado: number | null;
+  token: string;
+  solicitadoPor: string;
+  decididoPor: string | null;
+  decididoEm: number | null;
+  nota: string | null;
+  expiraEm: number | null;
+  criadoEm: number;
+  vigente: boolean;
+};
+
+export type AiApprovalDecision = {
+  linhas?: number;
+  minutos?: number;
+  nota?: string | null;
+};
+
 @Injectable({ providedIn: 'root' })
 export class ReportService {
   private http = inject(HttpClient);
@@ -334,33 +449,42 @@ export class ReportService {
   }
 
   runReport(id: string): Observable<ReportRunResponse> {
-    return this.http.post<ReportRunResponse>(`${this.base}/reports/${encodeURIComponent(id)}/run`, {});
+    return this.http.post<ReportRunResponse>(
+      `${this.base}/reports/${encodeURIComponent(id)}/run`,
+      {},
+    );
   }
 
   runReportWithParams(
     id: string,
-    params?: Record<string, unknown> | null
+    params?: Record<string, unknown> | null,
   ): Observable<ReportRunResponse> {
     const body = params && Object.keys(params).length ? { params } : null;
-    return this.http.post<ReportRunResponse>(`${this.base}/reports/${encodeURIComponent(id)}/run`, body);
+    return this.http.post<ReportRunResponse>(
+      `${this.base}/reports/${encodeURIComponent(id)}/run`,
+      body,
+    );
   }
 
   runReportWithParamsAndOptions(
     id: string,
     params?: Record<string, unknown> | null,
-    options?: ReportRunRequestOptions
+    options?: ReportRunRequestOptions,
   ): Observable<ReportRunResponse> {
     const body: Record<string, unknown> = {};
     if (params && Object.keys(params).length) body['params'] = params;
     if (options?.safe !== undefined) body['safe'] = options.safe;
     if (options?.page !== undefined) body['page'] = options.page;
     if (options?.size !== undefined) body['size'] = options.size;
-    return this.http.post<ReportRunResponse>(`${this.base}/reports/${encodeURIComponent(id)}/run`, body);
+    return this.http.post<ReportRunResponse>(
+      `${this.base}/reports/${encodeURIComponent(id)}/run`,
+      body,
+    );
   }
 
   compareReport(
     id: string,
-    request?: ReportCompareRequest | null
+    request?: ReportCompareRequest | null,
   ): Observable<ReportCompareResponse> {
     const body: Record<string, unknown> = {};
     if (request?.params && Object.keys(request.params).length) body['params'] = request.params;
@@ -372,7 +496,10 @@ export class ReportService {
       .pipe(map((res) => normalizeCompareResponse(res) as ReportCompareResponse));
   }
 
-  getReportColumns(id: string, source: ReportColumnsSource = 'both'): Observable<ReportColumnsResponse> {
+  getReportColumns(
+    id: string,
+    source: ReportColumnsSource = 'both',
+  ): Observable<ReportColumnsResponse> {
     return this.http
       .get<any>(`${this.base}/reports/${encodeURIComponent(id)}/columns`, {
         params: { source },
@@ -383,26 +510,29 @@ export class ReportService {
   runReportAllWithParams(
     id: string,
     params?: Record<string, unknown> | null,
-    safe?: boolean
+    safe?: boolean,
   ): Observable<ReportRunResponse> {
     const body: Record<string, unknown> = {};
     if (params && Object.keys(params).length) body['params'] = params;
     if (safe !== undefined) body['safe'] = safe;
-    return this.http.post<ReportRunResponse>(`${this.base}/reports/${encodeURIComponent(id)}/run/all`, body);
+    return this.http.post<ReportRunResponse>(
+      `${this.base}/reports/${encodeURIComponent(id)}/run/all`,
+      body,
+    );
   }
 
   listVariableOptions(
     reportId: string,
     key: string,
     params?: Record<string, unknown> | null,
-    limit = 100
+    limit = 100,
   ): Observable<ReportVariableOption[]> {
     const body: Record<string, unknown> = { limit };
     if (params && Object.keys(params).length) body['params'] = params;
     return this.http
       .post<any>(
         `${this.base}/reports/${encodeURIComponent(reportId)}/variables/${encodeURIComponent(key)}/options`,
-        body
+        body,
       )
       .pipe(map((res) => normalizeVariableOptions(res) as ReportVariableOption[]));
   }
@@ -410,7 +540,7 @@ export class ReportService {
   generateReportPdf(
     id: string,
     params?: Record<string, unknown> | null,
-    safe?: boolean
+    safe?: boolean,
   ): Observable<Blob> {
     const body: Record<string, unknown> = {};
     if (params && Object.keys(params).length) body['params'] = params;
@@ -441,19 +571,179 @@ export class ReportService {
     });
   }
 
+  listReportVersions(reportId: string): Observable<ReportVersionSummary[]> {
+    return this.http
+      .get<unknown>(this.versionsUrl(reportId))
+      .pipe(map((res) => normalizeReportVersionSummaries(res)));
+  }
+
+  getReportVersion(reportId: string, versionNumber: number): Observable<ReportVersion> {
+    return this.http
+      .get<unknown>(this.versionsUrl(reportId, versionNumber))
+      .pipe(map((res) => this.normalizeVersion(res)));
+  }
+
+  runReportVersion(
+    reportId: string,
+    versionNumber: number,
+    request?: ReportVersionRunRequest | null,
+  ): Observable<ReportRunResponse> {
+    const body: Record<string, unknown> = {};
+    if (request?.params && Object.keys(request.params).length) body['params'] = request.params;
+    if (request?.page !== undefined) body['page'] = request.page;
+    if (request?.size !== undefined) body['size'] = request.size;
+    return this.http.post<ReportRunResponse>(
+      `${this.versionsUrl(reportId, versionNumber)}/run`,
+      body,
+    );
+  }
+
+  generateReportVersionPdf(
+    reportId: string,
+    versionNumber: number,
+    params?: Record<string, unknown> | null,
+  ): Observable<Blob> {
+    const body: Record<string, unknown> = {};
+    if (params && Object.keys(params).length) body['params'] = params;
+    return this.http.post(`${this.versionsUrl(reportId, versionNumber)}/pdf`, body, {
+      responseType: 'blob',
+    });
+  }
+
+  /** `expectedRevision` e a revisao do conteudo revisado; o backend devolve 409 se o rascunho mudou. */
+  publishReportVersion(
+    reportId: string,
+    versionNumber: number,
+    expectedRevision: number,
+    note?: string | null,
+  ): Observable<ReportVersion> {
+    return this.http
+      .post<unknown>(`${this.versionsUrl(reportId, versionNumber)}/publish`, {
+        ...this.versionNoteBody(note),
+        expectedRevision,
+      })
+      .pipe(map((res) => this.normalizeVersion(res)));
+  }
+
+  discardReportVersion(
+    reportId: string,
+    versionNumber: number,
+  ): Observable<ReportVersionDiscardResponse> {
+    return this.http
+      .post<unknown>(`${this.versionsUrl(reportId, versionNumber)}/discard`, {})
+      .pipe(map((res) => normalizeVersionDiscardResponse(res)));
+  }
+
+  restoreReportVersion(
+    reportId: string,
+    versionNumber: number,
+    note?: string | null,
+  ): Observable<ReportVersion> {
+    return this.http
+      .post<unknown>(
+        `${this.versionsUrl(reportId, versionNumber)}/restore`,
+        this.versionNoteBody(note),
+      )
+      .pipe(map((res) => this.normalizeVersion(res)));
+  }
+
+  /** Cria um rascunho novo com o conteudo da versao n. Nao publica nada. */
+  reuseReportVersion(
+    reportId: string,
+    versionNumber: number,
+    note?: string | null,
+  ): Observable<ReportVersion> {
+    return this.http
+      .post<unknown>(
+        `${this.versionsUrl(reportId, versionNumber)}/reuse`,
+        this.versionNoteBody(note),
+      )
+      .pipe(map((res) => this.normalizeVersion(res)));
+  }
+
+  /** Base absoluta do backend (a mesma usada nas chamadas), para montar comandos externos. */
+  apiBaseUrl(): string {
+    const base = this.base.replace(/\/+$/, '');
+    try {
+      return new URL(base, window.location.origin).toString().replace(/\/+$/, '');
+    } catch {
+      return base;
+    }
+  }
+
+  listAiTokens(): Observable<AiToken[]> {
+    return this.http.get<AiToken[]>(`${this.base}/ai/tokens`);
+  }
+
+  createAiToken(input: AiTokenCreateInput): Observable<AiTokenCreated> {
+    const body: AiTokenCreateInput = { name: input.name.trim() };
+    if (input.validityDays !== undefined) body.validityDays = input.validityDays;
+    return this.http.post<AiTokenCreated>(`${this.base}/ai/tokens`, body);
+  }
+
+  revokeAiToken(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.base}/ai/tokens/${encodeURIComponent(id)}`);
+  }
+
+  listAiApprovals(status?: AiApprovalStatus | null): Observable<AiApproval[]> {
+    const options = status ? { params: { status } } : {};
+    return this.http.get<AiApproval[]>(`${this.base}/ai-approvals`, options);
+  }
+
+  getAiApprovalsPendingCount(): Observable<number> {
+    return this.http
+      .get<{ pending?: number }>(`${this.base}/ai-approvals/pending-count`)
+      .pipe(map((res) => Number(res?.pending ?? 0) || 0));
+  }
+
+  approveAiApproval(id: string, decision: AiApprovalDecision): Observable<AiApproval> {
+    const body: Record<string, unknown> = {};
+    if (decision.linhas !== undefined) body['linhas'] = decision.linhas;
+    if (decision.minutos !== undefined) body['minutos'] = decision.minutos;
+    const nota = String(decision.nota ?? '').trim();
+    if (nota) body['nota'] = nota;
+    return this.http.post<AiApproval>(
+      `${this.base}/ai-approvals/${encodeURIComponent(id)}/approve`,
+      body,
+    );
+  }
+
+  denyAiApproval(id: string, nota?: string | null): Observable<AiApproval> {
+    const trimmed = String(nota ?? '').trim();
+    return this.http.post<AiApproval>(
+      `${this.base}/ai-approvals/${encodeURIComponent(id)}/deny`,
+      trimmed ? { nota: trimmed } : {},
+    );
+  }
+
+  downloadAiPackage(): Observable<Blob> {
+    return this.http.get(`${this.base}/ai/pacote`, { responseType: 'blob' });
+  }
+
+  getAiInstructions(): Observable<string> {
+    return this.http.get(`${this.base}/ai/instrucoes`, { responseType: 'text' });
+  }
+
   listFolderAcl(folderId: string): Observable<AccessControlRule[]> {
     return this.http
       .get<any>(`${this.adminBase}/report-folders/${encodeURIComponent(folderId)}/acl`)
       .pipe(map((res) => this.normalizeAclRules(res)));
   }
 
-  upsertFolderAcl(folderId: string, payload: AccessControlRuleInput): Observable<AccessControlRule> {
+  upsertFolderAcl(
+    folderId: string,
+    payload: AccessControlRuleInput,
+  ): Observable<AccessControlRule> {
     return this.http
       .put<any>(`${this.adminBase}/report-folders/${encodeURIComponent(folderId)}/acl`, payload)
       .pipe(map((res) => this.normalizeAclRule(res)));
   }
 
-  deleteFolderAcl(folderId: string, subjectType: AclSubjectType, subject: string): Observable<void> {
+  deleteFolderAcl(
+    folderId: string,
+    subjectType: AclSubjectType,
+    subject: string,
+  ): Observable<void> {
     return this.http.delete<void>(
       `${this.adminBase}/report-folders/${encodeURIComponent(folderId)}/acl`,
       {
@@ -461,7 +751,7 @@ export class ReportService {
           subjectType,
           subject,
         },
-      }
+      },
     );
   }
 
@@ -471,22 +761,26 @@ export class ReportService {
       .pipe(map((res) => this.normalizeAclRules(res)));
   }
 
-  upsertReportAcl(reportId: string, payload: AccessControlRuleInput): Observable<AccessControlRule> {
+  upsertReportAcl(
+    reportId: string,
+    payload: AccessControlRuleInput,
+  ): Observable<AccessControlRule> {
     return this.http
       .put<any>(`${this.adminBase}/reports/${encodeURIComponent(reportId)}/acl`, payload)
       .pipe(map((res) => this.normalizeAclRule(res)));
   }
 
-  deleteReportAcl(reportId: string, subjectType: AclSubjectType, subject: string): Observable<void> {
-    return this.http.delete<void>(
-      `${this.adminBase}/reports/${encodeURIComponent(reportId)}/acl`,
-      {
-        params: {
-          subjectType,
-          subject,
-        },
-      }
-    );
+  deleteReportAcl(
+    reportId: string,
+    subjectType: AclSubjectType,
+    subject: string,
+  ): Observable<void> {
+    return this.http.delete<void>(`${this.adminBase}/reports/${encodeURIComponent(reportId)}/acl`, {
+      params: {
+        subjectType,
+        subject,
+      },
+    });
   }
 
   private normalizeFolders(res: any): ReportFolder[] {
@@ -530,7 +824,9 @@ export class ReportService {
   private normalizeReport(item: any): ReportDefinition {
     const canView = extractAclFlag(item, 'view');
     const canRun = extractAclFlag(item, 'run');
-    const jasperTemplate = this.normalizeTemplateSummary(item?.jasperTemplate ?? item?.jasper_template);
+    const jasperTemplate = this.normalizeTemplateSummary(
+      item?.jasperTemplate ?? item?.jasper_template,
+    );
     return {
       id: String(item?.id ?? ''),
       name: String(item?.name ?? ''),
@@ -540,8 +836,8 @@ export class ReportService {
         item?.templateName !== undefined
           ? String(item.templateName ?? '')
           : item?.template_name !== undefined
-          ? String(item.template_name ?? '')
-          : undefined,
+            ? String(item.template_name ?? '')
+            : undefined,
       jasperTemplateId: this.extractJasperTemplateId(item),
       jasperTemplate,
       sql: String(item?.sql ?? ''),
@@ -557,11 +853,28 @@ export class ReportService {
       archived: Boolean(item?.archived),
       ...(canView === undefined ? {} : { canView }),
       ...(canRun === undefined ? {} : { canRun }),
+      draft: readOptionalBoolean(item?.draft) ?? false,
+      openDraftVersion: readNullableNumber(item?.openDraftVersion),
       createdAt: Number(item?.createdAt ?? item?.created_at ?? 0),
       updatedAt: Number(item?.updatedAt ?? item?.updated_at ?? 0),
     };
   }
 
+  private versionsUrl(reportId: string, versionNumber?: number): string {
+    const base = `${this.base}/reports/${encodeURIComponent(reportId)}/versions`;
+    return versionNumber === undefined
+      ? base
+      : `${base}/${encodeURIComponent(String(versionNumber))}`;
+  }
+
+  private versionNoteBody(note?: string | null): Record<string, string> {
+    const trimmed = String(note ?? '').trim();
+    return trimmed ? { note: trimmed } : {};
+  }
+
+  private normalizeVersion(res: unknown): ReportVersion {
+    return normalizeReportVersion(res, (variable) => this.normalizeVariable(variable));
+  }
 
   private normalizeTemplates(res: any): JasperTemplateResponse[] {
     const data = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
@@ -569,7 +882,6 @@ export class ReportService {
       .map((item: any) => this.normalizeTemplate(item))
       .filter((item: JasperTemplateResponse | null): item is JasperTemplateResponse => !!item);
   }
-
 
   private normalizeTemplate(item: any): JasperTemplateResponse {
     return {
@@ -607,7 +919,9 @@ export class ReportService {
   private normalizeAclRule(item: any): AccessControlRule {
     return {
       id: String(item?.id ?? ''),
-      subjectType: String(item?.subjectType ?? item?.subject_type ?? 'ROLE').toUpperCase() as AclSubjectType,
+      subjectType: String(
+        item?.subjectType ?? item?.subject_type ?? 'ROLE',
+      ).toUpperCase() as AclSubjectType,
       subject: String(item?.subject ?? ''),
       canView: Boolean(item?.canView ?? item?.can_view),
       canRun: Boolean(item?.canRun ?? item?.can_run),
@@ -634,7 +948,10 @@ export class ReportService {
 
     const rawMultiple = item?.multiple ?? item?.isMultiple ?? item?.is_multiple ?? false;
     const multiple =
-      rawMultiple === true || rawMultiple === 1 || rawMultiple === '1' || String(rawMultiple).toLowerCase() === 'true';
+      rawMultiple === true ||
+      rawMultiple === 1 ||
+      rawMultiple === '1' ||
+      String(rawMultiple).toLowerCase() === 'true';
 
     return {
       id: item?.id ? String(item.id) : undefined,
@@ -651,7 +968,6 @@ export class ReportService {
       optionsSql,
     };
   }
-
 
   private normalizeVariableType(value: any): ReportVariableType {
     const t = String(value ?? 'string').toLowerCase();
@@ -711,5 +1027,4 @@ export class ReportService {
       options_query: optionsSql,
     };
   }
-
 }
