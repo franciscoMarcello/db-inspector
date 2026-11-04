@@ -349,6 +349,41 @@
   margin-left: -10px;
 }
 
+.report-tools .filters-toggle {
+  margin-left: auto;
+}
+
+.filters-summary {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 20px;
+  font-size: 13px;
+}
+
+.filters-summary__item {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.filters-summary__item dt {
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.filters-summary__item dd {
+  margin: 0;
+  font-weight: 600;
+  color: var(--text-primary);
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .title p {
   margin: 4px 0 0;
   color: var(--text-muted);
@@ -535,4 +570,29 @@
   height: 18px !important;
   font-size: 18px !important;
   flex: none;
+}
+
+/* Recolhido: resumo e acoes dividem uma linha so, para sobrar altura para a tabela. */
+.params-card--collapsed {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 6px 16px;
+}
+
+.params-card--collapsed .filters-summary {
+  flex: 1 1 0;
+  min-width: 0;
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+
+.params-card--collapsed .filters-summary__item {
+  flex: 0 1 auto;
+}
+
+.params-card--collapsed .report-tools {
+  flex: none;
+  flex-wrap: nowrap;
+  margin-left: auto;
 }

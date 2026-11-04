@@ -240,10 +240,15 @@
         </div>
       </header>
 
-      <div class="card params-card" *ngIf="selectedReport">
+      <div
+        class="card params-card"
+        [class.params-card--collapsed]="filtersCollapsed()"
+        *ngIf="selectedReport"
+      >
         <div
+          id="reports-filters-fields"
           class="filters-row flex flex-wrap items-end gap-x-3 gap-y-2"
-          *ngIf="orderedReportVariables.length"
+          *ngIf="orderedReportVariables.length && !filtersCollapsed()"
         >
           <ng-container *ngFor="let v of orderedReportVariables">
             <ng-container
@@ -391,6 +396,20 @@
 
         <p class="params-error" *ngIf="paramsError">{{ paramsError }}</p>
 
+        <dl
+          class="filters-summary"
+          *ngIf="filtersCollapsed() && orderedReportVariables.length"
+          aria-label="Filtros aplicados"
+        >
+          <div class="filters-summary__item" *ngFor="let item of filtersSummary">
+            <dt>{{ item.label }}</dt>
+            <dd [title]="item.value">{{ item.value }}</dd>
+          </div>
+          <div class="filters-summary__item" *ngIf="!filtersSummary.length">
+            <dd>Nenhum filtro preenchido</dd>
+          </div>
+        </dl>
+
         <div class="report-tools flex flex-wrap items-center gap-1">
           <app-button
             *ngIf="selectedReport?.secondSql"
@@ -429,6 +448,20 @@
               }}
             </button>
           </ng-container>
+          <app-button
+            *ngIf="orderedReportVariables.length"
+            class="row-btn filters-toggle"
+            type="button"
+            tone="neutral"
+            variant="ghost"
+            size="sm"
+            [icon]="filtersCollapsed() ? 'unfold_more' : 'unfold_less'"
+            [ariaExpanded]="!filtersCollapsed()"
+            ariaControls="reports-filters-fields"
+            (pressed)="toggleFiltersCollapsed()"
+          >
+            {{ filtersCollapsed() ? 'Mostrar filtros' : 'Recolher filtros' }}
+          </app-button>
         </div>
 
         <div
