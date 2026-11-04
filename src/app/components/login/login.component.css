@@ -37,7 +37,7 @@ form {
 
 .error {
   margin: 0;
-  color: #f87171;
+  color: var(--danger);
   font-size: 13px;
 }
 
@@ -62,9 +62,9 @@ form {
 }
 
 :host ::ng-deep app-button.login-submit .app-btn:disabled {
-  background: #334155 !important;
-  color: #94a3b8 !important;
-  border-color: #475569 !important;
+  background: var(--chip-bg) !important;
+  color: var(--text-muted) !important;
+  border-color: var(--border-strong) !important;
 }
 
 :host ::ng-deep .login-card .mat-mdc-form-field {

@@ -1,0 +1,91 @@
+/*
+ * Tokens de cor do AgroReport: o unico arquivo com cor literal.
+ * Componentes usam var(--...) ou as classes Tailwind de @theme em styles.css.
+ * npm run check:colors trava cores fixas fora daqui; theme-tokens.spec.ts confere o contraste.
+ */
+:root {
+  --bg-page: #f6f7f9;
+  --bg-surface: #ffffff;
+  --bg-surface-alt: #f1f3f6;
+  --border-subtle: #dce0e6;
+  --border-strong: #8b95a5;
+
+  --text-primary: #0f172a;
+  --text-muted: #475569;
+
+  --chip-bg: #e8edf5;
+  --chip-bg-active: #2563eb;
+  --on-accent: #ffffff;
+  --accent-soft: #eaf1fe;
+  --accent-soft-text: #1d4ed8;
+
+  --danger: #b42318;
+  --warning-soft: #fff4db;
+  --warning-soft-text: #7a4a00;
+
+  /* Estados: texto e base para fundos com color-mix(in srgb, var(--x) 12%, transparent). */
+  --success: #166534;
+  --warning: #92400e;
+  --info: #155e75;
+  --attention: #9a3412;
+
+  /* Cor de tipo de arquivo: so em icone, nunca em fundo de botao. */
+  --file-excel: #1d6f42;
+  --file-pdf: #c62828;
+
+  --scroll-track: #f1f3f6;
+  --scroll-thumb: #a3acb9;
+  --shadow-overlay: 0 10px 24px rgb(15 23 42 / 0.16);
+  --backdrop: rgb(15 23 42 / 0.45);
+
+  /* O editor Monaco usa tema escuro fixo, entao o fundo dele nao muda com o tema do app. */
+  --code-bg: #1e1e1e;
+}
+
+.dark-theme {
+  --bg-page: #0a0f1c;
+  --bg-surface: #131a2b;
+  --bg-surface-alt: #0e1424;
+  --border-subtle: #243049;
+  --border-strong: #5b6b8c;
+
+  --text-primary: #e6e9f0;
+  --text-muted: #9aa4b8;
+
+  --chip-bg: #1c2438;
+  --chip-bg-active: #3b5bdb;
+  --on-accent: #ffffff;
+  --accent-soft: #1c2747;
+  --accent-soft-text: #c7d3ff;
+
+  --danger: #f4a79d;
+  --warning-soft: #3a2e12;
+  --warning-soft-text: #f5d48a;
+
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --info: #67e8f9;
+  --attention: #fb923c;
+
+  --file-excel: #4cc38a;
+  --file-pdf: #ff7b72;
+
+  --scroll-track: #0a0f1c;
+  --scroll-thumb: #33405c;
+  --shadow-overlay: 0 10px 24px rgb(2 6 23 / 0.5);
+  --backdrop: rgb(2 6 23 / 0.7);
+}
+
+/*
+ * Nomes usados em componentes que nunca tinham sido definidos.
+ * Repetidos em .dark-theme porque var() resolve onde a propriedade e declarada.
+ */
+:root,
+.dark-theme {
+  --brand: var(--chip-bg-active);
+  --brand-primary: var(--chip-bg-active);
+  --color-primary: var(--chip-bg-active);
+  --chip-bg-hover: var(--chip-bg);
+  --chip-text-active: var(--accent-soft-text);
+  --chip-border-active: var(--chip-bg-active);
+}

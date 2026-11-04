@@ -1,0 +1,556 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-04T18:46:14+00:00",
+  "title": "Design System: AgroReport (DB Inspector)",
+  "extensions": {
+    "colorMeta": {
+      "accent": {
+        "role": "primary",
+        "displayName": "Azul de Acao",
+        "canonical": "oklch(54.6% 0.215 263)",
+        "tonalRamp": [
+          "oklch(15% 0.029 263)",
+          "oklch(26% 0.094 263)",
+          "oklch(38% 0.160 263)",
+          "oklch(49% 0.215 263)",
+          "oklch(61% 0.215 263)",
+          "oklch(72% 0.160 263)",
+          "oklch(84% 0.094 263)",
+          "oklch(95% 0.029 263)"
+        ]
+      },
+      "accent-soft-text": {
+        "role": "primary",
+        "displayName": "Azul de Leitura",
+        "canonical": "oklch(48.8% 0.217 264)",
+        "tonalRamp": [
+          "oklch(15% 0.029 264)",
+          "oklch(26% 0.095 264)",
+          "oklch(38% 0.161 264)",
+          "oklch(49% 0.217 264)",
+          "oklch(61% 0.217 264)",
+          "oklch(72% 0.161 264)",
+          "oklch(84% 0.095 264)",
+          "oklch(95% 0.029 264)"
+        ]
+      },
+      "accent-soft": {
+        "role": "primary",
+        "displayName": "Nevoa Azul",
+        "canonical": "oklch(95.7% 0.019 263)",
+        "tonalRamp": [
+          "oklch(15% 0.003 263)",
+          "oklch(26% 0.008 263)",
+          "oklch(38% 0.014 263)",
+          "oklch(49% 0.019 263)",
+          "oklch(61% 0.019 263)",
+          "oklch(72% 0.014 263)",
+          "oklch(84% 0.008 263)",
+          "oklch(95% 0.003 263)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Tinta",
+        "canonical": "oklch(20.8% 0.040 266)",
+        "tonalRamp": [
+          "oklch(15% 0.005 266)",
+          "oklch(26% 0.017 266)",
+          "oklch(38% 0.030 266)",
+          "oklch(49% 0.040 266)",
+          "oklch(61% 0.040 266)",
+          "oklch(72% 0.030 266)",
+          "oklch(84% 0.017 266)",
+          "oklch(95% 0.005 266)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Grafite",
+        "canonical": "oklch(44.6% 0.037 257)",
+        "tonalRamp": [
+          "oklch(15% 0.005 257)",
+          "oklch(26% 0.016 257)",
+          "oklch(38% 0.028 257)",
+          "oklch(49% 0.037 257)",
+          "oklch(61% 0.037 257)",
+          "oklch(72% 0.028 257)",
+          "oklch(84% 0.016 257)",
+          "oklch(95% 0.005 257)"
+        ]
+      },
+      "page": {
+        "role": "neutral",
+        "displayName": "Pagina",
+        "canonical": "oklch(97.6% 0.003 265)",
+        "tonalRamp": [
+          "oklch(15% 0.000 265)",
+          "oklch(26% 0.001 265)",
+          "oklch(38% 0.002 265)",
+          "oklch(49% 0.003 265)",
+          "oklch(61% 0.003 265)",
+          "oklch(72% 0.002 265)",
+          "oklch(84% 0.001 265)",
+          "oklch(95% 0.000 265)"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Fio",
+        "canonical": "oklch(90.5% 0.009 258)",
+        "tonalRamp": [
+          "oklch(15% 0.001 258)",
+          "oklch(26% 0.004 258)",
+          "oklch(38% 0.007 258)",
+          "oklch(49% 0.009 258)",
+          "oklch(61% 0.009 258)",
+          "oklch(72% 0.007 258)",
+          "oklch(84% 0.004 258)",
+          "oklch(95% 0.001 258)"
+        ]
+      },
+      "line-strong": {
+        "role": "neutral",
+        "displayName": "Fio Forte",
+        "canonical": "oklch(66.7% 0.026 260)",
+        "tonalRamp": [
+          "oklch(15% 0.004 260)",
+          "oklch(26% 0.012 260)",
+          "oklch(38% 0.020 260)",
+          "oklch(49% 0.026 260)",
+          "oklch(61% 0.026 260)",
+          "oklch(72% 0.020 260)",
+          "oklch(84% 0.012 260)",
+          "oklch(95% 0.004 260)"
+        ]
+      },
+      "chip": {
+        "role": "neutral",
+        "displayName": "Chip",
+        "canonical": "oklch(94.5% 0.012 260)",
+        "tonalRamp": [
+          "oklch(15% 0.002 260)",
+          "oklch(26% 0.005 260)",
+          "oklch(38% 0.009 260)",
+          "oklch(49% 0.012 260)",
+          "oklch(61% 0.012 260)",
+          "oklch(72% 0.009 260)",
+          "oklch(84% 0.005 260)",
+          "oklch(95% 0.002 260)"
+        ]
+      },
+      "danger": {
+        "role": "status",
+        "displayName": "Perigo",
+        "canonical": "oklch(50.0% 0.182 30)",
+        "tonalRamp": [
+          "oklch(15% 0.024 30)",
+          "oklch(26% 0.080 30)",
+          "oklch(38% 0.135 30)",
+          "oklch(49% 0.182 30)",
+          "oklch(61% 0.182 30)",
+          "oklch(72% 0.135 30)",
+          "oklch(84% 0.080 30)",
+          "oklch(95% 0.024 30)"
+        ]
+      },
+      "success": {
+        "role": "status",
+        "displayName": "Sucesso",
+        "canonical": "oklch(44.8% 0.108 151)",
+        "tonalRamp": [
+          "oklch(15% 0.014 151)",
+          "oklch(26% 0.047 151)",
+          "oklch(38% 0.080 151)",
+          "oklch(49% 0.108 151)",
+          "oklch(61% 0.108 151)",
+          "oklch(72% 0.080 151)",
+          "oklch(84% 0.047 151)",
+          "oklch(95% 0.014 151)"
+        ]
+      },
+      "warning": {
+        "role": "status",
+        "displayName": "Aviso",
+        "canonical": "oklch(47.3% 0.125 46)",
+        "tonalRamp": [
+          "oklch(15% 0.017 46)",
+          "oklch(26% 0.055 46)",
+          "oklch(38% 0.093 46)",
+          "oklch(49% 0.125 46)",
+          "oklch(61% 0.125 46)",
+          "oklch(72% 0.093 46)",
+          "oklch(84% 0.055 46)",
+          "oklch(95% 0.017 46)"
+        ]
+      },
+      "info": {
+        "role": "status",
+        "displayName": "Informacao",
+        "canonical": "oklch(45.0% 0.077 224)",
+        "tonalRamp": [
+          "oklch(15% 0.010 224)",
+          "oklch(26% 0.034 224)",
+          "oklch(38% 0.057 224)",
+          "oklch(49% 0.077 224)",
+          "oklch(61% 0.077 224)",
+          "oklch(72% 0.057 224)",
+          "oklch(84% 0.034 224)",
+          "oklch(95% 0.010 224)"
+        ]
+      },
+      "attention": {
+        "role": "status",
+        "displayName": "Divergencia",
+        "canonical": "oklch(47.0% 0.143 37)",
+        "tonalRamp": [
+          "oklch(15% 0.019 37)",
+          "oklch(26% 0.063 37)",
+          "oklch(38% 0.106 37)",
+          "oklch(49% 0.143 37)",
+          "oklch(61% 0.143 37)",
+          "oklch(72% 0.106 37)",
+          "oklch(84% 0.063 37)",
+          "oklch(95% 0.019 37)"
+        ]
+      },
+      "warning-soft": {
+        "role": "status",
+        "displayName": "Aviso Suave",
+        "canonical": "oklch(96.9% 0.035 87)",
+        "tonalRamp": [
+          "oklch(15% 0.005 87)",
+          "oklch(26% 0.015 87)",
+          "oklch(38% 0.026 87)",
+          "oklch(49% 0.035 87)",
+          "oklch(61% 0.035 87)",
+          "oklch(72% 0.026 87)",
+          "oklch(84% 0.015 87)",
+          "oklch(95% 0.005 87)"
+        ]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Superficie"
+      },
+      "surface-alt": {
+        "role": "neutral",
+        "displayName": "Superficie Alternativa"
+      },
+      "on-accent": {
+        "role": "neutral",
+        "displayName": "Texto sobre Acao"
+      },
+      "warning-soft-text": {
+        "role": "neutral",
+        "displayName": "Texto de Aviso Suave"
+      },
+      "scroll-track": {
+        "role": "neutral",
+        "displayName": "Trilho de Rolagem"
+      },
+      "scroll-thumb": {
+        "role": "neutral",
+        "displayName": "Alca de Rolagem"
+      },
+      "backdrop": {
+        "role": "neutral",
+        "displayName": "Veu"
+      },
+      "code-bg": {
+        "role": "neutral",
+        "displayName": "Fundo de Codigo"
+      },
+      "accent-dark": {
+        "role": "primary",
+        "displayName": "Azul de Acao (escuro)"
+      },
+      "accent-soft-text-dark": {
+        "role": "primary",
+        "displayName": "Azul de Leitura (escuro)"
+      },
+      "accent-soft-dark": {
+        "role": "primary",
+        "displayName": "Nevoa Azul (escuro)"
+      },
+      "ink-dark": {
+        "role": "neutral",
+        "displayName": "Tinta (escuro)"
+      },
+      "muted-dark": {
+        "role": "neutral",
+        "displayName": "Grafite (escuro)"
+      },
+      "page-dark": {
+        "role": "neutral",
+        "displayName": "Pagina (escuro)"
+      },
+      "line-dark": {
+        "role": "neutral",
+        "displayName": "Fio (escuro)"
+      },
+      "line-strong-dark": {
+        "role": "neutral",
+        "displayName": "Fio Forte (escuro)"
+      },
+      "chip-dark": {
+        "role": "neutral",
+        "displayName": "Chip (escuro)"
+      },
+      "danger-dark": {
+        "role": "status",
+        "displayName": "Perigo (escuro)"
+      },
+      "success-dark": {
+        "role": "status",
+        "displayName": "Sucesso (escuro)"
+      },
+      "warning-dark": {
+        "role": "status",
+        "displayName": "Aviso (escuro)"
+      },
+      "info-dark": {
+        "role": "status",
+        "displayName": "Informacao (escuro)"
+      },
+      "attention-dark": {
+        "role": "status",
+        "displayName": "Divergencia (escuro)"
+      },
+      "warning-soft-dark": {
+        "role": "status",
+        "displayName": "Aviso Suave (escuro)"
+      },
+      "surface-dark": {
+        "role": "neutral",
+        "displayName": "Superficie (escuro)"
+      },
+      "surface-alt-dark": {
+        "role": "neutral",
+        "displayName": "Superficie Alternativa (escuro)"
+      },
+      "on-accent-dark": {
+        "role": "neutral",
+        "displayName": "Texto sobre Acao (escuro)"
+      },
+      "warning-soft-text-dark": {
+        "role": "neutral",
+        "displayName": "Texto de Aviso Suave (escuro)"
+      },
+      "scroll-track-dark": {
+        "role": "neutral",
+        "displayName": "Trilho de Rolagem (escuro)"
+      },
+      "scroll-thumb-dark": {
+        "role": "neutral",
+        "displayName": "Alca de Rolagem (escuro)"
+      },
+      "backdrop-dark": {
+        "role": "neutral",
+        "displayName": "Veu (escuro)"
+      }
+    },
+    "typographyMeta": {
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Titulo de pagina (h1)."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Titulo de secao e nome do app (h2)."
+      },
+      "subtitle": {
+        "displayName": "Subtitle",
+        "purpose": "Subtitulo de bloco (h3)."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Texto corrido."
+      },
+      "body-sm": {
+        "displayName": "Body small",
+        "purpose": "Menus, auxiliares, estados vazios."
+      },
+      "data": {
+        "displayName": "Data",
+        "purpose": "Celulas de tabela de resultado."
+      },
+      "data-header": {
+        "displayName": "Data header",
+        "purpose": "Cabecalhos de coluna."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Rotulos de campo, sentence case."
+      },
+      "pill": {
+        "displayName": "Pill",
+        "purpose": "Pilulas de estado e tipo."
+      }
+    },
+    "shadows": [
+      {
+        "name": "shadow-overlay",
+        "value": "0 10px 24px rgb(15 23 42 / 0.16)",
+        "purpose": "Tema claro: menus, paineis de overlay e modais."
+      },
+      {
+        "name": "shadow-overlay-dark",
+        "value": "0 10px 24px rgb(2 6 23 / 0.5)",
+        "purpose": "Tema escuro: mesmo papel."
+      },
+      {
+        "name": "focus-ring-tint",
+        "value": "0 0 0 3px color-mix(in srgb, var(--chip-bg-active) 20%, transparent)",
+        "purpose": "Anel de foco tingido em controles customizados."
+      }
+    ],
+    "motion": [
+      {
+        "name": "control-transition",
+        "value": "150ms ease-in-out",
+        "purpose": "Cor, borda e brilho de botoes e campos."
+      },
+      {
+        "name": "sidebar-collapse",
+        "value": "200ms ease",
+        "purpose": "Largura da barra lateral ao recolher."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "stack",
+        "value": "900px"
+      },
+      {
+        "name": "wide",
+        "value": "1200px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Botao principal",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Acao principal da tela (salvar, executar).",
+      "html": "<button class=\"ds-btn ds-btn-primary\">Executar consulta</button>",
+      "css": ".ds-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:0 14px;font:600 14px system-ui,sans-serif;border:1px solid transparent;border-radius:10px;cursor:pointer;transition:background-color .15s ease-in-out,border-color .15s ease-in-out,color .15s ease-in-out,filter .15s ease-in-out}.ds-btn:focus-visible{outline:2px solid var(--chip-bg-active);outline-offset:1px}.ds-btn:active{filter:brightness(.95)}.ds-btn-primary{background:var(--chip-bg-active);border-color:var(--chip-bg-active);color:var(--on-accent)}.ds-btn-primary:hover{filter:brightness(1.05)}"
+    },
+    {
+      "name": "Botao neutro",
+      "kind": "button",
+      "refersTo": "button-neutral",
+      "description": "Padrao do app-button: acoes secundarias.",
+      "html": "<button class=\"ds-btn ds-btn-neutral\">Exportar</button>",
+      "css": ".ds-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:0 14px;font:600 14px system-ui,sans-serif;border:1px solid transparent;border-radius:10px;cursor:pointer;transition:background-color .15s ease-in-out,border-color .15s ease-in-out,color .15s ease-in-out,filter .15s ease-in-out}.ds-btn:focus-visible{outline:2px solid var(--chip-bg-active);outline-offset:1px}.ds-btn:active{filter:brightness(.95)}.ds-btn-neutral{background:var(--bg-surface-alt);border-color:var(--border-subtle);color:var(--text-primary)}.ds-btn-neutral:hover{background:color-mix(in srgb,var(--bg-surface-alt) 76%,var(--chip-bg-active))}"
+    },
+    {
+      "name": "Botao fantasma",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Acoes discretas e botoes so com icone.",
+      "html": "<button class=\"ds-btn ds-btn-ghost\">Cancelar</button>",
+      "css": ".ds-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:0 14px;font:600 14px system-ui,sans-serif;border:1px solid transparent;border-radius:10px;cursor:pointer;transition:background-color .15s ease-in-out,border-color .15s ease-in-out,color .15s ease-in-out,filter .15s ease-in-out}.ds-btn:focus-visible{outline:2px solid var(--chip-bg-active);outline-offset:1px}.ds-btn:active{filter:brightness(.95)}.ds-btn-ghost{background:transparent;color:var(--text-muted)}.ds-btn-ghost:hover{background:var(--chip-bg);color:var(--text-primary)}"
+    },
+    {
+      "name": "Botao de perigo",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "Acoes destrutivas (excluir, remover).",
+      "html": "<button class=\"ds-btn ds-btn-danger\">Excluir</button>",
+      "css": ".ds-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:0 14px;font:600 14px system-ui,sans-serif;border:1px solid transparent;border-radius:10px;cursor:pointer;transition:background-color .15s ease-in-out,border-color .15s ease-in-out,color .15s ease-in-out,filter .15s ease-in-out}.ds-btn:focus-visible{outline:2px solid var(--chip-bg-active);outline-offset:1px}.ds-btn:active{filter:brightness(.95)}.ds-btn-danger{background:color-mix(in srgb,var(--danger) 5%,transparent);border-color:color-mix(in srgb,var(--danger) 45%,transparent);color:var(--danger)}.ds-btn-danger:hover{background:color-mix(in srgb,var(--danger) 10%,transparent)}"
+    },
+    {
+      "name": "Campo de texto",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Campo padrao com rotulo em sentence case.",
+      "html": "<label class=\"ds-field\"><span class=\"ds-field-label\">Nome do relatorio</span><input class=\"ds-input\" placeholder=\"Ex.: colheita por safra\"></label>",
+      "css": ".ds-field{display:grid;gap:6px;font-family:system-ui,sans-serif}.ds-field-label{color:var(--text-muted);font-size:12px;font-weight:600;letter-spacing:.03em}.ds-input{min-height:36px;padding:0 10px;border:1px solid var(--border-subtle);border-radius:10px;background:var(--bg-surface-alt);color:var(--text-primary);font:inherit;font-size:14px;transition:border-color .15s ease,box-shadow .15s ease}.ds-input::placeholder{color:var(--text-muted)}.ds-input:focus-visible{outline:2px solid var(--chip-bg-active);outline-offset:1px}"
+    },
+    {
+      "name": "Item de navegacao",
+      "kind": "nav",
+      "refersTo": "nav-item",
+      "description": "Itens da barra lateral; ativo em nevoa azul.",
+      "html": "<nav class=\"ds-nav\"><a class=\"ds-nav-item ds-nav-item--active\" href=\"#\">Relatorios</a><a class=\"ds-nav-item\" href=\"#\">Consultas</a><a class=\"ds-nav-item\" href=\"#\">Agendamentos</a></nav>",
+      "css": ".ds-nav{display:grid;gap:2px;width:216px;padding:8px 12px;background:var(--bg-surface);border-right:1px solid var(--border-subtle);font-family:system-ui,sans-serif}.ds-nav-item{display:flex;align-items:center;min-height:36px;padding:0 10px;border-radius:8px;color:var(--text-primary);font-size:14px;font-weight:500;text-decoration:none}.ds-nav-item:hover{background:var(--chip-bg)}.ds-nav-item:focus-visible{outline:2px solid var(--chip-bg-active);outline-offset:1px}.ds-nav-item--active,.ds-nav-item--active:hover{background:var(--accent-soft);color:var(--accent-soft-text);font-weight:600}"
+    },
+    {
+      "name": "Pilulas de estado",
+      "kind": "chip",
+      "refersTo": "status-pill",
+      "description": "Estado como texto colorido sobre tingido de 12%.",
+      "html": "<span class=\"ds-pill ds-pill--success\">Publicado</span> <span class=\"ds-pill ds-pill--warning\">Rascunho</span> <span class=\"ds-pill ds-pill--attention\">Divergente</span>",
+      "css": ".ds-pill{display:inline-flex;align-items:center;padding:3px 8px;border-radius:999px;font:600 11px system-ui,sans-serif;border:1px solid}.ds-pill--success{color:var(--success);background:color-mix(in srgb,var(--success) 12%,transparent);border-color:color-mix(in srgb,var(--success) 24%,transparent)}.ds-pill--warning{color:var(--warning);background:color-mix(in srgb,var(--warning) 12%,transparent);border-color:color-mix(in srgb,var(--warning) 24%,transparent)}.ds-pill--attention{color:var(--attention);background:color-mix(in srgb,var(--attention) 12%,transparent);border-color:color-mix(in srgb,var(--attention) 24%,transparent)}"
+    },
+    {
+      "name": "Tabela de resultado",
+      "kind": "custom",
+      "refersTo": "table-cell",
+      "description": "Tabela densa com numeros tabulares e marca de divergencia.",
+      "html": "<div class=\"ds-card\"><table class=\"ds-table\"><thead><tr><th>Safra</th><th>Area (ha)</th><th>sc/ha</th></tr></thead><tbody><tr><td>2024/25</td><td>1.240,50</td><td>62,4</td></tr><tr><td>2025/26</td><td>1.198,00</td><td class=\"ds-diff\">58,9</td></tr></tbody></table></div>",
+      "css": ".ds-card{background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:12px;overflow:hidden}.ds-table{width:100%;border-collapse:separate;border-spacing:0;font-family:system-ui,sans-serif;font-variant-numeric:tabular-nums;color:var(--text-primary)}.ds-table th{background:var(--bg-surface-alt);color:var(--text-muted);font-size:13px;font-weight:700;letter-spacing:.01em;text-align:left;padding:11px 12px;box-shadow:inset 0 -1px 0 var(--border-subtle)}.ds-table td{font-size:12px;line-height:1.35;padding:11px 12px;border-bottom:1px solid var(--border-subtle)}.ds-table tbody tr:hover{background:color-mix(in srgb,var(--bg-surface-alt) 72%,transparent)}.ds-diff{background:color-mix(in srgb,var(--attention) 24%,transparent);font-weight:800;box-shadow:inset 3px 0 0 var(--attention)}"
+    }
+  ],
+  "narrative": {
+    "northStar": "A Bancada de Dados",
+    "overview": "Uma bancada de trabalho para quem le banco de dados o dia inteiro: superficies neutras e frias, uma unica cor de acao (azul) e o resto do peso visual entregue aos dados. A tela e densa de proposito. Texto de 12 a 13px domina, espacamentos andam em passos de 4 a 12px e as tabelas de resultado ocupam o centro de quase toda pagina.\n\nO sistema existe em dois temas com os mesmos papeis. O tema claro fica em `:root` e o escuro em `.dark-theme` (aplicada no `body` e no container de overlay do CDK), ambos em `src/tokens.css`, o unico arquivo com cor literal. Os componentes so falam em papeis: `var(--...)` em CSS ou as classes Tailwind expostas por `@theme inline` em `src/styles.css` (`bg-surface`, `text-muted`, `border-line`, `bg-accent`, `text-on-accent`, `bg-warning-soft`...). O Angular Material (tema azure em `src/custom-theme.scss`) segue o tema por `color-scheme`.\n\nProfundidade vem de camadas tonais e bordas finas, nao de sombra. Sombra aparece so em coisas que flutuam (menus, paineis de overlay, modais).",
+    "keyCharacteristics": [
+      "Densidade alta: corpo de 14px, dados em 12px com numeros tabulares, rotulos em 12px.",
+      "Um azul de acao; estados (sucesso, aviso, informacao, divergencia, perigo) como texto mais fundo tingido a 12%.",
+      "Superficies planas separadas por borda de 1px e por troca de tom (pagina, superficie, superficie alternativa).",
+      "Navegacao lateral fixa; sem barra de topo quando logado.",
+      "Dois temas com contraste WCAG verificado em teste (`src/app/theme-tokens.spec.ts`)."
+    ],
+    "rules": [
+      {
+        "name": "The Single Source Rule",
+        "body": "Nenhuma cor literal fora de `src/tokens.css`. `npm run check:colors` trava em 0; cor nova entra como token nos dois temas ou nao entra.",
+        "section": "colors"
+      },
+      {
+        "name": "The Two Blues Rule",
+        "body": "Azul de fundo (accent) nunca vira cor de texto sobre superficie, e azul de texto (accent-soft-text) nunca vira fundo de botao. Cada par tem contraste conferido em `theme-tokens.spec.ts`.",
+        "section": "colors"
+      },
+      {
+        "name": "The Tint Not Fill Rule",
+        "body": "Estados aparecem como texto colorido sobre fundo tingido (12% e o padrao). Fundo de estado saturado com texto branco nao existe neste sistema.",
+        "section": "colors"
+      },
+      {
+        "name": "The Tabular Rule",
+        "body": "Toda tabela de resultado usa `font-variant-numeric: tabular-nums` para que numeros alinhem por coluna.",
+        "section": "typography"
+      },
+      {
+        "name": "The Sentence Case Rule",
+        "body": "Rotulos, titulos e botoes em sentence case. Sem caixa alta espacada.",
+        "section": "typography"
+      },
+      {
+        "name": "The Float Only Rule",
+        "body": "Sombra so em elemento que flutua. Cartao, tabela e barra lateral ficam planos com borda.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** usar so papeis: `var(--token)` ou as classes `bg-surface`, `text-muted`, `border-line`, `bg-accent`, `text-on-accent` e afins.",
+      "**Do** colocar texto `on-accent` sobre o azul de acao e usar o azul de leitura (`accent-soft-text`) para texto e links azuis.",
+      "**Do** desenhar estados como texto na cor do estado sobre `color-mix(in srgb, var(--x) 12%, transparent)`.",
+      "**Do** definir todo token novo nos dois temas e cobrir o par de contraste em `theme-tokens.spec.ts`.",
+      "**Do** usar `app-button` com tom e variante existentes antes de criar botao novo.",
+      "**Do** usar numeros tabulares em qualquer tabela de dados."
+    ],
+    "donts": [
+      "**Don't** escrever cor literal (hex, rgb, nome) fora de `src/tokens.css`; `npm run check:colors` falha.",
+      "**Don't** usar o azul de acao como cor de texto ou o azul de leitura como fundo de botao.",
+      "**Don't** colocar sombra em cartao, tabela ou barra lateral; sombra e so para o que flutua.",
+      "**Don't** escrever rotulos em caixa alta espacada; use sentence case.",
+      "**Don't** trocar o fundo do editor Monaco pelo tema do app; `code-bg` e fixo.",
+      "**Don't** adicionar barra de topo ao shell logado."
+    ]
+  }
+}

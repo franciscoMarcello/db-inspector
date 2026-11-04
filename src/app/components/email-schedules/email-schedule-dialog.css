@@ -32,7 +32,7 @@
   background: var(--bg-surface);
   color: var(--text-primary);
   border-radius: 18px;
-  box-shadow: 0 28px 80px rgba(15, 23, 42, 0.55);
+  box-shadow: var(--shadow-overlay);
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   gap: 10px;
@@ -177,7 +177,7 @@ input:focus,
 textarea:focus {
   outline: none;
   border-color: var(--chip-bg-active);
-  box-shadow: 0 0 0 3px rgba(76, 111, 255, 0.2);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--chip-bg-active) 20%, transparent);
 }
 
 .grid {
@@ -233,12 +233,12 @@ textarea:focus {
 
 .chips-input:focus-within {
   border-color: var(--chip-bg-active);
-  box-shadow: 0 0 0 3px rgba(76, 111, 255, 0.2);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--chip-bg-active) 20%, transparent);
 }
 
 .chips-input.error {
-  border-color: rgba(239, 68, 68, 0.6);
-  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.16);
+  border-color: color-mix(in srgb, var(--danger) 60%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 16%, transparent);
 }
 
 .chips-input input {
@@ -303,7 +303,7 @@ small {
 }
 
 .error-text {
-  color: #ef4444;
+  color: var(--danger);
 }
 
 .check-row {
@@ -401,7 +401,7 @@ small {
 
 .day.active {
   background: var(--chip-bg-active);
-  color: #fff;
+  color: var(--on-accent);
   border-color: var(--chip-bg-active);
 }
 
@@ -447,7 +447,7 @@ button {
 
 .btn--primary {
   background: var(--chip-bg-active);
-  color: #fff;
+  color: var(--on-accent);
   border-color: var(--chip-bg-active);
 }
 

@@ -62,7 +62,7 @@
           <span>Gerenciar pastas</span>
         </button>
         <button mat-menu-item type="button" (click)="openTemplateManager()">
-          <mat-icon aria-hidden="true">picture_as_pdf</mat-icon>
+          <mat-icon class="icon-pdf" aria-hidden="true">picture_as_pdf</mat-icon>
           <span>Templates PDF</span>
         </button>
       </mat-menu>
@@ -93,6 +93,9 @@
             [class.active]="selectedFolderId === folder.id"
             (click)="selectFolder(folder)"
           >
+            <mat-icon class="folder-icon" aria-hidden="true">{{
+              folder.expanded || hasTreeFilter ? 'folder_open' : 'folder'
+            }}</mat-icon>
             <span class="folder-name" [title]="folder.name">{{ folder.name }}</span>
             <span class="archived-badge" *ngIf="folder.archived">Arquivado</span>
             <span class="folder-count">{{ reportCountByFolder(folder) }}</span>
@@ -126,8 +129,7 @@
             <span class="min-w-0 flex-1 truncate" [title]="report.name">{{ report.name }}</span>
             <span
               *ngIf="report.draft || (manageMode && report.openDraftVersion != null)"
-              class="shrink-0 whitespace-nowrap rounded-full border border-[color-mix(in_srgb,#60a5fa_45%,transparent)] bg-[color-mix(in_srgb,#3b82f6_16%,transparent)] px-1.5 py-px text-[10px] font-bold tracking-[0.04em] text-[#60a5fa]"
-              [class.uppercase]="report.draft"
+              class="shrink-0 whitespace-nowrap rounded-full bg-warning-soft px-1.5 py-px text-xs font-semibold text-warning-soft-text"
               [title]="
                 report.draft
                   ? 'Relatório criado como rascunho e nunca publicado'
@@ -162,8 +164,8 @@
   </aside>
 
   <main class="content-panel">
-    <section class="card ui-card ui-section filters" *ngIf="!analysisMode || !compareResult">
-      <header class="flex flex-wrap items-start justify-between gap-3">
+    <section class="filters grid content-start gap-3" *ngIf="!analysisMode || !compareResult">
+      <header class="report-header flex flex-wrap items-start justify-between gap-3">
         <div class="flex min-w-0 items-start gap-2">
           <app-button
             *ngIf="sidebarCollapsed"
@@ -185,258 +187,299 @@
             <p *ngIf="!selectedReport">Selecione um relatório na árvore.</p>
           </div>
         </div>
-        <div class="flex shrink-0 items-center gap-2">
+        <div class="report-actions flex shrink-0 flex-wrap items-center gap-2">
           <app-reports-ai-toolbar
             *ngIf="manageMode"
             (statusMessage)="setStatusMessage($event.message, $event.autoClearMs)"
           ></app-reports-ai-toolbar>
+          <ng-container *ngIf="selectedReport">
+            <app-button
+              class="icon-excel"
+              type="button"
+              tone="neutral"
+              variant="outline"
+              icon="grid_on"
+              (pressed)="exportExcel()"
+              [disabled]="!hasResultRows || loadingExcel"
+            >
+              {{ loadingExcel ? 'Gerando Excel...' : 'Excel' }}
+            </app-button>
+            <app-button
+              *ngIf="canExportPdf"
+              class="icon-pdf"
+              type="button"
+              tone="neutral"
+              variant="outline"
+              icon="picture_as_pdf"
+              (pressed)="exportPdf()"
+              [disabled]="loadingPdf || !hasRequiredParamsForRun"
+            >
+              {{ loadingPdf ? 'Gerando PDF...' : 'PDF' }}
+            </app-button>
+            <app-button
+              type="button"
+              tone="primary"
+              variant="solid"
+              icon="play_arrow"
+              (pressed)="applyFilters()"
+              [disabled]="!canRunReport"
+            >
+              {{ loadingRun ? 'Executando...' : 'Executar' }}
+            </app-button>
+          </ng-container>
           <button
+            *ngIf="manageMode && canWriteReports"
             #actionsTrigger="matMenuTrigger"
             type="button"
-            class="inline-flex min-h-9 items-center justify-center rounded-[10px] border border-solid border-[var(--border-subtle)] bg-[var(--bg-surface-alt)] text-[var(--text-primary)] hover:bg-[color-mix(in_srgb,var(--bg-surface-alt)_76%,var(--chip-bg-active))] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--chip-bg-active)] disabled:cursor-not-allowed disabled:opacity-[0.55] w-9"
+            class="inline-flex min-h-9 w-9 items-center justify-center rounded-[10px] border border-solid border-[var(--border-subtle)] bg-[var(--bg-surface-alt)] text-[var(--text-primary)] hover:bg-[var(--chip-bg)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--chip-bg-active)]"
             [matMenuTriggerFor]="actionsMenu"
             aria-label="Mais ações"
-            [disabled]="!manageMode && !hasResultRows && !canExportPdf"
-            [attr.aria-busy]="loadingExcel || loadingPdf ? 'true' : null"
           >
-            <span
-              *ngIf="loadingExcel || loadingPdf; else moreIcon"
-              class="result-loading-spinner"
-              aria-hidden="true"
-            ></span>
-            <ng-template #moreIcon><mat-icon aria-hidden="true">more_horiz</mat-icon></ng-template>
+            <mat-icon aria-hidden="true">more_horiz</mat-icon>
           </button>
         </div>
       </header>
 
-      <div class="filters-row mt-3 flex flex-wrap items-end gap-x-3 gap-y-2" *ngIf="selectedReport">
-        <ng-container *ngFor="let v of orderedReportVariables">
-          <ng-container *ngTemplateOutlet="variableField; context: { $implicit: v }"></ng-container>
-        </ng-container>
-        <app-button
-          type="button"
-          tone="primary"
-          variant="solid"
-          icon="play_arrow"
-          (pressed)="applyFilters()"
-          [disabled]="!canRunReport"
+      <div
+        class="card params-card"
+        [class.params-card--collapsed]="filtersCollapsed()"
+        *ngIf="selectedReport"
+      >
+        <div
+          id="reports-filters-fields"
+          class="filters-row flex flex-wrap items-end gap-x-3 gap-y-2"
+          *ngIf="orderedReportVariables.length && !filtersCollapsed()"
         >
-          {{ loadingRun ? 'Executando...' : 'Executar' }}
-        </app-button>
-      </div>
-
-      <ng-template #variableField let-v>
-        <label class="var-field">
-          <span>{{ variableLabel(v) }} <em *ngIf="v.required">*</em></span>
-          <ng-container *ngIf="hasVariableOptions(v); else freeInput">
-            <ng-container *ngIf="!v.multiple; else multipleOptionsSelect">
-              <div class="var-autocomplete-wrap">
-                <input
-                  matInput
-                  class="var-autocomplete ui-input"
-                  type="text"
-                  placeholder="Selecione ou digite para filtrar"
-                  [matAutocomplete]="varAuto"
-                  [ngModel]="variableOptionSearchText[v.key] || ''"
-                  [ngModelOptions]="{ standalone: true }"
-                  (ngModelChange)="onVariableOptionSearchChange(v, $event)"
-                />
-                <span
-                  *ngIf="variableOptionsLoading(v)"
-                  class="var-input-loading"
-                  aria-hidden="true"
-                  title="Carregando opções"
-                ></span>
-                <span
-                  *ngIf="
-                    !variableOptionsLoading(v) &&
-                    !(
-                      (variableOptionSearchText[v.key] || '').trim() ||
-                      (variableInputs[v.key] || '').trim()
-                    )
-                  "
-                  class="var-input-caret"
-                  aria-hidden="true"
-                >
-                  ▾
-                </span>
-                <button
-                  *ngIf="
-                    !variableOptionsLoading(v) &&
-                    ((variableOptionSearchText[v.key] || '').trim() ||
-                      (variableInputs[v.key] || '').trim())
-                  "
-                  type="button"
-                  class="var-input-clear"
-                  (mousedown)="$event.preventDefault()"
-                  (click)="clearVariableOption(v)"
-                  title="Limpar seleção"
-                  aria-label="Limpar seleção"
-                >
-                  ×
-                </button>
-              </div>
-              <mat-autocomplete
-                #varAuto="matAutocomplete"
-                class="report-var-options-panel"
-                [displayWith]="displayVariableOption"
-                (optionSelected)="onVariableOptionSelected(v, $event.option.value)"
-              >
-                <mat-option *ngFor="let opt of filteredVariableOptionItems(v)" [value]="opt">
-                  {{ opt.descricao }}
-                </mat-option>
-                <mat-option *ngIf="!filteredVariableOptionItems(v).length" disabled>
-                  Sem opções
-                </mat-option>
-              </mat-autocomplete>
-            </ng-container>
-            <ng-template #multipleOptionsSelect>
-              <app-reports-multi-select
-                [options]="variableMultiSelectOptions(v)"
-                [selectedValues]="variableMultiOptionSelections[v.key] || []"
-                [placeholder]="'Selecione opções'"
-                [loading]="variableOptionsLoading(v)"
-                [disabled]="variableOptionsLoading(v)"
-                (selectedValuesChange)="onVariableMultipleOptionValuesSelected(v, $event)"
-              ></app-reports-multi-select>
-            </ng-template>
+          <ng-container *ngFor="let v of orderedReportVariables">
+            <ng-container
+              *ngTemplateOutlet="variableField; context: { $implicit: v }"
+            ></ng-container>
           </ng-container>
-          <ng-template #freeInput>
-            <ng-container *ngIf="v.multiple; else singleValueInput">
-              <textarea
-                class="var-multi-input ui-textarea"
-                rows="2"
-                [(ngModel)]="variableInputs[v.key]"
-                [ngModelOptions]="{ standalone: true }"
-                (ngModelChange)="onVariableInputChanged()"
-                placeholder="Informe múltiplos valores separados por vírgula"
-              ></textarea>
-            </ng-container>
-            <ng-template #singleValueInput>
-              <ng-container [ngSwitch]="v.type">
-                <input
-                  class="ui-input"
-                  *ngSwitchCase="'date'"
-                  type="date"
-                  [(ngModel)]="variableInputs[v.key]"
-                  [ngModelOptions]="{ standalone: true }"
-                  (ngModelChange)="onVariableInputChanged()"
-                />
-                <input
-                  class="ui-input"
-                  *ngSwitchCase="'datetime'"
-                  type="datetime-local"
-                  [(ngModel)]="variableInputs[v.key]"
-                  [ngModelOptions]="{ standalone: true }"
-                  (ngModelChange)="onVariableInputChanged()"
-                />
-                <input
-                  class="ui-input"
-                  *ngSwitchCase="'number'"
-                  type="number"
-                  [placeholder]="v.required ? '' : 'Opcional'"
-                  [(ngModel)]="variableInputs[v.key]"
-                  [ngModelOptions]="{ standalone: true }"
-                  (ngModelChange)="onVariableInputChanged()"
-                />
-                <app-reports-multi-select
-                  *ngSwitchCase="'boolean'"
-                  [options]="booleanOptions"
-                  mode="single"
-                  [selectedValue]="variableInputs[v.key] || ''"
-                  placeholder="(padrao)"
-                  (selectedValueChange)="onVariableBooleanChange(v.key, $event)"
-                ></app-reports-multi-select>
-                <input
-                  class="ui-input"
-                  *ngSwitchDefault
-                  type="text"
-                  [placeholder]="v.required ? '' : 'Opcional'"
-                  [(ngModel)]="variableInputs[v.key]"
-                  [ngModelOptions]="{ standalone: true }"
-                  (ngModelChange)="onVariableInputChanged()"
-                />
+        </div>
+
+        <ng-template #variableField let-v>
+          <label class="var-field">
+            <span>{{ variableLabel(v) }} <em *ngIf="v.required">*</em></span>
+            <ng-container *ngIf="hasVariableOptions(v); else freeInput">
+              <ng-container *ngIf="!v.multiple; else multipleOptionsSelect">
+                <div class="var-autocomplete-wrap">
+                  <input
+                    matInput
+                    class="var-autocomplete ui-input"
+                    type="text"
+                    placeholder="Selecione ou digite para filtrar"
+                    [matAutocomplete]="varAuto"
+                    [ngModel]="variableOptionSearchText[v.key] || ''"
+                    [ngModelOptions]="{ standalone: true }"
+                    (ngModelChange)="onVariableOptionSearchChange(v, $event)"
+                  />
+                  <span
+                    *ngIf="variableOptionsLoading(v)"
+                    class="var-input-loading"
+                    aria-hidden="true"
+                    title="Carregando opções"
+                  ></span>
+                  <span
+                    *ngIf="
+                      !variableOptionsLoading(v) &&
+                      !(
+                        (variableOptionSearchText[v.key] || '').trim() ||
+                        (variableInputs[v.key] || '').trim()
+                      )
+                    "
+                    class="var-input-caret"
+                    aria-hidden="true"
+                  >
+                    ▾
+                  </span>
+                  <button
+                    *ngIf="
+                      !variableOptionsLoading(v) &&
+                      ((variableOptionSearchText[v.key] || '').trim() ||
+                        (variableInputs[v.key] || '').trim())
+                    "
+                    type="button"
+                    class="var-input-clear"
+                    (mousedown)="$event.preventDefault()"
+                    (click)="clearVariableOption(v)"
+                    title="Limpar seleção"
+                    aria-label="Limpar seleção"
+                  >
+                    ×
+                  </button>
+                </div>
+                <mat-autocomplete
+                  #varAuto="matAutocomplete"
+                  class="report-var-options-panel"
+                  [displayWith]="displayVariableOption"
+                  (optionSelected)="onVariableOptionSelected(v, $event.option.value)"
+                >
+                  <mat-option *ngFor="let opt of filteredVariableOptionItems(v)" [value]="opt">
+                    {{ opt.descricao }}
+                  </mat-option>
+                  <mat-option *ngIf="!filteredVariableOptionItems(v).length" disabled>
+                    Sem opções
+                  </mat-option>
+                </mat-autocomplete>
               </ng-container>
+              <ng-template #multipleOptionsSelect>
+                <app-reports-multi-select
+                  [options]="variableMultiSelectOptions(v)"
+                  [selectedValues]="variableMultiOptionSelections[v.key] || []"
+                  [placeholder]="'Selecione opções'"
+                  [loading]="variableOptionsLoading(v)"
+                  [disabled]="variableOptionsLoading(v)"
+                  (selectedValuesChange)="onVariableMultipleOptionValuesSelected(v, $event)"
+                ></app-reports-multi-select>
+              </ng-template>
+            </ng-container>
+            <ng-template #freeInput>
+              <ng-container *ngIf="v.multiple; else singleValueInput">
+                <textarea
+                  class="var-multi-input ui-textarea"
+                  rows="2"
+                  [(ngModel)]="variableInputs[v.key]"
+                  [ngModelOptions]="{ standalone: true }"
+                  (ngModelChange)="onVariableInputChanged()"
+                  placeholder="Informe múltiplos valores separados por vírgula"
+                ></textarea>
+              </ng-container>
+              <ng-template #singleValueInput>
+                <ng-container [ngSwitch]="v.type">
+                  <input
+                    class="ui-input"
+                    *ngSwitchCase="'date'"
+                    type="date"
+                    [(ngModel)]="variableInputs[v.key]"
+                    [ngModelOptions]="{ standalone: true }"
+                    (ngModelChange)="onVariableInputChanged()"
+                  />
+                  <input
+                    class="ui-input"
+                    *ngSwitchCase="'datetime'"
+                    type="datetime-local"
+                    [(ngModel)]="variableInputs[v.key]"
+                    [ngModelOptions]="{ standalone: true }"
+                    (ngModelChange)="onVariableInputChanged()"
+                  />
+                  <input
+                    class="ui-input"
+                    *ngSwitchCase="'number'"
+                    type="number"
+                    [placeholder]="v.required ? '' : 'Opcional'"
+                    [(ngModel)]="variableInputs[v.key]"
+                    [ngModelOptions]="{ standalone: true }"
+                    (ngModelChange)="onVariableInputChanged()"
+                  />
+                  <app-reports-multi-select
+                    *ngSwitchCase="'boolean'"
+                    [options]="booleanOptions"
+                    mode="single"
+                    [selectedValue]="variableInputs[v.key] || ''"
+                    placeholder="(padrao)"
+                    (selectedValueChange)="onVariableBooleanChange(v.key, $event)"
+                  ></app-reports-multi-select>
+                  <input
+                    class="ui-input"
+                    *ngSwitchDefault
+                    type="text"
+                    [placeholder]="v.required ? '' : 'Opcional'"
+                    [(ngModel)]="variableInputs[v.key]"
+                    [ngModelOptions]="{ standalone: true }"
+                    (ngModelChange)="onVariableInputChanged()"
+                  />
+                </ng-container>
+              </ng-template>
             </ng-template>
-          </ng-template>
-        </label>
-      </ng-template>
+          </label>
+        </ng-template>
 
-      <p class="params-error" *ngIf="paramsError">{{ paramsError }}</p>
+        <p class="params-error" *ngIf="paramsError">{{ paramsError }}</p>
 
-      <div class="mt-2 -ml-2.5 flex flex-wrap items-center gap-1" *ngIf="selectedReport">
-        <app-button
-          *ngIf="selectedReport?.secondSql"
-          class="row-btn"
-          type="button"
-          tone="neutral"
-          variant="ghost"
-          size="sm"
-          icon="compare_arrows"
-          (pressed)="compareSelectedReport()"
-          [disabled]="loadingCompare || !canRunReport"
+        <dl
+          class="filters-summary"
+          *ngIf="filtersCollapsed() && orderedReportVariables.length"
+          aria-label="Filtros aplicados"
         >
-          {{ loadingCompare ? 'Comparando...' : 'Comparar SAP' }}
-        </app-button>
-        <span *ngIf="selectedReport?.secondSql" class="text-[var(--text-muted)]" aria-hidden="true">·</span>
-        <app-button
-          class="row-btn"
-          type="button"
-          tone="neutral"
-          variant="ghost"
-          size="sm"
-          icon="filter_alt_off"
-          (pressed)="clearAllFilters()"
-        >
-          Limpar
-        </app-button>
-        <ng-container *ngIf="selectedReport?.secondSql">
-          <span class="text-[var(--text-muted)]" aria-hidden="true">·</span>
-          <button
+          <div class="filters-summary__item" *ngFor="let item of filtersSummary">
+            <dt>{{ item.label }}</dt>
+            <dd [title]="item.value">{{ item.value }}</dd>
+          </div>
+          <div class="filters-summary__item" *ngIf="!filtersSummary.length">
+            <dd>Nenhum filtro preenchido</dd>
+          </div>
+        </dl>
+
+        <div class="report-tools flex flex-wrap items-center gap-1">
+          <app-button
+            *ngIf="selectedReport?.secondSql"
+            class="row-btn"
             type="button"
-            class="inline-flex min-h-8 items-center justify-center gap-1.5 rounded-[10px] border border-solid border-transparent bg-transparent px-2.5 text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[rgba(148,163,184,0.16)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--chip-bg-active)]"
-            [attr.aria-expanded]="advancedOpen()"
-            aria-controls="reports-advanced-panel"
-            (click)="toggleAdvanced()"
+            tone="neutral"
+            variant="ghost"
+            size="sm"
+            icon="compare_arrows"
+            (pressed)="compareSelectedReport()"
+            [disabled]="loadingCompare || !canRunReport"
           >
-            {{ advancedOpen() ? '−' : '+' }} Avançado{{
-              activeToleranceCount ? ' (' + activeToleranceCount + ')' : ''
-            }}
-          </button>
-        </ng-container>
-      </div>
+            {{ loadingCompare ? 'Comparando...' : 'Comparar SAP' }}
+          </app-button>
+          <app-button
+            class="row-btn"
+            type="button"
+            tone="neutral"
+            variant="ghost"
+            size="sm"
+            icon="filter_alt_off"
+            (pressed)="clearAllFilters()"
+          >
+            Limpar
+          </app-button>
+          <ng-container *ngIf="selectedReport?.secondSql">
+            <button
+              type="button"
+              class="inline-flex min-h-8 items-center justify-center gap-1.5 rounded-[10px] border border-solid border-transparent bg-transparent px-2.5 text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--chip-bg)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--chip-bg-active)]"
+              [attr.aria-expanded]="advancedOpen()"
+              aria-controls="reports-advanced-panel"
+              (click)="toggleAdvanced()"
+            >
+              {{ advancedOpen() ? '−' : '+' }} Avançado{{
+                activeToleranceCount ? ' (' + activeToleranceCount + ')' : ''
+              }}
+            </button>
+          </ng-container>
+          <app-button
+            *ngIf="orderedReportVariables.length"
+            class="row-btn filters-toggle"
+            type="button"
+            tone="neutral"
+            variant="ghost"
+            size="sm"
+            [icon]="filtersCollapsed() ? 'unfold_more' : 'unfold_less'"
+            [ariaExpanded]="!filtersCollapsed()"
+            ariaControls="reports-filters-fields"
+            (pressed)="toggleFiltersCollapsed()"
+          >
+            {{ filtersCollapsed() ? 'Mostrar filtros' : 'Recolher filtros' }}
+          </app-button>
+        </div>
 
-      <div id="reports-advanced-panel" class="mt-2" *ngIf="selectedReport?.secondSql && advancedOpen()">
-        <app-reports-compare-tolerances
-          [rows]="compareToleranceRows"
-          [availableColumns]="availableComparisonColumns"
-          [error]="compareToleranceError"
-          (rowsChange)="onCompareToleranceRowsChange($event)"
-        ></app-reports-compare-tolerances>
+        <div
+          id="reports-advanced-panel"
+          class="mt-2"
+          *ngIf="selectedReport?.secondSql && advancedOpen()"
+        >
+          <app-reports-compare-tolerances
+            [rows]="compareToleranceRows"
+            [availableColumns]="availableComparisonColumns"
+            [error]="compareToleranceError"
+            (rowsChange)="onCompareToleranceRowsChange($event)"
+          ></app-reports-compare-tolerances>
+        </div>
       </div>
 
       <mat-menu #actionsMenu="matMenu" class="reports-actions-menu" xPosition="before">
-        <button
-          mat-menu-item
-          type="button"
-          (click)="exportExcel()"
-          [disabled]="!hasResultRows || loadingExcel"
-        >
-          <mat-icon aria-hidden="true">grid_on</mat-icon>
-          <span>{{ loadingExcel ? 'Gerando Excel...' : 'Exportar Excel (.xlsx)' }}</span>
-        </button>
-        <button
-          *ngIf="canExportPdf"
-          mat-menu-item
-          type="button"
-          (click)="exportPdf()"
-          [disabled]="loadingPdf || !hasRequiredParamsForRun"
-        >
-          <mat-icon aria-hidden="true">picture_as_pdf</mat-icon>
-          <span>{{ loadingPdf ? 'Gerando PDF...' : 'Exportar PDF' }}</span>
-        </button>
         <ng-container *ngIf="manageMode && canWriteReports">
-          <div role="separator" class="my-1 h-px bg-[var(--border-subtle)]"></div>
           <button
             mat-menu-item
             type="button"
@@ -484,7 +527,7 @@
 
       <div
         *ngIf="!runResult && !compareResult"
-        class="mt-3 flex items-center justify-center gap-2 border-t border-[var(--border-subtle)] py-6 text-center text-[13px] text-[var(--text-muted)]"
+        class="card flex items-center justify-center gap-2 py-10 text-center text-[13px] text-[var(--text-muted)]"
         aria-live="polite"
       >
         <ng-container *ngIf="loadingRun || loadingCompare; else idleHint">
@@ -504,20 +547,6 @@
     </section>
 
     <section class="card ui-card ui-section table-card" *ngIf="runResult as result">
-      <div class="table-meta">
-        <span class="metric-chip"
-          ><strong>{{ result.meta.rowCount }}</strong> linhas</span
-        >
-        <span class="metric-chip" *ngIf="displayedRows.length !== result.meta.rowCount"
-          >exibindo <strong>{{ displayedRows.length }}</strong></span
-        >
-        <span class="metric-chip"
-          >lote <strong>{{ result.meta.size || 500 }}</strong></span
-        >
-        <span class="metric-chip" *ngIf="result.meta.elapsedMs"
-          ><strong>{{ result.meta.elapsedMs }} ms</strong></span
-        >
-      </div>
       <div class="table-wrap">
         <div class="result-loading-overlay" *ngIf="loadingRun" aria-live="polite" aria-busy="true">
           <span class="result-loading-spinner" aria-hidden="true"></span>
@@ -558,8 +587,27 @@
           Existem mais linhas disponíveis no relatório.
         </span>
       </div>
+      <footer class="table-meta" aria-live="polite">
+        <span
+          ><strong>{{ result.meta.rowCount }}</strong> linhas</span
+        >
+        <span *ngIf="displayedRows.length !== result.meta.rowCount"
+          >exibindo <strong>{{ displayedRows.length }}</strong></span
+        >
+        <span
+          >lote de <strong>{{ result.meta.size || 500 }}</strong></span
+        >
+        <span *ngIf="result.meta.elapsedMs"
+          >executado em <strong>{{ result.meta.elapsedMs }} ms</strong></span
+        >
+        <span *ngIf="result.meta.environment"
+          >ambiente <strong>{{ result.meta.environment }}</strong></span
+        >
+        <span *ngIf="result.meta.lastRunAt"
+          >última execução <strong>{{ result.meta.lastRunAt }}</strong></span
+        >
+      </footer>
     </section>
-
 
     <section
       class="card ui-card ui-section table-card compare-card"
@@ -921,21 +969,15 @@
         </ng-container>
       </div>
     </section>
+
+    <section class="card status-card" *ngIf="statusMessage" role="status">
+      <div class="status-line" [ngClass]="statusToneClass">
+        <strong>{{ statusTitle }}</strong>
+        <span>{{ statusMessage }}</span>
+      </div>
+    </section>
   </main>
 </div>
-
-
-<section class="card status-card" *ngIf="statusMessage || runResult?.meta">
-  <div class="status-line" [ngClass]="statusToneClass" *ngIf="statusMessage">
-    <strong>{{ statusTitle }}</strong>
-    <span>{{ statusMessage }}</span>
-  </div>
-  <div class="status-meta" *ngIf="runResult?.meta as meta">
-    <span>Ambiente: {{ meta.environment || 'N/A' }}</span>
-    <span>Última execução: {{ meta.lastRunAt || 'N/A' }}</span>
-    <span *ngIf="meta.elapsedMs">Tempo: {{ meta.elapsedMs }} ms</span>
-  </div>
-</section>
 
 <app-reports-report-modal
   [open]="reportModalOpen"

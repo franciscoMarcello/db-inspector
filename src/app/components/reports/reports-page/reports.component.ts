@@ -35,6 +35,7 @@ import {
   createEmptyReportDraft,
   createEmptyTemplateDraft,
   REPORT_DRAFT_SQL_KEY,
+  REPORTS_FILTERS_COLLAPSED_KEY,
 } from '../core/reports.component.constants';
 import {
   ReportsFolderTemplateHost,
@@ -77,6 +78,9 @@ import {
   StatusTone,
   statusTitleFromTone,
   consumeStoredText,
+  readFlag,
+  summarizeFilterValue,
+  writeFlag,
 } from '../core/reports.component.utils';
 import {
   ReportsVariableOptionsHost,
@@ -179,6 +183,7 @@ export class ReportsComponent
   loadingCompareExcel = false;
   loadingCompareRawExcel = false;
   readonly advancedOpen = signal(false);
+  readonly filtersCollapsed = signal(readFlag(REPORTS_FILTERS_COLLAPSED_KEY));
   private readonly actionsTrigger = viewChild<MatMenuTrigger>('actionsTrigger');
   manageMode = false;
   sidebarCollapsed = false;
@@ -382,6 +387,28 @@ export class ReportsComponent
 
   toggleAdvanced() {
     this.advancedOpen.update((open) => !open);
+  }
+
+  toggleFiltersCollapsed() {
+    this.filtersCollapsed.update((collapsed) => !collapsed);
+    writeFlag(REPORTS_FILTERS_COLLAPSED_KEY, this.filtersCollapsed());
+  }
+
+  get filtersSummary(): Array<{ key: string; label: string; value: string }> {
+    return this.orderedReportVariables
+      .map((v) => {
+        const labels = Object.fromEntries(
+          (this.variableMultiSelectOptionsByKey[v.key] || []).map((o) => [o.value, o.label]),
+        );
+        const value = summarizeFilterValue(
+          v,
+          this.variableInputs[v.key],
+          this.variableOptionSearchText[v.key],
+          labels,
+        );
+        return { key: v.key, label: this.variableLabel(v), value };
+      })
+      .filter((item) => item.value);
   }
 
   get statusToneClass(): string {
@@ -1195,6 +1222,8 @@ export class ReportsComponent
     if (result.error) {
       this.paramsError = result.error;
       this.statusMessage = this.paramsError;
+      // Reabre sem salvar a escolha: o erro aponta para um campo que precisa ficar visivel.
+      this.filtersCollapsed.set(false);
       return null;
     }
     this.paramsError = '';

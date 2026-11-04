@@ -63,7 +63,7 @@
 
 .table-list li.selected {
   background: var(--chip-bg-active);
-  color: #ffffff;
+  color: var(--on-accent);
 }
 
 @media (max-height: 820px) {

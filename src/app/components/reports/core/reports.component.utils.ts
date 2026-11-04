@@ -41,7 +41,7 @@ export function statusTitleFromTone(tone: StatusTone): string {
 export function resolveRequestErrorMessage(
   error: unknown,
   fallback: string,
-  preferBackendMessage: boolean
+  preferBackendMessage: boolean,
 ): string {
   if (!preferBackendMessage) return fallback;
   return extractBackendErrorMessage(error) || fallback;
@@ -58,7 +58,7 @@ export function belongsToFolder(report: ReportDefinition, folder: FolderNode): b
 export function rebuildFolderNodes(
   apiFolders: ReportFolder[],
   currentFolders: FolderNode[],
-  persistedExpandedState: Record<string, boolean>
+  persistedExpandedState: Record<string, boolean>,
 ): FolderNode[] {
   const expanded = new Map(currentFolders.map((folder) => [folder.id, folder.expanded]));
   return (apiFolders || [])
@@ -76,7 +76,7 @@ export function resolveSelection(
   selectedFolderId: string | null,
   selectedReportId: string | null,
   preferredReportId?: string,
-  preferredFolderId?: string
+  preferredFolderId?: string,
 ): SelectionResult {
   if (!reports.length || !folders.length) {
     return {
@@ -91,8 +91,8 @@ export function resolveSelection(
   let report = preferredReportId
     ? reports.find((item) => item.id === preferredReportId)
     : selectedReportId
-    ? reports.find((item) => item.id === selectedReportId)
-    : undefined;
+      ? reports.find((item) => item.id === selectedReportId)
+      : undefined;
 
   if (!report && selectedFolder) {
     report = reports.find((item) => belongsToFolder(item, selectedFolder));
@@ -111,7 +111,7 @@ export function resolveSelection(
     if (folderByName) nextFolderId = folderByName.id;
   } else if (report?.templateName) {
     const folderByTemplate = folders.find(
-      (folder) => folder.name === report?.templateName || folder.id === report?.templateName
+      (folder) => folder.name === report?.templateName || folder.id === report?.templateName,
     );
     if (folderByTemplate) nextFolderId = folderByTemplate.id;
   }
@@ -124,7 +124,7 @@ export function resolveSelection(
 
 export function variablesFromSql(
   sql: string,
-  currentVars: ReportVariableInput[] = []
+  currentVars: ReportVariableInput[] = [],
 ): ReportVariableInput[] {
   const currentByKey = new Map(currentVars.map((v) => [v.key, v]));
   const seen = new Set<string>();
@@ -162,7 +162,7 @@ export function normalizeFileName(value: string): string {
 export function formatDateTime(value: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())} ${pad(
-    value.getHours()
+    value.getHours(),
   )}:${pad(value.getMinutes())}:${pad(value.getSeconds())}`;
 }
 
@@ -174,7 +174,7 @@ export function displayVariableOption(value: ReportVariableOption | string | nul
 
 export function computeVariableInputs(
   vars: ReportVariable[],
-  previous: Record<string, string>
+  previous: Record<string, string>,
 ): Record<string, string> {
   const next: Record<string, string> = {};
   for (const v of vars) {
@@ -186,17 +186,21 @@ export function computeVariableInputs(
 
 export function filterVariableOptionItems(
   all: ReportVariableOption[],
-  termRaw: string
+  termRaw: string,
 ): ReportVariableOption[] {
   const term = termRaw.trim().toLowerCase();
   if (!term) return all;
-  return all.filter((opt) => String(opt.descricao ?? '').toLowerCase().includes(term));
+  return all.filter((opt) =>
+    String(opt.descricao ?? '')
+      .toLowerCase()
+      .includes(term),
+  );
 }
 
 export function buildParamsForOptions(
   vars: ReportVariable[],
   inputs: Record<string, string>,
-  excludeKey: string
+  excludeKey: string,
 ): Record<string, unknown> {
   const params: Record<string, unknown> = {};
   for (const v of vars) {
@@ -211,7 +215,7 @@ export function buildParamsForOptions(
 
 export function buildRunParams(
   vars: ReportVariable[],
-  inputs: Record<string, string>
+  inputs: Record<string, string>,
 ): { params?: Record<string, unknown>; error?: string } {
   if (!vars.length) return { params: {} };
 
@@ -239,7 +243,7 @@ export function buildRunParams(
 
 export function syncOptionSearchText(
   rawInputValue: string,
-  options: ReportVariableOption[]
+  options: ReportVariableOption[],
 ): string {
   const rawValue = String(rawInputValue ?? '').trim();
   if (!rawValue) return '';
@@ -336,7 +340,7 @@ function isGenericBackendError(value: string): boolean {
 
 export function detectDraftVariables(
   sql: string,
-  existing: Array<Partial<DraftVariable>> = []
+  existing: Array<Partial<DraftVariable>> = [],
 ): DraftVariable[] {
   const existingByKey = new Map(existing.map((v) => [String(v.key || ''), v]));
   const detected = variablesFromSql(sql, []);
@@ -344,8 +348,12 @@ export function detectDraftVariables(
   const orderedExisting = [...existing]
     .filter((v) => detectedKeys.has(String(v.key || '')))
     .sort((a, b) => {
-      const ao = Number.isFinite(Number(a.orderIndex)) ? Number(a.orderIndex) : Number.MAX_SAFE_INTEGER;
-      const bo = Number.isFinite(Number(b.orderIndex)) ? Number(b.orderIndex) : Number.MAX_SAFE_INTEGER;
+      const ao = Number.isFinite(Number(a.orderIndex))
+        ? Number(a.orderIndex)
+        : Number.MAX_SAFE_INTEGER;
+      const bo = Number.isFinite(Number(b.orderIndex))
+        ? Number(b.orderIndex)
+        : Number.MAX_SAFE_INTEGER;
       if (ao !== bo) return ao - bo;
       return String(a.key || '').localeCompare(String(b.key || ''), undefined, {
         sensitivity: 'base',
@@ -385,7 +393,7 @@ export function buildArchivePayload(
   current: ReportDefinition,
   folder: FolderNode | null,
   folders: FolderNode[],
-  archived: boolean
+  archived: boolean,
 ): ReportCreateInput | null {
   const folderId =
     current.folderId ??
@@ -479,10 +487,7 @@ export function toTemplatePayload(draft: TemplateDraft): {
   };
 }
 
-export function validateReportDraft(
-  draft: ReportDraft,
-  folderExists: boolean
-): { error?: string } {
+export function validateReportDraft(draft: ReportDraft, folderExists: boolean): { error?: string } {
   if (!folderExists) return { error: 'Selecione uma pasta válida.' };
   if (!draft.name.trim()) return { error: 'Informe o nome do relatório.' };
   if (!draft.sql.trim()) return { error: 'Informe a SQL do relatório.' };
@@ -505,7 +510,7 @@ export function toReportVariablesPayload(draftVars: DraftVariable[]): ReportVari
 
 export function buildReportValidationParams(
   variables: ReportVariableInput[],
-  validationInputs: Record<string, string>
+  validationInputs: Record<string, string>,
 ): { params: Record<string, unknown>; hasMissingRequired: boolean; error?: string } {
   const params: Record<string, unknown> = {};
   let hasMissingRequired = false;
@@ -523,7 +528,7 @@ export function buildReportValidationParams(
       raw,
       variable.key,
       Boolean(variable.multiple),
-      variable.label || variable.key
+      variable.label || variable.key,
     );
     if (parsed.error) {
       return {
@@ -544,7 +549,7 @@ export function buildReportValidationParams(
 export function toReportCreatePayload(
   draft: ReportDraft,
   folder: FolderNode,
-  variables: ReportVariableInput[]
+  variables: ReportVariableInput[],
 ): ReportCreateInput {
   return {
     name: draft.name.trim(),
@@ -573,10 +578,7 @@ export function createReportDraftForCreate(folderId: string, presetSql?: string)
   };
 }
 
-export function createReportDraftForEdit(
-  current: ReportDefinition,
-  folderId: string
-): ReportDraft {
+export function createReportDraftForEdit(current: ReportDefinition, folderId: string): ReportDraft {
   return {
     id: current.id,
     name: current.name,
@@ -591,7 +593,7 @@ export function createReportDraftForEdit(
 
 export function buildClearedFilterState(
   vars: ReportVariable[],
-  currentSearch: Record<string, string>
+  currentSearch: Record<string, string>,
 ): { inputs: Record<string, string>; search: Record<string, string> } {
   const inputs: Record<string, string> = {};
   const search = { ...currentSearch };
@@ -607,7 +609,7 @@ export function parseVariableValue(
   raw: string,
   key: string,
   multiple = false,
-  label = key
+  label = key,
 ): { value?: unknown; error?: string } {
   if (multiple) {
     const items = raw
@@ -630,7 +632,7 @@ export function parseVariableValue(
 function parseSingleVariableValue(
   type: ReportVariableInput['type'],
   raw: string,
-  label: string
+  label: string,
 ): { value?: unknown; error?: string } {
   if (type === 'string') return { value: raw };
 
@@ -683,4 +685,33 @@ export function formatVariableLabel(key: string, label?: string | null): string 
     .trim()
     .toLowerCase();
   return words ? words.charAt(0).toUpperCase() + words.slice(1) : key;
+}
+
+// Texto curto do valor de um filtro para o resumo dos filtros recolhidos ('' = sem valor).
+export function summarizeFilterValue(
+  variable: ReportVariable,
+  input: string | undefined,
+  optionText: string | undefined,
+  optionLabels: Record<string, string> = {},
+): string {
+  // Mesma regra do buildRunParams: vale o input (ou o padrao). O texto da busca so serve de
+  // rotulo quando ha input; busca digitada sem opcao escolhida nao e filtro enviado.
+  const value = (input ?? '').trim();
+  const raw = (value ? (optionText || '').trim() || value : (variable.defaultValue ?? '')).trim();
+  if (!raw) return '';
+  if (variable.multiple) {
+    const values = raw
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean)
+      .map((value) => optionLabels[value] || value);
+    if (values.length > 3) return `${values.slice(0, 3).join(', ')} e mais ${values.length - 3}`;
+    return values.join(', ');
+  }
+  const date = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/.exec(raw);
+  if (date && (variable.type === 'date' || variable.type === 'datetime')) {
+    const day = `${date[3]}/${date[2]}/${date[1]}`;
+    return variable.type === 'datetime' && date[4] ? `${day} ${date[4]}:${date[5]}` : day;
+  }
+  return raw;
 }

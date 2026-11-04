@@ -174,12 +174,23 @@ describe('ReportsComponent - layout compacto', () => {
     expect(root.textContent?.toLowerCase()).not.toContain('filtros adicionais');
   });
 
-  it('coloca o Executar na linha de filtros e nao no cabecalho', () => {
+  it('poe Executar e as exportacoes no cabecalho e os filtros num cartao proprio', () => {
     mount({ manage: false, canWrite: false });
-    seed();
+    seed({ jasperTemplateId: 'tpl-1' });
 
-    expect(root.querySelector('.filters-row app-button[tone="primary"]')).not.toBeNull();
-    expect(root.querySelector('header app-button[tone="primary"]')).toBeNull();
+    const header = root.querySelector('.report-header') as HTMLElement;
+    expect(header.querySelector('app-button[tone="primary"]')?.textContent).toContain('Executar');
+    expect(header.textContent).toContain('Excel');
+    expect(header.textContent).toContain('PDF');
+    expect(root.querySelector('.params-card .filters-row')).not.toBeNull();
+    expect(root.querySelector('.filters-row app-button[tone="primary"]')).toBeNull();
+  });
+
+  it('nao usa ponto como separador entre as acoes dos filtros', () => {
+    mount({ manage: false, canWrite: false });
+    seed({ secondSql: 'select 1' });
+
+    expect(root.querySelector('.report-tools')?.textContent).not.toContain('·');
   });
 
   it('marca filtros de texto opcionais com o placeholder Opcional', () => {
@@ -212,15 +223,12 @@ describe('ReportsComponent - layout compacto', () => {
     expect(root.textContent).toContain('Selecione um relatório');
   });
 
-  it('no modo usuario o menu so tem exportacao', async () => {
+  it('no modo usuario nao ha menu de acoes: as exportacoes ficam visiveis', () => {
     mount({ manage: false, canWrite: false });
     seed({ jasperTemplateId: 'tpl-1' });
 
-    const menu = await openActionsMenu();
-
-    expect(menu).toContain('Exportar Excel');
-    expect(menu).not.toContain('Editar relatório');
-    expect(menu).not.toContain('Novo relatório');
+    expect(root.querySelector('button[aria-label="Mais ações"]')).toBeNull();
+    expect(root.querySelector('.report-header')?.textContent).toContain('Excel');
   });
 
   it('na gestao o menu traz edicao, versoes, arquivar e novo relatorio', async () => {
@@ -279,6 +287,53 @@ describe('ReportsComponent - layout compacto', () => {
     component.selectFolder(component.folders[0]);
 
     expect(component.folders[0].expanded).toBeTrue();
+  });
+
+  describe('recolher filtros', () => {
+    const KEY = 'dbi.reports.filters_collapsed';
+    afterEach(() => localStorage.removeItem(KEY));
+
+    function toggle() {
+      root.querySelector<HTMLButtonElement>('app-button.filters-toggle button')!.click();
+      fixture.detectChanges();
+    }
+
+    it('recolhe os campos, mostra o resumo com os valores e guarda a escolha', () => {
+      localStorage.removeItem(KEY);
+      mount({ manage: false, canWrite: false });
+      seed();
+      component.variableInputs = { data_inicial: '2026-11-01' };
+      fixture.detectChanges();
+
+      const button = root.querySelector('app-button.filters-toggle button')!;
+      expect(button.getAttribute('aria-expanded')).toBe('true');
+      toggle();
+
+      expect(root.querySelector('.filters-row')).toBeNull();
+      const summary = root.querySelector('.filters-summary')?.textContent ?? '';
+      expect(summary).toContain('Data inicial');
+      expect(summary).toContain('01/11/2026');
+      expect(button.getAttribute('aria-expanded')).toBe('false');
+      expect(button.textContent).toContain('Mostrar filtros');
+      expect(localStorage.getItem(KEY)).toBe('1');
+
+      toggle();
+      expect(root.querySelector('.filters-row')).not.toBeNull();
+      expect(localStorage.getItem(KEY)).toBe('0');
+    });
+
+    it('filtro obrigatorio vazio reabre os campos para mostrar o erro', () => {
+      localStorage.setItem(KEY, '1');
+      mount({ manage: false, canWrite: false });
+      seed();
+      expect(root.querySelector('.filters-row')).toBeNull();
+
+      expect(component.buildRunParams()).toBeNull();
+      fixture.detectChanges();
+
+      expect(root.querySelector('.filters-row')).not.toBeNull();
+      expect(root.querySelector('.params-error')?.textContent).toContain('obrigatório');
+    });
   });
 
   it('mostra a orientacao inline no estado vazio e o spinner ao executar', () => {

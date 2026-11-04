@@ -10,27 +10,18 @@
   width: 240px;
   min-width: 240px;
   max-width: 240px;
+  height: 100vh;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
   border-right: 1px solid var(--border-subtle);
   background: var(--bg-surface);
-  display: grid;
-  grid-template-rows: auto 1fr;
-  height: 100vh;
   overflow: hidden;
-  overflow-x: hidden;
-  transition: width 0.2s ease, min-width 0.2s ease, max-width 0.2s ease, flex-basis 0.2s ease;
-  box-sizing: border-box;
-}
-
-.side-header {
-  padding: 18px 14px 12px;
-  border-bottom: 1px solid var(--border-subtle);
-  display: grid;
-  gap: 10px;
-  overflow: hidden;
-}
-
-.dark-theme .side-nav {
-  background: #020617;
+  transition:
+    width 0.2s ease,
+    min-width 0.2s ease,
+    max-width 0.2s ease,
+    flex-basis 0.2s ease;
 }
 
 .side-top {
@@ -38,51 +29,34 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px;
+  padding: 16px 12px 8px 16px;
+}
+
+.side-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+:host ::ng-deep .side-top-actions app-button .app-btn {
+  color: var(--text-primary);
 }
 
 .title {
   font-weight: 600;
-  font-size: 22px;
-}
-
-.user-email {
-  font-size: 13px;
-  color: var(--text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.user-welcome {
-  font-size: 12px;
+  font-size: 18px;
   color: var(--text-primary);
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .side-menu {
   display: grid;
   align-content: start;
-  gap: 6px;
-  padding: 10px;
+  gap: 2px;
+  padding: 8px 12px;
   overflow-y: auto;
   overflow-x: hidden;
   min-width: 0;
-}
-
-.side-logout-btn {
-  width: 100%;
-}
-
-:host ::ng-deep app-button.side-logout-btn .app-btn {
-  justify-content: flex-start;
-  color: #f87171;
-}
-
-:host ::ng-deep app-button.side-logout-btn .app-btn__icon {
-  color: #f87171;
 }
 
 .nav-btn {
@@ -91,66 +65,118 @@
 
 .nav-group {
   display: grid;
-  gap: 6px;
+  gap: 2px;
 }
 
 .nav-group-children {
   display: grid;
-  gap: 6px;
-  padding-left: 10px;
+  gap: 2px;
+  padding-left: 12px;
+}
+
+.nav-chevron {
+  width: 18px;
+  height: 18px;
+  font-size: 18px;
+  margin-left: auto;
+  vertical-align: middle;
 }
 
 :host ::ng-deep app-button.nav-btn .app-btn {
-  text-transform: none;
-  border-radius: 10px;
-  justify-content: flex-start;
   width: 100%;
-  min-height: 38px;
-  padding: 0 12px;
+  min-height: 36px;
+  padding: 0 10px;
+  border-radius: 8px;
+  justify-content: flex-start;
+  font-weight: 500;
   color: var(--text-primary);
 }
 
+:host ::ng-deep app-button.nav-btn .app-btn__label {
+  display: inline-flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+}
+
 :host ::ng-deep app-button.nav-btn.nav-btn--child .app-btn {
-  min-height: 34px;
+  min-height: 32px;
   font-size: 13px;
 }
 
 :host ::ng-deep app-button.nav-btn .app-btn__icon {
-  font-size: 18px;
-  width: 18px;
-  height: 18px;
-}
-
-:host ::ng-deep app-button.nav-btn.active .app-btn {
-  background: var(--chip-bg-active);
-  border-color: var(--chip-bg-active);
-  color: #ffffff;
+  color: var(--text-primary);
 }
 
 :host ::ng-deep app-button.nav-btn:not(.active) .app-btn:hover:not(:disabled) {
-  background: rgba(148, 163, 184, 0.15);
+  background: var(--chip-bg);
 }
 
-:host-context(.dark-theme) ::ng-deep app-button.nav-btn:not(.active) .app-btn {
+:host ::ng-deep app-button.nav-btn.active .app-btn {
+  background: var(--accent-soft);
+  border-color: transparent;
+  color: var(--accent-soft-text);
+  font-weight: 600;
+}
+
+:host ::ng-deep app-button.nav-btn.active .app-btn__icon {
+  color: var(--accent-soft-text);
+}
+
+.side-footer {
+  display: grid;
+  gap: 10px;
+  padding: 12px 16px 14px;
+  border-top: 1px solid var(--border-subtle);
+  min-width: 0;
+}
+
+.user {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.user-name {
+  font-size: 13px;
+  font-weight: 600;
   color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-:host-context(.dark-theme) ::ng-deep app-button.nav-btn:not(.active) .app-btn__label {
-  color: var(--text-primary);
+.user-email {
+  font-size: 12px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.logout-btn {
-  justify-content: center;
+.side-footer-actions {
+  display: grid;
+  gap: 8px;
 }
 
-.collapse-btn {
+:host ::ng-deep app-button.footer-btn .app-btn {
+  width: 100%;
+  white-space: nowrap;
+}
+
+.app-credits {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+:host ::ng-deep app-button.icon-only .app-btn {
   width: 36px;
+  min-width: 36px;
   height: 36px;
-}
-
-.theme-toggle {
-  width: 36px;
-  height: 36px;
+  min-height: 36px;
+  padding: 0;
+  border-radius: 8px;
 }
 
 .main-area {
@@ -172,52 +198,6 @@
   gap: 10px;
 }
 
-.top-lite-left {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.top-title {
-  font-weight: 600;
-  font-size: 20px;
-  color: var(--text-primary);
-}
-
-.collapse-btn-main {
-  width: 36px;
-  height: 36px;
-  min-width: 36px;
-  min-height: 36px;
-  padding: 0;
-  line-height: 1;
-  box-sizing: border-box;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-}
-
-:host ::ng-deep app-button.icon-only .app-btn {
-  width: 36px;
-  min-width: 36px;
-  height: 36px;
-  min-height: 36px;
-  padding: 0;
-  border-radius: 10px;
-}
-
-:host ::ng-deep app-button.theme-toggle.icon-only .app-btn {
-  border-radius: 999px;
-}
-
-.top-lite-actions {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin-left: auto;
-}
-
 .page {
   flex: 1 1 auto;
   padding: 16px;
@@ -233,69 +213,56 @@
   color: var(--text-muted);
   font-size: 12px;
   display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  position: relative;
+  justify-content: space-between;
   gap: 12px;
 }
 
-.footer-center {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  color: var(--text-muted);
-  font-size: 12px;
-  white-space: nowrap;
-}
-
+/* Menu recolhido: so os icones. Os rotulos ficam ocultos so na tela, para o leitor de tela ainda ler. */
 .app-shell.side-collapsed .side-nav {
-  flex-basis: 72px;
-  width: 72px;
-  min-width: 72px;
-  max-width: 72px;
+  flex-basis: 64px;
+  width: 64px;
+  min-width: 64px;
+  max-width: 64px;
 }
 
-.app-shell.side-collapsed .side-header {
-  padding: 10px 8px;
-  gap: 6px;
-  justify-items: center;
+.app-shell.side-collapsed .side-top {
+  justify-content: center;
+  padding: 12px 8px 4px;
+}
+
+.app-shell.side-collapsed .side-top-actions {
+  flex-direction: column-reverse;
 }
 
 .app-shell.side-collapsed .title,
-.app-shell.side-collapsed .user-welcome,
-.app-shell.side-collapsed .user-email,
-.app-shell.side-collapsed ::ng-deep app-button.nav-btn .app-btn__label {
+.app-shell.side-collapsed .user,
+.app-shell.side-collapsed .app-credits {
   display: none;
 }
 
-.app-shell.side-collapsed .side-logout-btn {
-  width: 40px;
-  min-width: 40px;
-  height: 40px;
-  justify-content: center;
-  padding: 0;
-  margin: 0;
-  overflow: hidden;
-}
-
 .app-shell.side-collapsed .side-menu {
-  padding: 8px 6px;
+  padding: 8px;
 }
 
 .app-shell.side-collapsed .nav-group-children {
   padding-left: 0;
 }
 
-.app-shell.side-collapsed .nav-btn {
-  width: 100%;
-  min-width: 0;
+.app-shell.side-collapsed .side-nav ::ng-deep app-button .app-btn__label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
-.app-shell.side-collapsed ::ng-deep app-button.nav-btn .app-btn {
+.app-shell.side-collapsed ::ng-deep app-button.nav-btn .app-btn,
+.app-shell.side-collapsed ::ng-deep app-button.footer-btn .app-btn {
   justify-content: center;
   padding: 0;
 }
 
-.app-shell.side-collapsed ::ng-deep app-button.nav-btn .app-btn__icon {
-  margin-right: 0;
+.app-shell.side-collapsed .side-footer {
+  padding: 12px 8px;
 }

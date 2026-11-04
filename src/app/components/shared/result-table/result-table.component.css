@@ -14,9 +14,9 @@
 }
 
 .clear-all-filters-btn {
-  border: 1px solid rgba(251, 146, 60, 0.4);
-  background: rgba(251, 146, 60, 0.14);
-  color: #fdba74;
+  border: 1px solid color-mix(in srgb, var(--attention) 40%, transparent);
+  background: color-mix(in srgb, var(--attention) 14%, transparent);
+  color: var(--attention);
   border-radius: 6px;
   padding: 5px 10px;
   font-size: 11px;
@@ -25,7 +25,7 @@
 }
 
 .clear-all-filters-btn:hover {
-  background: rgba(251, 146, 60, 0.22);
+  background: color-mix(in srgb, var(--attention) 22%, transparent);
 }
 
 .sortable-header {
@@ -92,9 +92,9 @@
 }
 
 .filter-toggle--active {
-  color: #0f172a;
-  border-color: #334155;
-  background: #94a3b8;
+  color: var(--on-accent);
+  border-color: var(--chip-bg-active);
+  background: var(--chip-bg-active);
 }
 
 .column-filter-menu {
@@ -105,7 +105,7 @@
   z-index: 999;
   border: 1px solid var(--border-subtle);
   background: var(--bg-surface);
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.25);
+  box-shadow: var(--shadow-overlay);
   border-radius: 8px;
   padding: 8px;
   box-sizing: border-box;
@@ -162,6 +162,7 @@
 table {
   width: max-content;
   min-width: 100%;
+  font-variant-numeric: tabular-nums;
   border-collapse: separate;
   border-spacing: 0;
   max-width: none;
@@ -198,7 +199,7 @@ tbody tr:hover {
 }
 
 .diff-fields-list {
-  color: #fdba74;
+  color: var(--attention);
   font-weight: 700;
   white-space: normal;
 }
@@ -212,15 +213,15 @@ tbody tr:hover {
 }
 
 .diff-cell--changed {
-  background: rgba(251, 146, 60, 0.24) !important;
+  background: color-mix(in srgb, var(--attention) 24%, transparent) !important;
   color: var(--text-primary);
   font-weight: 800;
-  box-shadow: inset 3px 0 0 #fb923c;
+  box-shadow: inset 3px 0 0 var(--attention);
 }
 
 .diff-cell--missing {
-  background: rgba(251, 191, 36, 0.18) !important;
-  color: #fde68a;
+  background: color-mix(in srgb, var(--warning) 18%, transparent) !important;
+  color: var(--warning);
 }
 
 .diff-key-cell {
@@ -233,9 +234,9 @@ tbody tr:hover {
   align-items: center;
   border-radius: 999px;
   padding: 3px 8px;
-  background: rgba(251, 146, 60, 0.12);
-  color: #fb923c;
-  border: 1px solid rgba(251, 146, 60, 0.24);
+  background: color-mix(in srgb, var(--attention) 12%, transparent);
+  color: var(--attention);
+  border: 1px solid color-mix(in srgb, var(--attention) 24%, transparent);
   font-size: 11px;
   font-weight: 700;
   white-space: nowrap;
@@ -243,11 +244,11 @@ tbody tr:hover {
 
 .diff-cell-value {
   font-weight: 600;
-  color: #fb923c;
+  color: var(--attention);
 }
 
 .diff-delta {
-  color: #fb923c;
+  color: var(--attention);
   font-weight: 800;
 }
 
@@ -258,7 +259,7 @@ tbody tr:hover {
 }
 
 .compare-group-head--diff {
-  color: #fb923c;
+  color: var(--attention);
 }
 
 .group-spacer {
@@ -266,6 +267,6 @@ tbody tr:hover {
 }
 
 .diff-status-cell {
-  color: #fb923c;
+  color: var(--attention);
   font-weight: 700;
 }

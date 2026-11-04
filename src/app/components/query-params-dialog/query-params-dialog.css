@@ -24,7 +24,7 @@
   background: var(--bg-surface);
   color: var(--text-primary);
   border-radius: 18px;
-  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.6);
+  box-shadow: var(--shadow-overlay);
 }
 
 .wrap h3 {
@@ -78,7 +78,7 @@
 .var-input:focus {
   outline: none;
   border-color: var(--chip-bg-active);
-  box-shadow: 0 0 0 3px rgba(76, 111, 255, 0.25);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--chip-bg-active) 25%, transparent);
 }
 
 .empty {

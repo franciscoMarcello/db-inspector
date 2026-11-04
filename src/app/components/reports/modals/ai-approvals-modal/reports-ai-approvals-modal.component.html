@@ -35,7 +35,7 @@
         </div>
 
         @if (listError()) {
-          <p class="m-0 text-xs text-[#f87171]" role="alert">{{ listError() }}</p>
+          <p class="m-0 text-xs text-[var(--danger)]" role="alert">{{ listError() }}</p>
         }
         @if (loading() && !approvals().length) {
           <p class="m-0 text-xs text-[var(--text-muted)]">Carregando pedidos...</p>
@@ -49,10 +49,10 @@
             class="grid gap-2 rounded-lg border border-l-4 border-[var(--border-subtle)] p-3 text-xs"
             [ngClass]="
               item.status === 'PENDING'
-                ? 'border-l-[#fbbf24]'
+                ? 'border-l-[var(--warning)]'
                 : item.status === 'APPROVED'
-                  ? 'border-l-[#22c55e]'
-                  : 'border-l-[#94a3b8]'
+                  ? 'border-l-[var(--success)]'
+                  : 'border-l-[var(--text-muted)]'
             "
           >
             <div class="flex flex-wrap items-center gap-2">
@@ -157,7 +157,9 @@
                     ></textarea>
                   </label>
                   @if (decisionError()) {
-                    <p class="m-0 text-xs text-[#f87171]" role="alert">{{ decisionError() }}</p>
+                    <p class="m-0 text-xs text-[var(--danger)]" role="alert">
+                      {{ decisionError() }}
+                    </p>
                   }
                   <div class="flex flex-wrap justify-end gap-2">
                     <app-button

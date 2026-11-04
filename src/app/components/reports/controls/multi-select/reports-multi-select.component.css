@@ -16,7 +16,9 @@
   gap: 8px;
   text-align: left;
   cursor: pointer;
-  transition: border-color 0.15s ease, background-color 0.15s ease;
+  transition:
+    border-color 0.15s ease,
+    background-color 0.15s ease;
 }
 
 .multi-select__trigger:hover:not(:disabled) {
@@ -55,7 +57,7 @@
   border: 1px solid var(--border-subtle);
   border-radius: 8px;
   background: var(--bg-surface);
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-overlay);
   padding: 8px;
   display: grid;
   gap: 8px;
