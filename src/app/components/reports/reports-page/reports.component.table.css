@@ -149,8 +149,13 @@ tbody tr:hover {
   line-height: 1.45;
 }
 
+/* Preso no fim da coluna rolavel: a mensagem fica visivel mesmo com muito conteudo acima. */
 .status-card {
   padding: 14px 16px;
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  box-shadow: var(--shadow-overlay);
 }
 
 .status-info strong {

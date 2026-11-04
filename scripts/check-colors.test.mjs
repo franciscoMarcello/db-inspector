@@ -31,4 +31,10 @@ test('nao conta ancoras de link nem palavras que comecam com hex', () => {
   assert.equal(countColors('<a href="#abc">ir</a>'), 0);
   assert.equal(countColors('<div #cabinet></div>'), 0);
   assert.equal(countColors('id="w#fff"'), 0);
+  assert.equal(countColors("<a href='#abc'>ir</a>"), 0);
+});
+
+test('conta cor entre aspas em binding do Angular', () => {
+  assert.equal(countColors(`[ngStyle]="{ color: '#fff' }"`), 1);
+  assert.equal(countColors('style="color:#fff"'), 1);
 });
