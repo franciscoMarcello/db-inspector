@@ -42,7 +42,9 @@ export class AppButtonComponent {
   }
 
   get iconClasses(): string[] {
-    return this.size === 'sm' ? ['!w-4', '!h-4', '!text-base'] : ['!w-[18px]', '!h-[18px]', '!text-[18px]'];
+    return this.size === 'sm'
+      ? ['!w-4', '!h-4', '!text-base']
+      : ['!w-[18px]', '!h-[18px]', '!text-[18px]'];
   }
 
   private get baseClasses(): string[] {
@@ -59,6 +61,7 @@ export class AppButtonComponent {
       'transition-[background-color,border-color,color,filter]',
       'duration-150',
       'ease-in-out',
+      'active:enabled:brightness-95',
       'disabled:opacity-[0.55]',
       'disabled:cursor-not-allowed',
       'focus-visible:outline',
@@ -79,12 +82,7 @@ export class AppButtonComponent {
     const key = `${this.tone}:${this.variant}`;
     switch (key) {
       case 'primary:solid':
-        return [
-          'bg-[var(--chip-bg-active)]',
-          'border-[var(--chip-bg-active)]',
-          'text-white',
-          'hover:enabled:brightness-105',
-        ];
+        return ['bg-accent', 'border-accent', 'text-on-accent', 'hover:enabled:brightness-105'];
       case 'neutral:outline':
         return [
           'bg-[var(--bg-surface-alt)]',
@@ -93,22 +91,21 @@ export class AppButtonComponent {
           'hover:enabled:bg-[color-mix(in_srgb,var(--bg-surface-alt)_76%,var(--chip-bg-active))]',
         ];
       case 'danger:outline':
-        return [
-          'bg-[rgba(239,68,68,0.08)]',
-          'border-[rgba(239,68,68,0.45)]',
-          'text-[#ef4444]',
-          'hover:enabled:bg-[rgba(239,68,68,0.16)]',
-        ];
+        return ['bg-danger/5', 'border-danger/45', 'text-danger', 'hover:enabled:bg-danger/10'];
       case 'neutral:ghost':
         return [
           'bg-transparent',
           'border-transparent',
           'text-[var(--text-muted)]',
           'hover:enabled:text-[var(--text-primary)]',
-          'hover:enabled:bg-[rgba(148,163,184,0.16)]',
+          'hover:enabled:bg-[var(--chip-bg)]',
         ];
       default:
-        return ['bg-[var(--bg-surface-alt)]', 'border-[var(--border-subtle)]', 'text-[var(--text-primary)]'];
+        return [
+          'bg-[var(--bg-surface-alt)]',
+          'border-[var(--border-subtle)]',
+          'text-[var(--text-primary)]',
+        ];
     }
   }
 

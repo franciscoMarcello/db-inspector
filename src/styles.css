@@ -96,6 +96,15 @@ body {
 body.dark-theme {
   color-scheme: dark;
 }
+
+:root {
+  accent-color: var(--chip-bg-active);
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--accent-soft-text);
+}
 h1,
 h2,
 h3,

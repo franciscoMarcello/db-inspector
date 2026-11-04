@@ -1,5 +1,6 @@
 import { Component, inject } from '@angular/core';
 import { RouterOutlet, Router } from '@angular/router';
+import { MatIconModule } from '@angular/material/icon';
 import { AuthService } from './services/auth.service';
 import { ThemeService } from './services/theme.service';
 import packageJson from '../../package.json';
@@ -8,7 +9,7 @@ import { AppButtonComponent } from './components/shared/app-button/app-button.co
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet, AppButtonComponent],
+  imports: [RouterOutlet, MatIconModule, AppButtonComponent],
   templateUrl: './app.html',
   styleUrls: ['./app.css'],
 })

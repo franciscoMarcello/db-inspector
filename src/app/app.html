@@ -1,32 +1,62 @@
-<div class="app-shell" [class.dark-theme]="theme === 'dark'" [class.side-collapsed]="sideMenuCollapsed">
+<div class="app-shell" [class.side-collapsed]="sideMenuCollapsed">
   @if (isLoggedIn) {
     <aside class="side-nav">
-      <div class="side-header">
-        <div class="side-top">
-          <div class="title">AgroReport</div>
+      <div class="side-top">
+        <span class="title">AgroReport</span>
+        <div class="side-top-actions">
+          <app-button
+            class="icon-only theme-toggle"
+            tone="neutral"
+            variant="ghost"
+            [icon]="theme === 'dark' ? 'light_mode' : 'dark_mode'"
+            [ariaLabel]="theme === 'dark' ? 'Usar tema claro' : 'Usar tema escuro'"
+            (pressed)="toggleTheme()"
+          ></app-button>
+          <app-button
+            class="icon-only collapse-toggle"
+            tone="neutral"
+            variant="ghost"
+            [icon]="sideMenuCollapsed ? 'menu' : 'menu_open'"
+            [ariaLabel]="sideMenuCollapsed ? 'Expandir menu' : 'Recolher menu'"
+            (pressed)="toggleSideMenu()"
+          ></app-button>
         </div>
-        <div class="user-welcome" [title]="'Bem-vindo, ' + (userName || userDisplayName)">
-          Bem-vindo, {{ userName || userDisplayName || 'Usuário' }}
-        </div>
-        <div class="user-email" [title]="userEmail">{{ userEmail }}</div>
-        <app-button class="nav-btn side-logout-btn" tone="neutral" variant="ghost" icon="logout" (pressed)="logout()">
-          Sair
-        </app-button>
       </div>
 
-      <nav class="side-menu">
+      <nav class="side-menu" aria-label="Principal">
         @if (canViewSchemas) {
-          <app-button class="nav-btn" [class.active]="isRoute('/schemas')" tone="neutral" variant="ghost" icon="schema" (pressed)="go('/schemas')">
+          <app-button
+            class="nav-btn"
+            [class.active]="isRoute('/schemas')"
+            tone="neutral"
+            variant="ghost"
+            icon="schema"
+            (pressed)="go('/schemas')"
+          >
             Esquemas
           </app-button>
         }
         @if (canExecuteSql) {
-          <app-button class="nav-btn" [class.active]="isRoute('/query')" tone="neutral" variant="ghost" icon="terminal" (pressed)="go('/query')">
+          <app-button
+            class="nav-btn"
+            [class.active]="isRoute('/query')"
+            tone="neutral"
+            variant="ghost"
+            icon="terminal"
+            (pressed)="go('/query')"
+          >
             Executar SQL
           </app-button>
         }
         @if (canViewSchedules) {
-          <app-button class="nav-btn" [class.active]="isRoute('/schedules')" tone="neutral" variant="ghost" icon="event" (pressed)="go('/schedules')">
+          <app-button
+            class="nav-btn"
+            [class.active]="isRoute('/schedules')"
+            tone="neutral"
+            variant="ghost"
+            icon="event"
+            (pressed)="go('/schedules')"
+          >
             Agendamentos
           </app-button>
         }
@@ -38,7 +68,7 @@
           icon="description"
           (pressed)="go('/reports')"
         >
-          Relatorios
+          Relatórios
         </app-button>
         @if (canManageReports) {
           <app-button
@@ -49,7 +79,7 @@
             icon="settings"
             (pressed)="go('/reports/manage')"
           >
-            Gerenciar Relatorios
+            Gerenciar relatórios
           </app-button>
         }
         @if (isAdmin) {
@@ -62,7 +92,10 @@
               icon="group"
               (pressed)="toggleAdminMenu()"
             >
-              Gerenciar usuários {{ adminMenuExpanded ? '▾' : '▸' }}
+              Gerenciar usuários
+              <mat-icon class="nav-chevron" aria-hidden="true">{{
+                adminMenuExpanded ? 'expand_more' : 'chevron_right'
+              }}</mat-icon>
             </app-button>
 
             @if (adminMenuExpanded) {
@@ -92,53 +125,54 @@
           </div>
         }
       </nav>
+
+      <div class="side-footer">
+        <div class="user" [title]="userEmail">
+          <span class="user-name">{{ userName || userDisplayName || 'Usuário' }}</span>
+          <span class="user-email">{{ userEmail }}</span>
+        </div>
+        <div class="side-footer-actions">
+          <app-button
+            class="footer-btn side-logout-btn"
+            tone="danger"
+            variant="outline"
+            size="sm"
+            icon="logout"
+            [fullWidth]="true"
+            (pressed)="logout()"
+          >
+            Sair
+          </app-button>
+        </div>
+        <span class="app-credits">Versão {{ appVersion }}, developed by PowerRov</span>
+      </div>
     </aside>
   }
 
   <div class="main-area">
-    <div class="top-lite">
-      @if (isLoggedIn) {
-        <div class="top-lite-left">
-          <app-button
-            class="collapse-btn collapse-btn-main icon-only"
-            tone="neutral"
-            variant="outline"
-            [icon]="sideMenuCollapsed ? 'menu' : 'menu_open'"
-            aria-label="Mostrar menu"
-            (pressed)="toggleSideMenu()"
-          ></app-button>
-          <div class="top-title">AgroReport</div>
-        </div>
-        <div class="top-lite-actions">
-          <app-button
-            class="theme-toggle icon-only"
-            tone="neutral"
-            variant="outline"
-            [icon]="theme === 'dark' ? 'dark_mode' : 'light_mode'"
-            aria-label="Alternar tema"
-            (pressed)="toggleTheme()"
-          ></app-button>
-        </div>
-      } @else {
-        <div class="title">AgroReport</div>
+    @if (!isLoggedIn) {
+      <div class="top-lite">
+        <span class="title">AgroReport</span>
         <app-button
-          class="theme-toggle icon-only"
+          class="icon-only theme-toggle"
           tone="neutral"
           variant="outline"
-          [icon]="theme === 'dark' ? 'dark_mode' : 'light_mode'"
-          aria-label="Alternar tema"
+          [icon]="theme === 'dark' ? 'light_mode' : 'dark_mode'"
+          [ariaLabel]="theme === 'dark' ? 'Usar tema claro' : 'Usar tema escuro'"
           (pressed)="toggleTheme()"
         ></app-button>
-      }
-    </div>
+      </div>
+    }
 
     <div class="page">
       <router-outlet></router-outlet>
     </div>
 
-    <footer class="app-footer">
-      <span>Versão {{ appVersion }}</span>
-      <span class="footer-center">Developed by PowerRov</span>
-    </footer>
+    @if (!isLoggedIn) {
+      <footer class="app-footer">
+        <span>Versão {{ appVersion }}</span>
+        <span>Developed by PowerRov</span>
+      </footer>
+    }
   </div>
 </div>
