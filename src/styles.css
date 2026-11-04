@@ -98,6 +98,11 @@ body {
   background: var(--bg-page);
   color: var(--text-primary);
 }
+
+/* O mat.theme gera light-dark(); o color-scheme decide qual lado o Material usa. */
+body.dark-theme {
+  color-scheme: dark;
+}
 h1,
 h2,
 h3,

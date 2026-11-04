@@ -1,22 +1,19 @@
-import { Component, inject, HostBinding } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { RouterOutlet, Router } from '@angular/router';
-import { OverlayContainer } from '@angular/cdk/overlay';
 import { AuthService } from './services/auth.service';
+import { ThemeService } from './services/theme.service';
 import packageJson from '../../package.json';
 import { AppButtonComponent } from './components/shared/app-button/app-button.component';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [
-    RouterOutlet,
-    AppButtonComponent,
-  ],
+  imports: [RouterOutlet, AppButtonComponent],
   templateUrl: './app.html',
   styleUrls: ['./app.css'],
 })
 export class App {
-  private overlay = inject(OverlayContainer); // <-- INJETADO
+  private themeService = inject(ThemeService);
   private auth = inject(AuthService);
   private router = inject(Router);
   appVersion = packageJson.version;
@@ -77,23 +74,16 @@ export class App {
     );
   }
 
-  theme: 'light' | 'dark' = (localStorage.getItem('theme') as 'light' | 'dark') || 'light';
-
-  @HostBinding('class.dark-theme')
-  get isDarkTheme() {
-    return this.theme === 'dark';
+  get theme() {
+    return this.themeService.theme();
   }
 
   constructor() {
-    // aplica tema logo na inicialização (body + overlay)
-    this.applyTheme(this.theme);
     this.auth.bootstrapSession().subscribe();
   }
 
   toggleTheme() {
-    this.theme = this.theme === 'light' ? 'dark' : 'light';
-    localStorage.setItem('theme', this.theme);
-    this.applyTheme(this.theme);
+    this.themeService.toggle();
   }
 
   toggleSideMenu() {
@@ -114,19 +104,6 @@ export class App {
     const current = this.router.url || '';
     if (exact) return current === path;
     return current === path || current.startsWith(`${path}/`);
-  }
-
-  private applyTheme(theme: 'light' | 'dark') {
-    const bodyClasses = document.body.classList;
-    const overlayClasses = this.overlay.getContainerElement().classList;
-
-    if (theme === 'dark') {
-      bodyClasses.add('dark-theme');
-      overlayClasses.add('dark-theme');
-    } else {
-      bodyClasses.remove('dark-theme');
-      overlayClasses.remove('dark-theme');
-    }
   }
 
   logout() {
