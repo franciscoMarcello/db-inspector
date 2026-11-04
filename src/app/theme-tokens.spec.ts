@@ -14,6 +14,9 @@ const PAIRS: ReadonlyArray<[foreground: string, background: string, minimum: num
   ['--text-muted', '--bg-surface-alt', TEXT],
   ['--on-accent', '--chip-bg-active', TEXT],
   ['--accent-soft-text', '--accent-soft', TEXT],
+  // Links e textos azuis usam --accent-soft-text; --chip-bg-active e so fundo de botao.
+  ['--accent-soft-text', '--bg-surface', TEXT],
+  ['--accent-soft-text', '--bg-surface-alt', TEXT],
   ['--danger', '--bg-surface', TEXT],
   ['--warning-soft-text', '--warning-soft', TEXT],
   ['--success', '--bg-surface', TEXT],

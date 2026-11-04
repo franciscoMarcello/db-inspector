@@ -8,9 +8,9 @@ export const AI_PILL_INACTIVE_CLASS =
   'border-[var(--border-subtle)] bg-[var(--bg-surface-alt)] text-[var(--text-muted)]';
 
 const TONE_TEXT_CLASSES: Record<StatusTone, string> = {
-  'status-success': 'text-[#16a34a]',
-  'status-error': 'text-[#ef4444]',
-  'status-info': 'text-[#3b82f6]',
+  'status-success': 'text-[var(--success)]',
+  'status-error': 'text-[var(--danger)]',
+  'status-info': 'text-[var(--info)]',
 };
 
 export function aiToneTextClass(tone: StatusTone): string {

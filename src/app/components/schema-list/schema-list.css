@@ -29,7 +29,7 @@
   border-radius: 999px;
   background: var(--chip-bg-active);
   border: 1px solid var(--chip-bg-active);
-  color: #ffffff;
+  color: var(--on-accent);
   font-weight: 500;
 }
 

@@ -11,6 +11,10 @@ test('conta cor dentro de classe arbitraria do Tailwind', () => {
   assert.equal(countColors('class="hover:bg-[rgba(148,163,184,0.16)] border-[#60a5fa]"'), 2);
 });
 
+test('ignora entidades HTML de chaves', () => {
+  assert.equal(countColors('<code>&#123;&#123; :data_inicio &#125;&#125;</code>'), 0);
+});
+
 test('ignora variaveis, referencias de template e ancoras', () => {
   assert.equal(countColors('color: var(--text-primary); background: var(--bg-surface)'), 0);
   assert.equal(

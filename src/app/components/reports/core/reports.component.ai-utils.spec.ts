@@ -43,8 +43,9 @@ describe('reports.component.ai-utils', () => {
   });
 
   it('mapeia o tom do status para a cor do titulo', () => {
-    expect(aiToneTextClass('status-error')).toContain('#ef4444');
-    expect(aiToneTextClass('status-success')).toContain('#16a34a');
+    expect(aiToneTextClass('status-error')).toContain('var(--danger)');
+    expect(aiToneTextClass('status-success')).toContain('var(--success)');
+    expect(aiToneTextClass('status-info')).toContain('var(--info)');
   });
 
   it('copia pela Clipboard API quando disponivel', async () => {

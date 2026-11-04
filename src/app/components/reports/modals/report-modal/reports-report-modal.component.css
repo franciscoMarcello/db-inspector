@@ -1,5 +1,5 @@
 .report-modal.report-modal--draft::backdrop {
-  background: rgba(2, 6, 23, 0.74);
+  background: var(--backdrop);
   backdrop-filter: blur(1px);
 }
 
@@ -7,8 +7,8 @@
   width: min(1240px, 92vw);
   max-height: 80vh;
   border-radius: 14px;
-  border: 1px solid color-mix(in srgb, var(--border-subtle) 70%, #64748b 30%);
-  box-shadow: 0 24px 64px rgba(2, 6, 23, 0.36);
+  border: 1px solid color-mix(in srgb, var(--border-subtle) 70%, var(--border-strong) 30%);
+  box-shadow: var(--shadow-overlay);
 }
 
 .report-draft-section {
@@ -47,7 +47,7 @@
   width: 17px;
   height: 17px;
   line-height: 17px;
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 .report-draft-grid {
@@ -102,35 +102,41 @@
   width: 30px;
   height: 30px;
   border-radius: 999px;
-  border: 1px solid rgba(96, 165, 250, 0.4);
-  background: rgba(59, 130, 246, 0.12);
-  color: #1d4ed8;
+  border: 1px solid color-mix(in srgb, var(--chip-bg-active) 40%, transparent);
+  background: color-mix(in srgb, var(--chip-bg-active) 12%, transparent);
+  color: var(--accent-soft-text);
   font-weight: 800;
   font-family: Georgia, 'Times New Roman', serif;
   cursor: pointer;
 }
 
 .comparison-guide-btn:hover {
-  border-color: rgba(147, 197, 253, 0.76);
-  background: rgba(59, 130, 246, 0.2);
-  color: #1e3a8a;
+  border-color: color-mix(in srgb, var(--accent-soft-text) 76%, transparent);
+  background: color-mix(in srgb, var(--chip-bg-active) 20%, transparent);
+  color: var(--accent-soft-text);
 }
 
 .comparison-sql-guide {
-  border: 1px solid rgba(96, 165, 250, 0.28);
+  border: 1px solid color-mix(in srgb, var(--chip-bg-active) 28%, transparent);
   border-radius: 12px;
   padding: 14px;
-  background:
-    radial-gradient(circle at top right, rgba(59, 130, 246, 0.16), transparent 34%),
+  background: radial-gradient(
+      circle at top right,
+      color-mix(in srgb, var(--chip-bg-active) 16%, transparent),
+      transparent 34%
+    ),
     color-mix(in srgb, var(--bg-surface) 90%, transparent);
   display: grid;
   gap: 12px;
 }
 
 .pdf-template-guide {
-  border-color: rgba(251, 191, 36, 0.28);
-  background:
-    radial-gradient(circle at top right, rgba(251, 191, 36, 0.14), transparent 34%),
+  border-color: color-mix(in srgb, var(--warning) 28%, transparent);
+  background: radial-gradient(
+      circle at top right,
+      color-mix(in srgb, var(--warning) 14%, transparent),
+      transparent 34%
+    ),
     color-mix(in srgb, var(--bg-surface) 90%, transparent);
 }
 
@@ -176,7 +182,7 @@
 
 .comparison-sql-guide h5 {
   margin: 0 0 8px;
-  color: #1d4ed8;
+  color: var(--accent-soft-text);
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -195,7 +201,7 @@
 }
 
 .comparison-sql-guide code {
-  color: #1e40af;
+  color: var(--accent-soft-text);
 }
 
 .comparison-guide-example {
@@ -208,15 +214,16 @@
   overflow: auto;
   border: 1px solid var(--border-subtle);
   border-radius: 10px;
-  background: color-mix(in srgb, var(--bg-surface-alt) 92%, #dbeafe);
+  background: var(--accent-soft);
   padding: 10px;
 }
 
 .comparison-guide-example code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
   font-size: 12px;
   line-height: 1.5;
-  color: color-mix(in srgb, var(--text-primary) 86%, #1e3a8a);
+  color: color-mix(in srgb, var(--text-primary) 86%, var(--accent-soft-text));
   white-space: pre;
 }
 
@@ -229,49 +236,42 @@
 }
 
 .comparison-guide-note {
-  border: 1px solid rgba(74, 222, 128, 0.28);
-  background: rgba(74, 222, 128, 0.08);
-  color: #166534;
+  border: 1px solid color-mix(in srgb, var(--success) 28%, transparent);
+  background: color-mix(in srgb, var(--success) 8%, transparent);
+  color: var(--success);
 }
 
 .comparison-guide-warning {
-  border: 1px solid rgba(251, 191, 36, 0.34);
-  background: rgba(251, 191, 36, 0.08);
-  color: #92400e;
+  border: 1px solid color-mix(in srgb, var(--warning) 34%, transparent);
+  background: color-mix(in srgb, var(--warning) 8%, transparent);
+  color: var(--warning);
 }
 
 :host-context(.dark-theme) .comparison-guide-btn {
-  color: #93c5fd;
-}
-
-:host-context(.dark-theme) .comparison-guide-btn:hover {
-  color: #dbeafe;
+  color: var(--accent-soft-text);
 }
 
 :host-context(.dark-theme) .comparison-sql-guide h5 {
-  color: #bfdbfe;
+  color: var(--accent-soft-text);
 }
 
 :host-context(.dark-theme) .comparison-sql-guide code,
 :host-context(.dark-theme) .comparison-guide-example code {
-  color: #dbeafe;
+  color: var(--accent-soft-text);
 }
 
 :host-context(.dark-theme) .comparison-guide-example pre {
-  background: rgba(2, 6, 23, 0.32);
+  background: var(--bg-page);
 }
 
 :host-context(.dark-theme) .comparison-guide-note {
-  color: #bbf7d0;
-}
-
-:host-context(.dark-theme) .comparison-guide-warning {
-  color: #fde68a;
+  color: var(--success);
 }
 
 .report-draft-sql {
   min-height: 340px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono',
+    'Courier New', monospace;
   font-size: 13px;
   line-height: 1.45;
 }
@@ -345,15 +345,15 @@
 }
 
 .report-chip--ok {
-  background: #dcfce7;
-  color: #166534;
-  border-color: #86efac;
+  background: color-mix(in srgb, var(--success) 12%, var(--bg-surface));
+  color: var(--success);
+  border-color: var(--success);
 }
 
 .report-chip--error {
-  background: #fee2e2;
-  color: #991b1b;
-  border-color: #fca5a5;
+  background: color-mix(in srgb, var(--danger) 12%, var(--bg-surface));
+  color: var(--danger);
+  border-color: var(--danger);
 }
 
 .report-chip--neutral {

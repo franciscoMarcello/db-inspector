@@ -32,6 +32,10 @@
   --scroll-track: #f1f3f6;
   --scroll-thumb: #a3acb9;
   --shadow-overlay: 0 10px 24px rgb(15 23 42 / 0.16);
+  --backdrop: rgb(15 23 42 / 0.45);
+
+  /* O editor Monaco usa tema escuro fixo, entao o fundo dele nao muda com o tema do app. */
+  --code-bg: #1e1e1e;
 }
 
 .dark-theme {
@@ -62,6 +66,7 @@
   --scroll-track: #0a0f1c;
   --scroll-thumb: #33405c;
   --shadow-overlay: 0 10px 24px rgb(2 6 23 / 0.5);
+  --backdrop: rgb(2 6 23 / 0.7);
 }
 
 /*

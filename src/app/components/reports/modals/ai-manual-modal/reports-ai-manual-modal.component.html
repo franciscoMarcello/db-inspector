@@ -118,7 +118,7 @@
               </p>
             }
             @if (instructionsError()) {
-              <p class="m-0 text-xs text-[#f87171]" role="alert">{{ instructionsError() }}</p>
+              <p class="m-0 text-xs text-[var(--danger)]" role="alert">{{ instructionsError() }}</p>
               <div>
                 <app-button
                   type="button"
@@ -134,7 +134,8 @@
             @if (instructions() !== null) {
               <pre
                 class="m-0 max-h-[420px] overflow-auto whitespace-pre-wrap break-words rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-surface)] p-2.5 font-mono text-xs leading-relaxed"
-                >{{ instructions() }}</pre>
+                >{{ instructions() }}</pre
+              >
             }
           </div>
         </details>

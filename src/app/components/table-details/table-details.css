@@ -31,7 +31,7 @@
 
 .td-error {
   font-size: 13px;
-  color: #b91c1c;
+  color: var(--danger);
 }
 
 .td-main-layout {
@@ -72,29 +72,29 @@
 }
 
 .td-icon-ok {
-  color: #16a34a;
+  color: var(--success);
 }
 
 .td-icon-bad {
-  color: #b91c1c;
+  color: var(--danger);
 }
 
 .pk-header {
-  color: #1d4ed8;
+  color: var(--accent-soft-text);
   font-weight: 700;
 }
 
 .fk-header {
-  color: #0369a1;
+  color: var(--info);
   font-weight: 700;
 }
 
 .pk-cell mat-icon {
-  color: #1d4ed8;
+  color: var(--accent-soft-text);
 }
 
 .fk-cell mat-icon {
-  color: #0369a1;
+  color: var(--info);
 }
 
 .td-row-pk,
@@ -104,15 +104,15 @@
 }
 
 .td-row-pk {
-  box-shadow: inset 3px 0 0 #60a5fa;
+  box-shadow: inset 3px 0 0 var(--chip-bg-active);
 }
 
 .td-row-fk {
-  box-shadow: inset 3px 0 0 #22d3ee;
+  box-shadow: inset 3px 0 0 var(--info);
 }
 
 .td-row-pk.td-row-fk {
-  box-shadow: inset 3px 0 0 #a855f7;
+  box-shadow: inset 3px 0 0 var(--accent-soft-text);
 }
 
 .dark-theme .td-row-pk,
@@ -122,19 +122,15 @@
 }
 
 .dark-theme .td-row-pk {
-  box-shadow: inset 3px 0 0 rgba(96, 165, 250, 0.9);
-}
-
-.dark-theme .td-row-fk {
-  box-shadow: inset 3px 0 0 rgba(45, 212, 191, 0.9);
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--chip-bg-active) 90%, transparent);
 }
 
 .dark-theme .td-row-pk.td-row-fk {
-  box-shadow: inset 3px 0 0 rgba(167, 139, 250, 0.9);
+  box-shadow: inset 3px 0 0 var(--accent-soft-text);
 }
 
 .dark-theme .td-cols-wrapper .mat-mdc-row:hover .mat-mdc-cell {
-  background-color: rgba(148, 163, 184, 0.08);
+  background-color: var(--chip-bg);
 }
 
 .relations-block {

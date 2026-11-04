@@ -107,8 +107,8 @@ h3 {
   align-items: center;
   gap: 4px;
   font-weight: 600;
-  background: rgba(37, 99, 235, 0.08);
-  border-color: rgba(37, 99, 235, 0.4);
+  background: color-mix(in srgb, var(--chip-bg-active) 8%, transparent);
+  border-color: color-mix(in srgb, var(--chip-bg-active) 40%, transparent);
   color: var(--text-primary);
 }
 
@@ -161,7 +161,7 @@ h3 {
 .chip.active {
   background: var(--chip-bg-active);
   border-color: var(--chip-bg-active);
-  color: #ffffff;
+  color: var(--on-accent);
 }
 
 .chip-snippet-main {
@@ -169,7 +169,9 @@ h3 {
   align-items: center;
   gap: 6px;
   max-width: 240px;
-  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease;
 }
 
 .chip-snippet-main .mat-icon {
@@ -182,7 +184,7 @@ h3 {
 
 .chip-snippet-main:hover {
   transform: translateY(-1px);
-  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.18);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--chip-bg-active) 18%, transparent);
 }
 
 .snippet-item {
@@ -230,7 +232,7 @@ h3 {
   border: 1px solid var(--border-subtle);
   border-radius: 10px;
   background: var(--bg-surface);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.24);
+  box-shadow: var(--shadow-overlay);
 }
 
 .snippet-menu button {
@@ -249,7 +251,7 @@ h3 {
 }
 
 .snippet-menu button.danger {
-  color: #fca5a5;
+  color: var(--danger);
 }
 
 .fav-actions {
@@ -262,7 +264,7 @@ h3 {
 .link {
   border: 0;
   background: transparent;
-  color: #2563eb;
+  color: var(--accent-soft-text);
   cursor: pointer;
   font-size: 12px;
   padding: 0;
@@ -285,7 +287,7 @@ h3 {
   overflow: hidden;
   border: 1px solid var(--border-subtle);
   border-radius: 8px;
-  background: #1e1e1e;
+  background: var(--code-bg);
 }
 
 .editor-resize ngx-monaco-editor {
@@ -373,7 +375,7 @@ h3 {
   border: 1px solid var(--border-subtle);
   border-radius: 10px;
   background: var(--bg-surface);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.24);
+  box-shadow: var(--shadow-overlay);
 }
 
 .group-menu button {
@@ -400,9 +402,9 @@ h3 {
   padding: 6px 8px;
   border-radius: 8px;
   font-size: 12px;
-  color: #b91c1c;
-  background: #fff1f2;
-  border: 1px solid #fecdd3;
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 10%, var(--bg-surface));
+  border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent);
 }
 
 .runall-limit-field {
@@ -417,25 +419,25 @@ h3 {
   width: 90px;
   height: 30px;
   border-radius: 8px;
-  border: 1px solid #fda4af;
-  background: #ffffff;
-  color: #1f2937;
+  border: 1px solid color-mix(in srgb, var(--danger) 50%, transparent);
+  background: var(--bg-surface);
+  color: var(--text-primary);
   padding: 0 8px;
 }
 
 .run-status {
   margin: 8px 0;
-  background: color-mix(in srgb, var(--bg-surface-alt) 92%, #ffffff 8%);
+  background: color-mix(in srgb, var(--bg-surface-alt) 92%, var(--bg-surface) 8%);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  color: #334155;
+  color: var(--text-primary);
   font-weight: 600;
 }
 
 .run-status.run-status--loading {
-  color: #1d4ed8;
+  color: var(--accent-soft-text);
 }
 
 .run-status-main {
@@ -445,39 +447,35 @@ h3 {
 }
 
 .run-status-icon {
-  color: #16a34a;
+  color: var(--success);
   font-size: 14px;
   line-height: 1;
 }
 
 .run-status--loading .run-status-icon {
-  color: #2563eb;
+  color: var(--accent-soft-text);
 }
 
 :host-context(.dark-theme) .run-status {
-  background: color-mix(in srgb, var(--bg-surface-alt) 78%, #020617 22%);
-  color: #e2e8f0;
+  background: var(--bg-surface-alt);
+  color: var(--text-primary);
 }
 
 :host-context(.dark-theme) .run-status.run-status--loading {
-  color: #bfdbfe;
-}
-
-:host-context(.dark-theme) .run-status-icon {
-  color: #86efac;
+  color: var(--accent-soft-text);
 }
 
 :host-context(.dark-theme) .run-status--loading .run-status-icon {
-  color: #93c5fd;
+  color: var(--accent-soft-text);
 }
 
 .run-warning {
   margin: 0 0 8px;
   padding: 8px 12px;
   border-radius: 8px;
-  border: 1px solid color-mix(in srgb, #f59e0b 35%, var(--border-subtle));
-  background: color-mix(in srgb, #f59e0b 16%, transparent);
-  color: #fde68a;
+  border: 1px solid color-mix(in srgb, var(--warning) 35%, var(--border-subtle));
+  background: color-mix(in srgb, var(--warning) 16%, transparent);
+  color: var(--warning);
   font-size: 12px;
   font-weight: 600;
 }
@@ -491,15 +489,15 @@ h3 {
 }
 
 .connection-test-status--ok {
-  color: #16a34a;
+  color: var(--success);
 }
 
 .connection-test-status--error {
-  color: #dc2626;
+  color: var(--danger);
 }
 
 .dirty-badge {
-  color: #fca5a5;
+  color: var(--danger);
   font-weight: 700;
   font-size: 12px;
   white-space: nowrap;
@@ -587,7 +585,7 @@ h3 {
   border: 1px solid var(--border-subtle);
   border-radius: 8px;
   background: var(--bg-surface);
-  box-shadow: inset 0 1px 0 color-mix(in srgb, #ffffff 4%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text-primary) 4%, transparent);
 }
 
 .table-head {
@@ -639,20 +637,25 @@ h3 {
 .skeleton-row {
   height: 14px;
   border-radius: 999px;
-  background: linear-gradient(90deg, rgba(148, 163, 184, 0.14), rgba(148, 163, 184, 0.28), rgba(148, 163, 184, 0.14));
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--text-muted) 14%, transparent),
+    color-mix(in srgb, var(--text-muted) 28%, transparent),
+    color-mix(in srgb, var(--text-muted) 14%, transparent)
+  );
   animation: skeleton-move 1.2s ease-in-out infinite;
 }
 
 .group-btn--primary {
   background: var(--chip-bg-active);
   border-color: var(--chip-bg-active);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 .group-btn--primary:hover:not(:disabled) {
-  background: #1d4ed8;
-  border-color: #1d4ed8;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.28);
+  background: var(--chip-bg-active);
+  border-color: var(--chip-bg-active);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--chip-bg-active) 28%, transparent);
 }
 
 .group-btn--primary:disabled {
@@ -663,8 +666,8 @@ h3 {
 .btn-spinner {
   width: 12px;
   height: 12px;
-  border: 2px solid rgba(255, 255, 255, 0.35);
-  border-top-color: rgba(255, 255, 255, 0.95);
+  border: 2px solid color-mix(in srgb, var(--on-accent) 35%, transparent);
+  border-top-color: color-mix(in srgb, var(--on-accent) 95%, transparent);
   border-radius: 50%;
   display: inline-block;
   animation: spin 0.9s linear infinite;
@@ -672,22 +675,32 @@ h3 {
 }
 
 @keyframes skeleton-move {
-  0% { opacity: 0.55; }
-  50% { opacity: 1; }
-  100% { opacity: 0.55; }
+  0% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.55;
+  }
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .editor-section {
-  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.22);
+  box-shadow: var(--shadow-overlay);
 }
 
 .editor-drop-hover {
-  border-color: #60a5fa;
-  box-shadow: 0 0 0 2px color-mix(in srgb, #60a5fa 26%, transparent), 0 14px 28px rgba(0, 0, 0, 0.22);
+  border-color: var(--chip-bg-active);
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--chip-bg-active) 26%, transparent),
+    var(--shadow-overlay);
 }
 
 .result-section {
@@ -713,7 +726,7 @@ h3 {
 
 .result-table .mat-mdc-header-row,
 .result-table .mat-header-row {
-  background: color-mix(in srgb, var(--bg-surface-alt) 86%, #1f2937 14%);
+  background: color-mix(in srgb, var(--bg-surface-alt) 86%, var(--border-subtle) 14%);
   box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--border-subtle) 85%, transparent);
 }
 
@@ -731,23 +744,23 @@ h3 {
   padding: 6px 10px;
   border-radius: 8px;
 
-  background: #fee2e2;
-  border: 1px solid #fecaca;
-  color: #b91c1c;
+  background: color-mix(in srgb, var(--danger) 12%, var(--bg-surface));
+  border: 1px solid var(--danger);
+  color: var(--danger);
 
   font-size: 13px;
   font-weight: 500;
 }
 
 :host-context(.dark-theme) .error {
-  background: rgba(248, 113, 113, 0.12);
-  border-color: #f87171;
-  color: #fecaca;
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  border-color: var(--danger);
+  color: var(--danger);
 }
 :host-context(.dark-theme) .runall-warning {
-  color: #fca5a5;
-  background: color-mix(in srgb, #7f1d1d 18%, transparent);
-  border: 1px solid color-mix(in srgb, #ef4444 30%, var(--border-subtle));
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--danger) 30%, var(--border-subtle));
 }
 :host-context(.dark-theme) .runall-limit-field input {
   border: 1px solid var(--border-subtle);
@@ -755,9 +768,9 @@ h3 {
   color: var(--text-primary);
 }
 :host-context(.dark-theme) .group-btn--primary:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--chip-bg-active) 88%, #ffffff 12%);
-  border-color: color-mix(in srgb, var(--chip-bg-active) 88%, #ffffff 12%);
-  box-shadow: 0 6px 14px rgba(37, 99, 235, 0.34);
+  background: color-mix(in srgb, var(--chip-bg-active) 88%, var(--bg-surface) 12%);
+  border-color: color-mix(in srgb, var(--chip-bg-active) 88%, var(--on-accent) 12%);
+  box-shadow: 0 6px 14px color-mix(in srgb, var(--chip-bg-active) 34%, transparent);
 }
 .muted {
   font-size: 13px;

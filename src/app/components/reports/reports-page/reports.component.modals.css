@@ -13,7 +13,7 @@
 }
 
 .report-modal::backdrop {
-  background: rgba(2, 6, 23, 0.65);
+  background: var(--backdrop);
 }
 
 .report-modal[open] {
@@ -162,7 +162,7 @@
 }
 
 .cdk-drag-preview.draft-vars-row {
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--shadow-overlay);
 }
 
 .cdk-drag-placeholder {
@@ -178,12 +178,12 @@
 .report-validation__status {
   margin: 0;
   font-size: 12px;
-  color: #fca5a5;
+  color: var(--danger);
   font-weight: 700;
 }
 
 .report-validation__status--ok {
-  color: #86efac;
+  color: var(--success);
 }
 
 .report-validation__errors {
@@ -192,5 +192,5 @@
   display: grid;
   gap: 4px;
   font-size: 12px;
-  color: #fca5a5;
+  color: var(--danger);
 }
