@@ -8,10 +8,10 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const BASELINE_FILE = join(ROOT, 'scripts', 'color-baseline.json');
 const TOKENS_FILE = 'src/tokens.css';
-// Nao conta entidades HTML (&#123;) nem ancoras (href="#abc", href='#abc'); conta hex seguido
-// de _ (Tailwind) e cor entre aspas em binding ([ngStyle]="{ color: '#fff' }").
+// Nao conta entidades HTML (&#123;), ancoras (href = '#abc') nem referencias url(#abc); conta hex
+// seguido de _ (Tailwind) e cor entre aspas em binding ([ngStyle]="{ color: '#fff' }").
 const COLOR_LITERAL =
-  /(?<![&\w])(?<!href=["'])#[0-9a-fA-F]{3,8}(?![0-9a-zA-Z-])|\b(?:rgba?|hsla?)\(/g;
+  /(?<![&\w])(?<!href\s*=\s*["']?)(?<!url\(\s*["']?)#[0-9a-fA-F]{3,8}(?![0-9a-zA-Z-])|\b(?:rgba?|hsla?)\(/g;
 
 export function countColors(text) {
   return (text.match(COLOR_LITERAL) || []).length;
