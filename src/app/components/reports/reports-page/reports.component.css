@@ -572,16 +572,16 @@
   flex: none;
 }
 
-/* Recolhido: resumo e acoes dividem uma linha so, para sobrar altura para a tabela. */
+/* Recolhido: resumo e acoes numa linha so quando cabem; em tela estreita quebram em vez de vazar. */
 .params-card--collapsed {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
   gap: 6px 16px;
 }
 
 .params-card--collapsed .filters-summary {
-  flex: 1 1 0;
+  flex: 1 1 200px;
   min-width: 0;
   flex-wrap: nowrap;
   overflow: hidden;
@@ -592,7 +592,6 @@
 }
 
 .params-card--collapsed .report-tools {
-  flex: none;
-  flex-wrap: nowrap;
+  flex: 0 1 auto;
   margin-left: auto;
 }

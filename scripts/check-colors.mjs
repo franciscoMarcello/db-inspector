@@ -8,8 +8,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const BASELINE_FILE = join(ROOT, 'scripts', 'color-baseline.json');
 const TOKENS_FILE = 'src/tokens.css';
-// (?<!&) ignora entidades HTML como &#123; ({) e &#125; (}).
-const COLOR_LITERAL = /(?<!&)#[0-9a-fA-F]{3,8}\b|\b(?:rgba?|hsla?)\(/g;
+// Nao conta entidades HTML (&#123;) nem ancoras (href="#abc"); conta hex seguido de _ (Tailwind).
+const COLOR_LITERAL = /(?<![&"\w])#[0-9a-fA-F]{3,8}(?![0-9a-zA-Z-])|\b(?:rgba?|hsla?)\(/g;
 
 export function countColors(text) {
   return (text.match(COLOR_LITERAL) || []).length;

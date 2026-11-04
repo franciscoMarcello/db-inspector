@@ -694,7 +694,10 @@ export function summarizeFilterValue(
   optionText: string | undefined,
   optionLabels: Record<string, string> = {},
 ): string {
-  const raw = (optionText || input || variable.defaultValue || '').trim();
+  // Mesma regra do buildRunParams: vale o input (ou o padrao). O texto da busca so serve de
+  // rotulo quando ha input; busca digitada sem opcao escolhida nao e filtro enviado.
+  const value = (input ?? '').trim();
+  const raw = (value ? (optionText || '').trim() || value : (variable.defaultValue ?? '')).trim();
   if (!raw) return '';
   if (variable.multiple) {
     const values = raw
@@ -705,9 +708,10 @@ export function summarizeFilterValue(
     if (values.length > 3) return `${values.slice(0, 3).join(', ')} e mais ${values.length - 3}`;
     return values.join(', ');
   }
-  const date = /^(\d{4})-(\d{2})-(\d{2})/.exec(raw);
+  const date = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/.exec(raw);
   if (date && (variable.type === 'date' || variable.type === 'datetime')) {
-    return `${date[3]}/${date[2]}/${date[1]}`;
+    const day = `${date[3]}/${date[2]}/${date[1]}`;
+    return variable.type === 'datetime' && date[4] ? `${day} ${date[4]}:${date[5]}` : day;
   }
   return raw;
 }

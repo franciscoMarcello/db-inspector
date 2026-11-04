@@ -969,15 +969,15 @@
         </ng-container>
       </div>
     </section>
+
+    <section class="card status-card" *ngIf="statusMessage" role="status">
+      <div class="status-line" [ngClass]="statusToneClass">
+        <strong>{{ statusTitle }}</strong>
+        <span>{{ statusMessage }}</span>
+      </div>
+    </section>
   </main>
 </div>
-
-<section class="card status-card" *ngIf="statusMessage">
-  <div class="status-line" [ngClass]="statusToneClass">
-    <strong>{{ statusTitle }}</strong>
-    <span>{{ statusMessage }}</span>
-  </div>
-</section>
 
 <app-reports-report-modal
   [open]="reportModalOpen"

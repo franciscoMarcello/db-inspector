@@ -53,6 +53,20 @@ describe('summarizeFilterValue', () => {
     expect(summarizeFilterValue(variable({ defaultValue: '5' }), '', '')).toBe('5');
   });
 
+  it('busca digitada sem opcao escolhida nao aparece como filtro', () => {
+    expect(summarizeFilterValue(variable({}), '', 'A0')).toBe('');
+    expect(summarizeFilterValue(variable({ defaultValue: 'Todos' }), '', 'A0')).toBe('Todos');
+  });
+
+  it('datetime mantem a hora; date mostra so o dia', () => {
+    expect(summarizeFilterValue(variable({ type: 'datetime' }), '2026-11-04T08:30', '')).toBe(
+      '04/11/2026 08:30',
+    );
+    expect(summarizeFilterValue(variable({ type: 'date' }), '2026-11-04T08:30', '')).toBe(
+      '04/11/2026',
+    );
+  });
+
   it('multipla escolha mostra os rotulos e resume acima de tres', () => {
     const labels = { '1': 'A01', '2': 'A02', '3': 'A03', '4': 'A04', '5': 'A05' };
     const multi = variable({ multiple: true });
