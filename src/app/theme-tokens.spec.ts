@@ -16,6 +16,12 @@ const PAIRS: ReadonlyArray<[foreground: string, background: string, minimum: num
   ['--accent-soft-text', '--accent-soft', TEXT],
   ['--danger', '--bg-surface', TEXT],
   ['--warning-soft-text', '--warning-soft', TEXT],
+  ['--success', '--bg-surface', TEXT],
+  ['--warning', '--bg-surface', TEXT],
+  ['--info', '--bg-surface', TEXT],
+  ['--attention', '--bg-surface', TEXT],
+  ['--danger', '--bg-surface-alt', TEXT],
+  ['--attention', '--bg-surface-alt', TEXT],
   ['--border-strong', '--bg-surface', UI],
   ['--chip-bg-active', '--bg-surface', UI],
 ];

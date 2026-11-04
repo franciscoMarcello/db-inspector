@@ -126,8 +126,7 @@
             <span class="min-w-0 flex-1 truncate" [title]="report.name">{{ report.name }}</span>
             <span
               *ngIf="report.draft || (manageMode && report.openDraftVersion != null)"
-              class="shrink-0 whitespace-nowrap rounded-full border border-[color-mix(in_srgb,#60a5fa_45%,transparent)] bg-[color-mix(in_srgb,#3b82f6_16%,transparent)] px-1.5 py-px text-[10px] font-bold tracking-[0.04em] text-[#60a5fa]"
-              [class.uppercase]="report.draft"
+              class="shrink-0 whitespace-nowrap rounded-full bg-warning-soft px-1.5 py-px text-xs font-semibold text-warning-soft-text"
               [title]="
                 report.draft
                   ? 'Relatório criado como rascunho e nunca publicado'
@@ -378,7 +377,9 @@
         >
           {{ loadingCompare ? 'Comparando...' : 'Comparar SAP' }}
         </app-button>
-        <span *ngIf="selectedReport?.secondSql" class="text-[var(--text-muted)]" aria-hidden="true">·</span>
+        <span *ngIf="selectedReport?.secondSql" class="text-[var(--text-muted)]" aria-hidden="true"
+          >·</span
+        >
         <app-button
           class="row-btn"
           type="button"
@@ -394,7 +395,7 @@
           <span class="text-[var(--text-muted)]" aria-hidden="true">·</span>
           <button
             type="button"
-            class="inline-flex min-h-8 items-center justify-center gap-1.5 rounded-[10px] border border-solid border-transparent bg-transparent px-2.5 text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[rgba(148,163,184,0.16)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--chip-bg-active)]"
+            class="inline-flex min-h-8 items-center justify-center gap-1.5 rounded-[10px] border border-solid border-transparent bg-transparent px-2.5 text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--chip-bg)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--chip-bg-active)]"
             [attr.aria-expanded]="advancedOpen()"
             aria-controls="reports-advanced-panel"
             (click)="toggleAdvanced()"
@@ -406,7 +407,11 @@
         </ng-container>
       </div>
 
-      <div id="reports-advanced-panel" class="mt-2" *ngIf="selectedReport?.secondSql && advancedOpen()">
+      <div
+        id="reports-advanced-panel"
+        class="mt-2"
+        *ngIf="selectedReport?.secondSql && advancedOpen()"
+      >
         <app-reports-compare-tolerances
           [rows]="compareToleranceRows"
           [availableColumns]="availableComparisonColumns"
@@ -559,7 +564,6 @@
         </span>
       </div>
     </section>
-
 
     <section
       class="card ui-card ui-section table-card compare-card"
@@ -923,7 +927,6 @@
     </section>
   </main>
 </div>
-
 
 <section class="card status-card" *ngIf="statusMessage || runResult?.meta">
   <div class="status-line" [ngClass]="statusToneClass" *ngIf="statusMessage">

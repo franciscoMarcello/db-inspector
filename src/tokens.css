@@ -23,6 +23,12 @@
   --warning-soft: #fff4db;
   --warning-soft-text: #7a4a00;
 
+  /* Estados: texto e base para fundos com color-mix(in srgb, var(--x) 12%, transparent). */
+  --success: #166534;
+  --warning: #92400e;
+  --info: #155e75;
+  --attention: #9a3412;
+
   --scroll-track: #f1f3f6;
   --scroll-thumb: #a3acb9;
   --shadow-overlay: 0 10px 24px rgb(15 23 42 / 0.16);
@@ -47,6 +53,11 @@
   --danger: #f4a79d;
   --warning-soft: #3a2e12;
   --warning-soft-text: #f5d48a;
+
+  --success: #4ade80;
+  --warning: #fbbf24;
+  --info: #67e8f9;
+  --attention: #fb923c;
 
   --scroll-track: #0a0f1c;
   --scroll-thumb: #33405c;
