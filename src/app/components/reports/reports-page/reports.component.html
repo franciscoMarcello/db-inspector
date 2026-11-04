@@ -93,6 +93,9 @@
             [class.active]="selectedFolderId === folder.id"
             (click)="selectFolder(folder)"
           >
+            <mat-icon class="folder-icon" aria-hidden="true">{{
+              folder.expanded || hasTreeFilter ? 'folder_open' : 'folder'
+            }}</mat-icon>
             <span class="folder-name" [title]="folder.name">{{ folder.name }}</span>
             <span class="archived-badge" *ngIf="folder.archived">Arquivado</span>
             <span class="folder-count">{{ reportCountByFolder(folder) }}</span>
