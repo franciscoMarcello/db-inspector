@@ -1,10 +1,18 @@
 import { TestBed } from '@angular/core/testing';
-import { provideRouter, Router } from '@angular/router';
-import { signal } from '@angular/core';
+import { provideRouter, Router, Routes } from '@angular/router';
+import { Component, signal } from '@angular/core';
 import { of } from 'rxjs';
 import { App } from './app';
 import { AuthService } from './services/auth.service';
 import { DARK_THEME_CLASS, THEME_STORAGE_KEY } from './services/theme.service';
+import { AppButtonComponent } from './components/shared/app-button/app-button.component';
+
+@Component({
+  standalone: true,
+  imports: [AppButtonComponent],
+  template: `<app-button class="page-btn" icon="grid_on">Excel</app-button>`,
+})
+class PageWithButton {}
 
 interface FakeUser {
   email: string;
@@ -24,10 +32,10 @@ function fakeAuth(options: { loggedIn: boolean; admin?: boolean; permissions?: s
   };
 }
 
-function render(auth: ReturnType<typeof fakeAuth>) {
+function render(auth: ReturnType<typeof fakeAuth>, routes: Routes = []) {
   TestBed.configureTestingModule({
     imports: [App],
-    providers: [provideRouter([]), { provide: AuthService, useValue: auth }],
+    providers: [provideRouter(routes), { provide: AuthService, useValue: auth }],
   });
   const fixture = TestBed.createComponent(App);
   fixture.detectChanges();
@@ -150,5 +158,20 @@ describe('App (shell)', () => {
     fixture.detectChanges();
     const active = el.querySelector('.side-menu app-button.nav-btn.active .app-btn__label');
     expect(active?.textContent?.trim()).toBe('Relatórios');
+  });
+
+  it('menu recolhido esconde so os rotulos da lateral, nunca os botoes da pagina', async () => {
+    localStorage.setItem('layout.side_menu_collapsed', 'true');
+    const { fixture, el } = render(fakeAuth({ loggedIn: true }), [
+      { path: '', component: PageWithButton },
+    ]);
+    await TestBed.inject(Router).navigateByUrl('/');
+    fixture.detectChanges();
+    localStorage.removeItem('layout.side_menu_collapsed');
+
+    const navLabel = el.querySelector('.side-menu .app-btn__label') as HTMLElement;
+    const pageLabel = el.querySelector('.page app-button.page-btn .app-btn__label') as HTMLElement;
+    expect(navLabel.getBoundingClientRect().width).toBeLessThanOrEqual(1);
+    expect(pageLabel.getBoundingClientRect().width).toBeGreaterThan(10);
   });
 });

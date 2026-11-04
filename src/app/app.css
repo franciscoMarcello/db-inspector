@@ -38,6 +38,10 @@
   gap: 2px;
 }
 
+:host ::ng-deep .side-top-actions app-button .app-btn {
+  color: var(--text-primary);
+}
+
 .title {
   font-weight: 600;
   font-size: 18px;
@@ -102,7 +106,7 @@
 }
 
 :host ::ng-deep app-button.nav-btn .app-btn__icon {
-  color: var(--text-muted);
+  color: var(--text-primary);
 }
 
 :host ::ng-deep app-button.nav-btn:not(.active) .app-btn:hover:not(:disabled) {
@@ -244,7 +248,7 @@
   padding-left: 0;
 }
 
-.app-shell.side-collapsed ::ng-deep app-button .app-btn__label {
+.app-shell.side-collapsed .side-nav ::ng-deep app-button .app-btn__label {
   position: absolute;
   width: 1px;
   height: 1px;
