@@ -1,14 +1,12 @@
+.content-panel > .table-card {
+  flex: 1 0 320px;
+}
+
 .table-card {
-  height: 420px;
+  min-height: 320px;
   display: flex;
   flex-direction: column;
   min-width: 0;
-}
-
-@media (min-width: 1900px) {
-  .table-card {
-    height: 460px;
-  }
 }
 
 .table-meta {

@@ -1,6 +1,9 @@
 .reports-shell {
   display: grid;
   grid-template-columns: 272px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
   gap: 12px;
   min-width: 0;
   color: var(--text-primary);
@@ -21,9 +24,7 @@
 }
 
 .tree-panel {
-  min-height: 520px;
-  height: min(760px, calc(100vh - 172px));
-  max-height: calc(100vh - 172px);
+  min-height: 0;
   display: grid;
   grid-template-rows: auto 1fr;
 }
@@ -307,11 +308,18 @@
   padding-top: 10px;
 }
 
+/* Coluna da direita ocupa a altura da pagina; so a tabela cresce e, se faltar espaco, a coluna rola. */
 .content-panel {
-  display: grid;
-  align-content: start;
+  display: flex;
+  flex-direction: column;
   gap: 12px;
   min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+
+.content-panel > * {
+  flex: none;
 }
 
 .card {
