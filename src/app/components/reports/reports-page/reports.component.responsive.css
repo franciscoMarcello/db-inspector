@@ -43,13 +43,6 @@
     background: color-mix(in srgb, var(--bg-surface) 94%, transparent);
   }
 
-  .status-meta {
-    margin-top: 6px;
-    gap: 6px;
-    font-size: 11px;
-    line-height: 1.35;
-  }
-
   .var-field textarea {
     min-height: 120px;
   }

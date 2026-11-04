@@ -297,6 +297,7 @@
 
 .content-panel {
   display: grid;
+  align-content: start;
   gap: 12px;
   min-width: 0;
 }
@@ -306,10 +307,26 @@
   min-width: 0;
 }
 
+.report-header {
+  padding: 4px 2px 0;
+}
+
 .title h2 {
   margin: 0;
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 22px;
+  line-height: 1.2;
+  font-weight: 600;
+  overflow-wrap: break-word;
+  text-wrap: balance;
+}
+
+.params-card {
+  display: grid;
+  gap: 10px;
+}
+
+.report-tools {
+  margin-left: -10px;
 }
 
 .title p {

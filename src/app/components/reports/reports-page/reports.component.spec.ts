@@ -174,12 +174,23 @@ describe('ReportsComponent - layout compacto', () => {
     expect(root.textContent?.toLowerCase()).not.toContain('filtros adicionais');
   });
 
-  it('coloca o Executar na linha de filtros e nao no cabecalho', () => {
+  it('poe Executar e as exportacoes no cabecalho e os filtros num cartao proprio', () => {
     mount({ manage: false, canWrite: false });
-    seed();
+    seed({ jasperTemplateId: 'tpl-1' });
 
-    expect(root.querySelector('.filters-row app-button[tone="primary"]')).not.toBeNull();
-    expect(root.querySelector('header app-button[tone="primary"]')).toBeNull();
+    const header = root.querySelector('.report-header') as HTMLElement;
+    expect(header.querySelector('app-button[tone="primary"]')?.textContent).toContain('Executar');
+    expect(header.textContent).toContain('Excel');
+    expect(header.textContent).toContain('PDF');
+    expect(root.querySelector('.params-card .filters-row')).not.toBeNull();
+    expect(root.querySelector('.filters-row app-button[tone="primary"]')).toBeNull();
+  });
+
+  it('nao usa ponto como separador entre as acoes dos filtros', () => {
+    mount({ manage: false, canWrite: false });
+    seed({ secondSql: 'select 1' });
+
+    expect(root.querySelector('.report-tools')?.textContent).not.toContain('·');
   });
 
   it('marca filtros de texto opcionais com o placeholder Opcional', () => {
@@ -212,15 +223,12 @@ describe('ReportsComponent - layout compacto', () => {
     expect(root.textContent).toContain('Selecione um relatório');
   });
 
-  it('no modo usuario o menu so tem exportacao', async () => {
+  it('no modo usuario nao ha menu de acoes: as exportacoes ficam visiveis', () => {
     mount({ manage: false, canWrite: false });
     seed({ jasperTemplateId: 'tpl-1' });
 
-    const menu = await openActionsMenu();
-
-    expect(menu).toContain('Exportar Excel');
-    expect(menu).not.toContain('Editar relatório');
-    expect(menu).not.toContain('Novo relatório');
+    expect(root.querySelector('button[aria-label="Mais ações"]')).toBeNull();
+    expect(root.querySelector('.report-header')?.textContent).toContain('Excel');
   });
 
   it('na gestao o menu traz edicao, versoes, arquivar e novo relatorio', async () => {
