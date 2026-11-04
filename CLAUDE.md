@@ -44,6 +44,16 @@ DB Inspector UI é o frontend do portal de BI interno. Permite explorar metadado
 - Se houver tema customizado do Material, respeite os tokens definidos. Nao sobreescreva com cores hardcoded.
 - Responsividade obrigatoria: mobile-first com breakpoints do Tailwind.
 
+## Cores e tema
+
+- Cor so por token. `src/tokens.css` e o unico arquivo com cor literal (tema claro em `:root`, escuro em `.dark-theme`).
+- Use `var(--token)` no CSS ou as classes de `@theme` em `src/styles.css` (`bg-surface`, `text-muted`, `bg-accent`...).
+- `--chip-bg-active` e fundo de botao/selecao (texto `--on-accent` por cima). Texto e link azul usam `--accent-soft-text`.
+- Estados (`--success`, `--warning`, `--info`, `--attention`, `--danger`) sao cor de texto; fundo e borda saem de `color-mix(in srgb, var(--x) 12%, transparent)`.
+- Token novo entra nos dois temas e, se for par de texto/fundo, em `src/app/theme-tokens.spec.ts`.
+- O tema e controlado pelo `ThemeService`; nao mexa em classe de tema direto no DOM.
+- Antes de commitar: `npm run check:colors` (trava cores fixas em 0) e `npx ng test --watch=false`.
+
 ## Monaco Editor
 
 - O editor SQL usa Monaco com tema escuro customizado. Nao altere a configuracao do tema sem necessidade.
