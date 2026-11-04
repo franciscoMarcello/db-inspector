@@ -62,7 +62,7 @@
           <span>Gerenciar pastas</span>
         </button>
         <button mat-menu-item type="button" (click)="openTemplateManager()">
-          <mat-icon aria-hidden="true">picture_as_pdf</mat-icon>
+          <mat-icon class="icon-pdf" aria-hidden="true">picture_as_pdf</mat-icon>
           <span>Templates PDF</span>
         </button>
       </mat-menu>
@@ -191,6 +191,7 @@
           ></app-reports-ai-toolbar>
           <ng-container *ngIf="selectedReport">
             <app-button
+              class="icon-excel"
               type="button"
               tone="neutral"
               variant="outline"
@@ -202,6 +203,7 @@
             </app-button>
             <app-button
               *ngIf="canExportPdf"
+              class="icon-pdf"
               type="button"
               tone="neutral"
               variant="outline"

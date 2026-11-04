@@ -29,6 +29,10 @@
   --info: #155e75;
   --attention: #9a3412;
 
+  /* Cor de tipo de arquivo: so em icone, nunca em fundo de botao. */
+  --file-excel: #1d6f42;
+  --file-pdf: #c62828;
+
   --scroll-track: #f1f3f6;
   --scroll-thumb: #a3acb9;
   --shadow-overlay: 0 10px 24px rgb(15 23 42 / 0.16);
@@ -62,6 +66,9 @@
   --warning: #fbbf24;
   --info: #67e8f9;
   --attention: #fb923c;
+
+  --file-excel: #4cc38a;
+  --file-pdf: #ff7b72;
 
   --scroll-track: #0a0f1c;
   --scroll-thumb: #33405c;

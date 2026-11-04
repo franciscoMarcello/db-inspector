@@ -26,6 +26,11 @@ const PAIRS: ReadonlyArray<[foreground: string, background: string, minimum: num
   ['--danger', '--bg-surface-alt', TEXT],
   ['--attention', '--bg-surface-alt', TEXT],
   ['--border-strong', '--bg-surface', UI],
+  // Icones de tipo de arquivo ficam sobre o botao neutro (surface-alt) e sobre menus (surface).
+  ['--file-excel', '--bg-surface-alt', UI],
+  ['--file-excel', '--bg-surface', UI],
+  ['--file-pdf', '--bg-surface-alt', UI],
+  ['--file-pdf', '--bg-surface', UI],
   ['--chip-bg-active', '--bg-surface', UI],
 ];
 

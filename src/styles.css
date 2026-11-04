@@ -101,6 +101,18 @@ body.dark-theme {
   accent-color: var(--chip-bg-active);
 }
 
+.icon-excel,
+app-button.icon-excel .app-btn__icon,
+.mat-mdc-menu-item .mat-icon.icon-excel {
+  color: var(--file-excel);
+}
+
+.icon-pdf,
+app-button.icon-pdf .app-btn__icon,
+.mat-mdc-menu-item .mat-icon.icon-pdf {
+  color: var(--file-pdf);
+}
+
 ::selection {
   background: var(--accent-soft);
   color: var(--accent-soft-text);
