@@ -103,7 +103,13 @@ form {
 }
 
 :host ::ng-deep .login-card .mdc-notched-outline__leading,
-:host ::ng-deep .login-card .mdc-notched-outline__notch,
 :host ::ng-deep .login-card .mdc-notched-outline__trailing {
   border-color: var(--border-subtle) !important;
+}
+
+/* O trecho do nome do campo tem borda lateral transparente no Material; pintar as quatro cores desenhava linhas verticais. */
+:host ::ng-deep .login-card .mdc-notched-outline__notch {
+  border-top-color: var(--border-subtle) !important;
+  border-bottom-color: var(--border-subtle) !important;
+  border-right-style: none !important;
 }
