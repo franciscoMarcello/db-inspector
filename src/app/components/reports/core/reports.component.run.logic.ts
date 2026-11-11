@@ -1,4 +1,4 @@
-import { firstValueFrom } from 'rxjs';
+import { Observable, firstValueFrom } from 'rxjs';
 import { ReportRunResponse, ReportService } from '../../../services/report.service';
 
 export interface ReportsRunHost {
@@ -13,6 +13,10 @@ export interface ReportsRunHost {
   lastRunParams: Record<string, unknown> | null;
   lastRunReportId: string | null;
   lastLoadedPage: number;
+  /** Versao escolhida para testar; null = versao em uso. */
+  testVersionNumber: number | null;
+  /** Versao que gerou o resultado na tela; null = versao em uso. */
+  runResultVersionNumber: number | null;
   canLoadMoreRows: boolean;
   canLoadAllRows: boolean;
   buildRunParams(): Record<string, unknown> | null;
@@ -36,12 +40,7 @@ export class ReportsRunLogic {
     const nextPage = this.host.lastLoadedPage >= 0 ? this.host.lastLoadedPage + 1 : 1;
 
     this.host.loadingMoreRows = true;
-    this.reportService
-      .runReportWithParamsAndOptions(reportId, params, {
-        safe: false,
-        page: nextPage,
-        size: this.host.reportPageSize,
-      })
+    this.runPage(reportId, this.host.runResultVersionNumber, params, nextPage)
       .subscribe({
         next: (res) => {
           const merged = this.mergePagedResult(res, nextPage);
@@ -70,7 +69,7 @@ export class ReportsRunLogic {
     this.host.loadingAllRows = true;
     try {
       this.host.setStatusMessage('Carregando todas as linhas do relatório...');
-      const res = await firstValueFrom(this.reportService.runReportAllWithParams(reportId, params, false));
+      const res = await firstValueFrom(this.runAll(reportId, this.host.runResultVersionNumber, params));
       const rows = Array.isArray(res.rows) ? res.rows : [];
       const totalRows = Number(res.meta?.rowCount ?? rows.length);
 
@@ -113,19 +112,16 @@ export class ReportsRunLogic {
       return;
     }
 
+    const versionNumber = this.host.testVersionNumber;
     this.host.loadingRun = true;
     this.host.loadingMoreRows = false;
     this.host.loadingAllRows = false;
-    this.reportService
-      .runReportWithParamsAndOptions(this.host.selectedReportId, params, {
-        safe: false,
-        page: 0,
-        size: this.host.reportPageSize,
-      })
+    this.runPage(this.host.selectedReportId, versionNumber, params, 0)
       .subscribe({
         next: (res) => {
           this.host.paramsError = '';
           this.host.runResult = res;
+          this.host.runResultVersionNumber = versionNumber;
           this.host.lastRunParams = { ...params };
           this.host.lastRunReportId = this.host.selectedReportId;
           this.host.lastLoadedPage = Number.isFinite(Number(res.meta?.page)) ? Number(res.meta?.page) : 0;
@@ -140,6 +136,28 @@ export class ReportsRunLogic {
           this.host.statusMessage = this.host.resolveAclAwareError(err, 'Falha ao executar relatorio.');
         },
       });
+  }
+
+  private runPage(
+    reportId: string,
+    versionNumber: number | null,
+    params: Record<string, unknown>,
+    page: number,
+  ): Observable<ReportRunResponse> {
+    const size = this.host.reportPageSize;
+    return versionNumber === null
+      ? this.reportService.runReportWithParamsAndOptions(reportId, params, { safe: false, page, size })
+      : this.reportService.runReportVersion(reportId, versionNumber, { params, page, size });
+  }
+
+  private runAll(
+    reportId: string,
+    versionNumber: number | null,
+    params: Record<string, unknown>,
+  ): Observable<ReportRunResponse> {
+    return versionNumber === null
+      ? this.reportService.runReportAllWithParams(reportId, params, false)
+      : this.reportService.runReportVersionAll(reportId, versionNumber, params);
   }
 
   private resolveParamsForPagination(reportId: string): Record<string, unknown> | null {

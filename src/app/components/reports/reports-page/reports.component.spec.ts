@@ -346,3 +346,261 @@ describe('ReportsComponent - layout compacto', () => {
     expect(root.textContent).toContain('Executando relatório...');
   });
 });
+
+describe('ReportsComponent - testar uma versao', () => {
+  let component: ReportsComponent;
+  let http: HttpTestingController;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [ReportsComponent],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: EnvStorageService, useValue: { getActive: () => ({ backend: '/api/db' }) } },
+        { provide: ActivatedRoute, useValue: { snapshot: { data: { manage: true } } } },
+      ],
+    });
+    component = TestBed.createComponent(ReportsComponent).componentInstance;
+    http = TestBed.inject(HttpTestingController);
+    spyOnProperty(component, 'canWriteReports').and.returnValue(true);
+    component.manageMode = true;
+    component.reports = [
+      {
+        ...report('r2'),
+        variables: [
+          { key: 'data', label: 'Data', type: 'date', required: false, multiple: false } as never,
+        ],
+      },
+    ];
+    component.selectedReportId = 'r2';
+  });
+
+  afterEach(() => http.match(() => true));
+
+  function version(jrxml: string | null, keys: string[], secondSql: string | null = null) {
+    return {
+      secondSql,
+      reportId: 'r2',
+      versionNumber: 8,
+      status: 'DRAFT',
+      name: 'Relatorio r2',
+      sql: 'SELECT 1',
+      variables: keys.map((key) => ({
+        key,
+        label: key,
+        type: 'date',
+        required: false,
+        multiple: false,
+      })),
+      jrxml,
+      authorType: 'AI_TOKEN',
+      authorName: 'IA',
+      createdAt: 0,
+      revision: 1,
+    };
+  }
+
+  it('sem versao escolhida executa a versao em uso', () => {
+    component.applyFilters();
+
+    expect(http.match('/api/db/reports/r2/run').length).toBe(1);
+    expect(http.match((req) => req.url.includes('/versions/')).length).toBe(0);
+  });
+
+  it('com versao escolhida executa, marca o resultado e o PDF usa a mesma versao', () => {
+    component.selectTestVersion(8);
+    http.expectOne('/api/db/reports/r2/versions/8').flush(version('<jasperReport/>', ['data']));
+
+    component.applyFilters();
+    http.expectOne('/api/db/reports/r2/versions/8/run').flush({
+      name: 'Relatorio r2',
+      meta: { page: 0, size: 500, rowCount: 1, truncated: false },
+      columns: ['a'],
+      rows: [{ a: 1 }],
+    });
+    expect(component.runResultVersionNumber).toBe(8);
+
+    expect(component.canExportPdf).toBeTrue();
+    component.exportPdf();
+    expect(http.match('/api/db/reports/r2/versions/8/pdf').length).toBe(1);
+  });
+
+  it('avisa quando a versao tem filtros diferentes dos da pagina', () => {
+    component.selectTestVersion(8);
+    http.expectOne('/api/db/reports/r2/versions/8').flush(version(null, ['data', 'safra']));
+
+    expect(component.testVersionWarning).toContain('safra');
+    expect(component.canExportPdf).toBeFalse();
+  });
+
+  it('so mostra Comparar SAP quando a versao escolhida tem SQL do SAP', () => {
+    component.reports = [{ ...component.reports[0], secondSql: 'SELECT 1 FROM DUMMY' }];
+    expect(component.hasSapCompare).toBeTrue();
+
+    component.selectTestVersion(8);
+    http.expectOne('/api/db/reports/r2/versions/8').flush(version(null, ['data'], null));
+    expect(component.hasSapCompare).toBeFalse();
+
+    component.selectTestVersion(9);
+    http
+      .expectOne('/api/db/reports/r2/versions/9')
+      .flush({ ...version(null, ['data'], 'SELECT 2 FROM DUMMY'), versionNumber: 9 });
+    expect(component.hasSapCompare).toBeTrue();
+  });
+
+  it('compara a versao escolhida com o SAP e nao a publicada', () => {
+    component.selectTestVersion(8);
+    http
+      .expectOne('/api/db/reports/r2/versions/8')
+      .flush(version(null, ['data'], 'SELECT 1 FROM DUMMY'));
+
+    component.compareSelectedReport();
+
+    http.expectOne('/api/db/reports/r2/versions/8/compare').flush({
+      name: 'Relatorio r2',
+      comparisonKey: 'id',
+      source1: { label: 'Sistema', columns: ['id'], rows: [], rowCount: 0 },
+      source2: { label: 'SAP HANA', columns: ['id'], rows: [], rowCount: 0 },
+      diff: null,
+    });
+    expect(http.match('/api/db/reports/r2/compare').length).toBe(0);
+    expect(component.compareResult?.source2.label).toBe('SAP HANA');
+  });
+
+  it('sem versao escolhida compara a publicada', () => {
+    component.compareSelectedReport();
+
+    http.expectOne('/api/db/reports/r2/compare').flush({
+      name: 'Relatorio r2',
+      comparisonKey: 'id',
+      source1: { label: 'Sistema', columns: ['id'], rows: [], rowCount: 0 },
+      source2: { label: 'SAP HANA', columns: ['id'], rows: [], rowCount: 0 },
+      diff: null,
+    });
+    expect(http.match((req) => req.url.includes('/versions/')).length).toBe(0);
+  });
+
+  it('trocar de versao limpa a comparacao anterior', () => {
+    component.compareResult = { name: 'x' } as never;
+
+    component.selectTestVersion(8);
+
+    expect(component.compareResult).toBeNull();
+  });
+
+  it('avisa quando o servidor ainda nao tem a comparacao por versao', () => {
+    component.selectTestVersion(8);
+    http
+      .expectOne('/api/db/reports/r2/versions/8')
+      .flush(version(null, ['data'], 'SELECT 1 FROM DUMMY'));
+
+    component.compareSelectedReport();
+    http
+      .expectOne('/api/db/reports/r2/versions/8/compare')
+      .flush({}, { status: 405, statusText: 'Method Not Allowed' });
+
+    expect(component.statusMessage).toContain('comparação por versão');
+  });
+
+  it('descarta a resposta de uma comparacao de outra versao que chega atrasada', () => {
+    component.selectTestVersion(8);
+    http
+      .expectOne('/api/db/reports/r2/versions/8')
+      .flush(version(null, ['data'], 'SELECT 1 FROM DUMMY'));
+    component.compareSelectedReport();
+    const atrasada = http.expectOne('/api/db/reports/r2/versions/8/compare');
+
+    component.selectTestVersion(9);
+    expect(component.loadingCompare).toBeFalse();
+    atrasada.flush({
+      name: 'Relatorio r2',
+      comparisonKey: 'id',
+      source1: { label: 'Sistema', columns: ['id', 'valor'], rows: [], rowCount: 0 },
+      source2: { label: 'SAP HANA', columns: ['id', 'valor'], rows: [], rowCount: 0 },
+      diff: null,
+    });
+
+    expect(component.compareResult).toBeNull();
+  });
+
+  it('mostra a mensagem do servidor num 400 que nao e falta de SQL do SAP', () => {
+    component.selectTestVersion(8);
+    http
+      .expectOne('/api/db/reports/r2/versions/8')
+      .flush(version(null, ['data'], 'SELECT 1 FROM DUMMY'));
+    component.compareSelectedReport();
+    http
+      .expectOne('/api/db/reports/r2/versions/8/compare')
+      .flush(
+        { message: "Parametro obrigatorio ausente: 'data'" },
+        { status: 400, statusText: 'Bad Request' },
+      );
+
+    expect(component.statusMessage).toContain('Parametro obrigatorio ausente');
+  });
+
+  it('diz que a versao nao tem SQL do SAP quando o servidor responde isso', () => {
+    component.selectTestVersion(8);
+    http
+      .expectOne('/api/db/reports/r2/versions/8')
+      .flush(version(null, ['data'], 'SELECT 1 FROM DUMMY'));
+    component.compareSelectedReport();
+    http
+      .expectOne('/api/db/reports/r2/versions/8/compare')
+      .flush(
+        { message: 'Relatorio sem SQL de comparacao configurado' },
+        { status: 400, statusText: 'Bad Request' },
+      );
+
+    expect(component.statusMessage).toBe('A versão 8 não tem SQL SAP HANA configurado.');
+  });
+
+  it('com versao escolhida nao sugere colunas da versao publicada', () => {
+    component.comparisonColumnsPrefetch = ['coluna_da_publicada'];
+    expect(component.availableComparisonColumns).toContain('coluna_da_publicada');
+
+    component.selectTestVersion(8);
+    http
+      .expectOne('/api/db/reports/r2/versions/8')
+      .flush(version(null, ['data'], 'SELECT 1 FROM DUMMY'));
+    expect(component.availableComparisonColumns).not.toContain('coluna_da_publicada');
+
+    component.compareSelectedReport();
+    http.expectOne('/api/db/reports/r2/versions/8/compare').flush({
+      name: 'Relatorio r2',
+      comparisonKey: 'id',
+      source1: { label: 'Sistema', columns: ['id', 'valor'], rows: [], rowCount: 0 },
+      source2: { label: 'SAP HANA', columns: ['id', 'valor'], rows: [], rowCount: 0 },
+      diff: null,
+    });
+    expect(component.availableComparisonColumns).toContain('valor');
+  });
+
+  it('descarta a comparacao atrasada quando a selecao some (pasta vazia)', () => {
+    component.compareSelectedReport();
+    const atrasada = http.expectOne('/api/db/reports/r2/compare');
+
+    component.selectedReportId = null;
+    atrasada.flush({
+      name: 'Relatorio r2',
+      comparisonKey: 'id',
+      source1: { label: 'Sistema', columns: ['id'], rows: [], rowCount: 0 },
+      source2: { label: 'SAP HANA', columns: ['id'], rows: [], rowCount: 0 },
+      diff: null,
+    });
+
+    expect(component.compareResult).toBeNull();
+    expect(component.loadingCompare).toBeFalse();
+  });
+
+  it('voltar para a versao em uso limpa o resultado da versao', () => {
+    component.selectTestVersion(8);
+    component.runResult = { name: 'x', meta: {}, columns: [], rows: [] } as never;
+
+    component.selectTestVersion(null);
+
+    expect(component.runResult).toBeNull();
+    expect(component.testVersion).toBeNull();
+  });
+});

@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { EMPTY, Observable } from 'rxjs';
+import { expand, map, reduce } from 'rxjs/operators';
 import { EnvStorageService } from './env-storage.service';
 import {
   extractAclFlag,
@@ -496,6 +496,22 @@ export class ReportService {
       .pipe(map((res) => normalizeCompareResponse(res) as ReportCompareResponse));
   }
 
+  /** Compara uma versao (rascunho ou antiga) com o SAP, sem publica-la. */
+  compareReportVersion(
+    reportId: string,
+    versionNumber: number,
+    request?: ReportCompareRequest | null,
+  ): Observable<ReportCompareResponse> {
+    const body: Record<string, unknown> = {};
+    if (request?.params && Object.keys(request.params).length) body['params'] = request.params;
+    if (request?.comparisonTolerances && Object.keys(request.comparisonTolerances).length) {
+      body['comparisonTolerances'] = request.comparisonTolerances;
+    }
+    return this.http
+      .post<unknown>(`${this.versionsUrl(reportId, versionNumber)}/compare`, body)
+      .pipe(map((res) => normalizeCompareResponse(res) as ReportCompareResponse));
+  }
+
   getReportColumns(
     id: string,
     source: ReportColumnsSource = 'both',
@@ -595,6 +611,47 @@ export class ReportService {
     return this.http.post<ReportRunResponse>(
       `${this.versionsUrl(reportId, versionNumber)}/run`,
       body,
+    );
+  }
+
+  /** Todas as linhas de uma versao, para o Excel da prévia. */
+  // shortcut: o backend nao tem run/all por versao, entao pagina de 1000 em 1000 (cada pagina reexecuta a consulta); criar o endpoint se ficar lento.
+  runReportVersionAll(
+    reportId: string,
+    versionNumber: number,
+    params?: Record<string, unknown> | null,
+  ): Observable<ReportRunResponse> {
+    const size = 1000;
+    const fetchPage = (page: number) =>
+      this.runReportVersion(reportId, versionNumber, { params: params ?? {}, page, size }).pipe(
+        map((res) => ({ res, page })),
+      );
+    return fetchPage(0).pipe(
+      expand(({ res, page }) =>
+        res.meta?.truncated && (res.rows?.length ?? 0) > 0 ? fetchPage(page + 1) : EMPTY,
+      ),
+      reduce(
+        (acc: ReportRunResponse | null, { res }) => ({
+          ...(acc ?? res),
+          rows: [...(acc?.rows ?? []), ...(res.rows ?? [])],
+        }),
+        null,
+      ),
+      map((acc) => {
+        const result = acc as ReportRunResponse;
+        const rows = result.rows ?? [];
+        return {
+          ...result,
+          rows,
+          meta: {
+            ...result.meta,
+            rowCount: rows.length,
+            truncated: false,
+            page: 0,
+            size: rows.length,
+          },
+        };
+      }),
     );
   }
 
