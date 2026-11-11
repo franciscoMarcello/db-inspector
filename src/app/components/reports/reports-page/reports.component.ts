@@ -236,6 +236,8 @@ export class ReportsComponent
   testVersion: ReportVersion | null = null;
   runResultVersionNumber: number | null = null;
   private testVersionsSeq = 0;
+  /** Invalida a comparacao em andamento quando a versao ou o relatorio mudam. */
+  private compareSeq = 0;
   private readonly folderTemplateLogic: ReportsFolderTemplateLogic;
   private readonly treeLogic: ReportsTreeLogic;
   private readonly variableOptionsLogic: ReportsVariableOptionsLogic;
@@ -288,7 +290,10 @@ export class ReportsComponent
 
   get availableComparisonColumns(): string[] {
     const options = new Set<string>();
-    for (const col of this.comparisonColumnsPrefetch) options.add(col);
+    // As colunas pre-carregadas sao da versao publicada; com outra versao escolhida, so valem as do resultado.
+    if (this.testVersionNumber === null) {
+      for (const col of this.comparisonColumnsPrefetch) options.add(col);
+    }
     if (this.compareResult) {
       for (const col of this.compareResult.source1.columns) options.add(col);
       for (const col of this.compareResult.source2.columns) options.add(col);
@@ -336,6 +341,12 @@ export class ReportsComponent
   get canExportPdf(): boolean {
     if (this.testVersionNumber !== null) return Boolean(this.testVersion?.jrxml);
     return Boolean(this.selectedReport?.jasperTemplateId);
+  }
+
+  /** Tem SQL do SAP na versao escolhida (ou na publicada, quando nenhuma versao foi escolhida). */
+  get hasSapCompare(): boolean {
+    if (this.testVersionNumber !== null) return Boolean(this.testVersion?.secondSql);
+    return Boolean(this.selectedReport?.secondSql);
   }
 
   get testVersionOptions(): ReportVersionSummary[] {
@@ -386,6 +397,9 @@ export class ReportsComponent
     this.testVersionNumber = versionNumber;
     this.testVersion = null;
     this.runResult = null;
+    this.compareResult = null;
+    this.compareSeq++;
+    this.loadingCompare = false;
     this.lastRunParams = null;
     this.lastRunReportId = null;
     this.lastLoadedPage = -1;
@@ -1094,12 +1108,31 @@ export class ReportsComponent
       request.comparisonTolerances = comparisonTolerances;
     }
 
-    this.reportService.compareReport(this.selectedReportId, request).subscribe({
+    const versionNumber = this.testVersionNumber;
+    const reportId = this.selectedReportId;
+    const seq = ++this.compareSeq;
+    // Resposta de comparacao antiga: outra comparacao comecou, ou o relatorio mudou por qualquer caminho
+    // (inclusive pasta vazia, que zera a selecao sem passar pela troca de relatorio).
+    const isStale = (): boolean => {
+      if (seq !== this.compareSeq) return true;
+      if (reportId !== this.selectedReportId) {
+        this.loadingCompare = false;
+        return true;
+      }
+      return false;
+    };
+    const compare$ =
+      versionNumber === null
+        ? this.reportService.compareReport(this.selectedReportId, request)
+        : this.reportService.compareReportVersion(this.selectedReportId, versionNumber, request);
+    compare$.subscribe({
       next: (res) => {
+        if (isStale()) return;
         this.loadingCompare = false;
         this.compareResult = res;
       },
       error: (err) => {
+        if (isStale()) return;
         this.loadingCompare = false;
         const status = (err as HttpErrorResponse)?.status;
         const backendMessage = this.extractErrorMessage(err).toLowerCase();
@@ -1111,8 +1144,16 @@ export class ReportsComponent
         ) {
           this.statusMessage =
             'A coluna de comparação não foi encontrada em uma das consultas. Edite o relatório/SQL e ajuste o campo comparisonKey para continuar.';
+        } else if (status === 400 && backendMessage.includes('sem sql de comparacao')) {
+          this.statusMessage =
+            versionNumber === null
+              ? 'Este relatório não tem SQL SAP HANA configurado.'
+              : `A versão ${versionNumber} não tem SQL SAP HANA configurado.`;
         } else if (status === 400) {
-          this.statusMessage = 'Este relatório não tem SQL SAP HANA configurado.';
+          this.statusMessage = this.extractErrorMessage(err) || 'Falha ao comparar relatório.';
+        } else if (versionNumber !== null && (status === 404 || status === 405)) {
+          this.statusMessage =
+            'Não foi possível comparar esta versão. Se o servidor for mais antigo, ele ainda não tem a comparação por versão.';
         } else if (status === 503) {
           this.statusMessage = 'SAP HANA não está configurado no servidor.';
         } else if (status === 502) {
@@ -1216,6 +1257,8 @@ export class ReportsComponent
   /** Chamado em toda troca de relatorio selecionado (arvore, pasta e recarga). */
   loadComparisonColumnsForSelectedReport() {
     this.loadTestVersions();
+    this.compareSeq++;
+    this.loadingCompare = false;
     const report = this.selectedReport;
     if (!report?.id || !report.secondSql) {
       this.comparisonColumnsPrefetch = [];

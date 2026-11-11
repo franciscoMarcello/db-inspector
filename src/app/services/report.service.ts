@@ -496,6 +496,22 @@ export class ReportService {
       .pipe(map((res) => normalizeCompareResponse(res) as ReportCompareResponse));
   }
 
+  /** Compara uma versao (rascunho ou antiga) com o SAP, sem publica-la. */
+  compareReportVersion(
+    reportId: string,
+    versionNumber: number,
+    request?: ReportCompareRequest | null,
+  ): Observable<ReportCompareResponse> {
+    const body: Record<string, unknown> = {};
+    if (request?.params && Object.keys(request.params).length) body['params'] = request.params;
+    if (request?.comparisonTolerances && Object.keys(request.comparisonTolerances).length) {
+      body['comparisonTolerances'] = request.comparisonTolerances;
+    }
+    return this.http
+      .post<unknown>(`${this.versionsUrl(reportId, versionNumber)}/compare`, body)
+      .pipe(map((res) => normalizeCompareResponse(res) as ReportCompareResponse));
+  }
+
   getReportColumns(
     id: string,
     source: ReportColumnsSource = 'both',

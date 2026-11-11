@@ -431,7 +431,7 @@
 
         <div class="report-tools flex flex-wrap items-center gap-1">
           <app-button
-            *ngIf="selectedReport?.secondSql"
+            *ngIf="hasSapCompare"
             class="row-btn"
             type="button"
             tone="neutral"
@@ -439,8 +439,7 @@
             size="sm"
             icon="compare_arrows"
             (pressed)="compareSelectedReport()"
-            [disabled]="loadingCompare || !canRunReport || testVersionNumber !== null"
-            [title]="testVersionNumber !== null ? 'A comparação com o SAP usa a versão em uso' : ''"
+            [disabled]="loadingCompare || !canRunReport"
           >
             {{ loadingCompare ? 'Comparando...' : 'Comparar SAP' }}
           </app-button>
@@ -455,7 +454,7 @@
           >
             Limpar
           </app-button>
-          <ng-container *ngIf="selectedReport?.secondSql">
+          <ng-container *ngIf="hasSapCompare">
             <button
               type="button"
               class="inline-flex min-h-8 items-center justify-center gap-1.5 rounded-[10px] border border-solid border-transparent bg-transparent px-2.5 text-xs font-semibold text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--chip-bg)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[var(--chip-bg-active)]"
@@ -484,11 +483,7 @@
           </app-button>
         </div>
 
-        <div
-          id="reports-advanced-panel"
-          class="mt-2"
-          *ngIf="selectedReport?.secondSql && advancedOpen()"
-        >
+        <div id="reports-advanced-panel" class="mt-2" *ngIf="hasSapCompare && advancedOpen()">
           <app-reports-compare-tolerances
             [rows]="compareToleranceRows"
             [availableColumns]="availableComparisonColumns"

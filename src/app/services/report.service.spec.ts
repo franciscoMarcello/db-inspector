@@ -328,3 +328,49 @@ describe('ReportService - todas as linhas de uma versao', () => {
     expect(result!.meta.rowCount).toBe(1500);
   });
 });
+
+describe('ReportService - comparar versao com o SAP', () => {
+  let service: ReportService;
+  let http: HttpTestingController;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: EnvStorageService, useValue: { getActive: () => ({ backend: BASE }) } },
+      ],
+    });
+    service = TestBed.inject(ReportService);
+    http = TestBed.inject(HttpTestingController);
+  });
+
+  afterEach(() => http.verify());
+
+  it('envia parametros e tolerancias para a versao e normaliza a resposta', () => {
+    let result: { name: string; comparisonKey: string | null } | null = null;
+    service
+      .compareReportVersion('r1', 8, {
+        params: { data: '2026-10-01' },
+        comparisonTolerances: { valor: 0.02 },
+      })
+      .subscribe((res) => (result = res));
+
+    const req = http.expectOne(`${BASE}/reports/r1/versions/8/compare`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({
+      params: { data: '2026-10-01' },
+      comparisonTolerances: { valor: 0.02 },
+    });
+    req.flush({
+      name: 'Rascunho v8',
+      comparisonKey: 'id',
+      source1: { label: 'Sistema', columns: ['id'], rows: [], rowCount: 0 },
+      source2: { label: 'SAP HANA', columns: ['id'], rows: [], rowCount: 0 },
+      diff: null,
+    });
+
+    expect(result!.name).toBe('Rascunho v8');
+    expect(result!.comparisonKey).toBe('id');
+  });
+});
