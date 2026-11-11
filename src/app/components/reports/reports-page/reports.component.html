@@ -193,6 +193,20 @@
             (statusMessage)="setStatusMessage($event.message, $event.autoClearMs)"
           ></app-reports-ai-toolbar>
           <ng-container *ngIf="selectedReport">
+            <select
+              *ngIf="showTestVersionPicker"
+              class="ui-input w-auto min-w-[11rem]"
+              aria-label="Versão para executar"
+              title="Executar, PDF e Excel usam esta versão"
+              [ngModel]="testVersionNumber"
+              [ngModelOptions]="{ standalone: true }"
+              (ngModelChange)="selectTestVersion($event)"
+            >
+              <option [ngValue]="null">Versão em uso</option>
+              <option *ngFor="let v of testVersionOptions" [ngValue]="v.versionNumber">
+                {{ testVersionLabel(v) }}
+              </option>
+            </select>
             <app-button
               class="icon-excel"
               type="button"
@@ -410,6 +424,11 @@
           </div>
         </dl>
 
+        <div *ngIf="testVersionWarning" class="status-line status-line--warn" role="note">
+          <strong>Atenção</strong>
+          <span>{{ testVersionWarning }}</span>
+        </div>
+
         <div class="report-tools flex flex-wrap items-center gap-1">
           <app-button
             *ngIf="selectedReport?.secondSql"
@@ -420,7 +439,8 @@
             size="sm"
             icon="compare_arrows"
             (pressed)="compareSelectedReport()"
-            [disabled]="loadingCompare || !canRunReport"
+            [disabled]="loadingCompare || !canRunReport || testVersionNumber !== null"
+            [title]="testVersionNumber !== null ? 'A comparação com o SAP usa a versão em uso' : ''"
           >
             {{ loadingCompare ? 'Comparando...' : 'Comparar SAP' }}
           </app-button>
@@ -588,6 +608,11 @@
         </span>
       </div>
       <footer class="table-meta" aria-live="polite">
+        <span
+          *ngIf="runResultVersionNumber !== null"
+          class="rounded-md bg-[var(--warning-soft)] px-2 py-0.5 font-semibold text-[var(--warning-soft-text)]"
+          >Resultado da v{{ runResultVersionNumber }} (prévia, não é a versão em uso)</span
+        >
         <span
           ><strong>{{ result.meta.rowCount }}</strong> linhas</span
         >

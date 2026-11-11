@@ -84,7 +84,7 @@ type MonacoDiffEditorLike = {
 
 const PREVIEW_PAGE_SIZE = 200;
 
-const STATUS_LABELS: Record<ReportVersionStatus, string> = {
+export const STATUS_LABELS: Record<ReportVersionStatus, string> = {
   DRAFT: 'Rascunho',
   PUBLISHED: 'Publicada',
   SUPERSEDED: 'Substituída',

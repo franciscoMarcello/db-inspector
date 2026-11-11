@@ -346,3 +346,100 @@ describe('ReportsComponent - layout compacto', () => {
     expect(root.textContent).toContain('Executando relatório...');
   });
 });
+
+describe('ReportsComponent - testar uma versao', () => {
+  let component: ReportsComponent;
+  let http: HttpTestingController;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [ReportsComponent],
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        { provide: EnvStorageService, useValue: { getActive: () => ({ backend: '/api/db' }) } },
+        { provide: ActivatedRoute, useValue: { snapshot: { data: { manage: true } } } },
+      ],
+    });
+    component = TestBed.createComponent(ReportsComponent).componentInstance;
+    http = TestBed.inject(HttpTestingController);
+    spyOnProperty(component, 'canWriteReports').and.returnValue(true);
+    component.manageMode = true;
+    component.reports = [
+      {
+        ...report('r2'),
+        variables: [
+          { key: 'data', label: 'Data', type: 'date', required: false, multiple: false } as never,
+        ],
+      },
+    ];
+    component.selectedReportId = 'r2';
+  });
+
+  afterEach(() => http.match(() => true));
+
+  function version(jrxml: string | null, keys: string[]) {
+    return {
+      reportId: 'r2',
+      versionNumber: 8,
+      status: 'DRAFT',
+      name: 'Relatorio r2',
+      sql: 'SELECT 1',
+      variables: keys.map((key) => ({
+        key,
+        label: key,
+        type: 'date',
+        required: false,
+        multiple: false,
+      })),
+      jrxml,
+      authorType: 'AI_TOKEN',
+      authorName: 'IA',
+      createdAt: 0,
+      revision: 1,
+    };
+  }
+
+  it('sem versao escolhida executa a versao em uso', () => {
+    component.applyFilters();
+
+    expect(http.match('/api/db/reports/r2/run').length).toBe(1);
+    expect(http.match((req) => req.url.includes('/versions/')).length).toBe(0);
+  });
+
+  it('com versao escolhida executa, marca o resultado e o PDF usa a mesma versao', () => {
+    component.selectTestVersion(8);
+    http.expectOne('/api/db/reports/r2/versions/8').flush(version('<jasperReport/>', ['data']));
+
+    component.applyFilters();
+    http.expectOne('/api/db/reports/r2/versions/8/run').flush({
+      name: 'Relatorio r2',
+      meta: { page: 0, size: 500, rowCount: 1, truncated: false },
+      columns: ['a'],
+      rows: [{ a: 1 }],
+    });
+    expect(component.runResultVersionNumber).toBe(8);
+
+    expect(component.canExportPdf).toBeTrue();
+    component.exportPdf();
+    expect(http.match('/api/db/reports/r2/versions/8/pdf').length).toBe(1);
+  });
+
+  it('avisa quando a versao tem filtros diferentes dos da pagina', () => {
+    component.selectTestVersion(8);
+    http.expectOne('/api/db/reports/r2/versions/8').flush(version(null, ['data', 'safra']));
+
+    expect(component.testVersionWarning).toContain('safra');
+    expect(component.canExportPdf).toBeFalse();
+  });
+
+  it('voltar para a versao em uso limpa o resultado da versao', () => {
+    component.selectTestVersion(8);
+    component.runResult = { name: 'x', meta: {}, columns: [], rows: [] } as never;
+
+    component.selectTestVersion(null);
+
+    expect(component.runResult).toBeNull();
+    expect(component.testVersion).toBeNull();
+  });
+});

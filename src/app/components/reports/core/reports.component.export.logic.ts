@@ -12,6 +12,11 @@ export interface ReportsExportHost {
   loadingCompareExcel: boolean;
   loadingCompareRawExcel: boolean;
   loadingPdf: boolean;
+  /** Versao escolhida para testar; null = versao em uso. */
+  testVersionNumber: number | null;
+  /** Versao que gerou o resultado na tela; null = versao em uso. */
+  runResultVersionNumber: number | null;
+  readonly canExportPdf: boolean;
   closeExportMenu(): void;
   buildRunParams(): Record<string, unknown> | null;
   setStatusMessage(message: string, autoClearMs?: number): void;
@@ -37,12 +42,19 @@ export class ReportsExportLogic {
       return;
     }
 
-    firstValueFrom(this.reportService.runReportAllWithParams(report.id, params, false))
+    const versionNumber = this.host.runResultVersionNumber;
+    const fullResult$ =
+      versionNumber === null
+        ? this.reportService.runReportAllWithParams(report.id, params, false)
+        : this.reportService.runReportVersionAll(report.id, versionNumber, params);
+    const suffix = versionNumber === null ? '' : `-v${versionNumber}`;
+
+    firstValueFrom(fullResult$)
       .then((fullResult) => {
         this.host.loadingExcel = false;
         const exportedRows = fullResult.rows || [];
         const blob = createXlsxBlob(fullResult.columns || result.columns || [], exportedRows);
-        this.downloadBlob(blob, `${normalizeFileName(fullResult.name || result.name)}.xlsx`);
+        this.downloadBlob(blob, `${normalizeFileName(fullResult.name || result.name)}${suffix}.xlsx`);
         this.host.setStatusMessage(
           `Exportacao Excel concluida para "${fullResult.name || result.name}" (${exportedRows.length} linhas).`,
           3000
@@ -171,19 +183,26 @@ export class ReportsExportLogic {
       this.host.setStatusMessage('Selecione um relatório para exportar PDF.');
       return;
     }
-    if (!report.jasperTemplateId) {
-      this.host.setStatusMessage('Este relatório não possui template Jasper vinculado.');
+    if (!this.host.canExportPdf) {
+      this.host.setStatusMessage('Esta versão do relatório não possui layout de PDF.');
       return;
     }
 
     const params = this.host.buildRunParams();
     if (params === null) return;
 
+    const versionNumber = this.host.testVersionNumber;
+    const pdf$ =
+      versionNumber === null
+        ? this.reportService.generateReportPdf(report.id, params, true)
+        : this.reportService.generateReportVersionPdf(report.id, versionNumber, params);
+    const suffix = versionNumber === null ? '' : `-v${versionNumber}`;
+
     this.host.loadingPdf = true;
-    this.reportService.generateReportPdf(report.id, params, true).subscribe({
+    pdf$.subscribe({
       next: (blob) => {
         this.host.loadingPdf = false;
-        this.downloadBlob(blob, `${normalizeFileName(report.name)}.pdf`);
+        this.downloadBlob(blob, `${normalizeFileName(report.name)}${suffix}.pdf`);
         this.host.setStatusMessage(`Exportacao PDF concluida para "${report.name}".`, 2500);
       },
       error: (err) => {
