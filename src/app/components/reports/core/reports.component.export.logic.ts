@@ -18,6 +18,51 @@ export interface ReportsExportHost {
   resolveRequestError(error: unknown, fallback: string): string;
 }
 
+/**
+ * Uma linha por chave com AgroMobi, SAP e diferenca (AgroMobi - SAP) de cada coluna presente nos
+ * dois lados, como a planilha montada a mao com PROCV. Null quando a comparacao nao tem chave.
+ */
+export function buildCompareSideBySide(
+  cmp: ReportCompareResponse
+): { columns: string[]; rows: Record<string, unknown>[] } | null {
+  const key = cmp.comparisonKey;
+  if (!key) return null;
+  const sapColumns = new Set(cmp.source2.columns);
+  const shared = cmp.source1.columns.filter((col) => col !== key && sapColumns.has(col));
+  const columns = [key, ...shared.flatMap((c) => [`${c}_agromobi`, `${c}_sap`, `${c}_diferenca`])];
+
+  // shortcut: chave duplicada usa a primeira linha de cada lado; as duplicadas ja aparecem na tela.
+  const firstByKey = (rows: Record<string, unknown>[]) => {
+    const map = new Map<string, Record<string, unknown>>();
+    for (const row of rows) {
+      const k = String(row?.[key] ?? '');
+      if (!map.has(k)) map.set(k, row);
+    }
+    return map;
+  };
+  const agromobi = firstByKey(cmp.source1.rows);
+  const sap = firstByKey(cmp.source2.rows);
+  const keys = [...new Set([...agromobi.keys(), ...sap.keys()])].sort();
+  const toNumber = (v: unknown) => (v === null || v === undefined || v === '' ? NaN : Number(v));
+
+  const rows = keys.map((k) => {
+    const a = agromobi.get(k);
+    const s = sap.get(k);
+    const row: Record<string, unknown> = { [key]: k };
+    for (const col of shared) {
+      const av = a?.[col] ?? null;
+      const sv = s?.[col] ?? null;
+      row[`${col}_agromobi`] = av;
+      row[`${col}_sap`] = sv;
+      const an = toNumber(av);
+      const sn = toNumber(sv);
+      row[`${col}_diferenca`] = Number.isFinite(an) && Number.isFinite(sn) ? an - sn : null;
+    }
+    return row;
+  });
+  return { columns, rows };
+}
+
 export class ReportsExportLogic {
   constructor(
     private readonly host: ReportsExportHost,
@@ -139,6 +184,7 @@ export class ReportsExportLogic {
     try {
       const timestamp = this.timestamp();
       const reportName = normalizeFileName(cmp.name || this.host.selectedReport?.name || 'comparacao');
+      const sideBySide = buildCompareSideBySide(cmp);
       const sheets: Array<{ name: string; columns: string[]; rows: Record<string, unknown>[] }> = [
         {
           name: 'Resumo',
@@ -152,6 +198,7 @@ export class ReportsExportLogic {
             gerado_em: new Date().toISOString(),
           }],
         },
+        ...(sideBySide ? [{ name: 'Comparacao', ...sideBySide }] : []),
         { name: 'Agromobi', columns: this.resolveColumns(cmp.source1.columns, cmp.source1.rows), rows: cmp.source1.rows },
         { name: 'SAP_HANA', columns: this.resolveColumns(cmp.source2.columns, cmp.source2.rows), rows: cmp.source2.rows },
       ];
